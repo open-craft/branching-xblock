@@ -1,0 +1,47 @@
+<div class="branching-scenario-editor">
+    <div class="settings">
+      <label>
+        <input type="checkbox" name="enable_undo" {% if enable_undo %}checked{% endif %}>
+        Allow learners to undo choices
+      </label>
+      <label>
+        <input type="checkbox" name="enable_scoring" {% if enable_scoring %}checked{% endif %}>
+        Enable scoring
+      </label>
+      <label>
+        Max Score:
+        <input type="number" name="max_score" value="{{ max_score }}">
+      </label>
+    </div>
+  
+    <div class="node-list">
+        % for node in nodes:
+        <div class="node" data-node-id="${node['id']}">
+            <div class="node-header">
+              <h3>${node['id']} (${node['type']})</h3>
+              <button class="delete-node">Delete</button>
+            </div>
+            <textarea class="node-content" placeholder="Content (HTML allowed)">${node.get('content', '')}</textarea>
+            <input type="text" class="media-url" placeholder="Media URL" value="${node.get('media', {}).get('url', '')}">
+            <select class="media-type">
+                <option value="">None</option>
+                <option value="image" ${'selected' if node.get('media', {}).get('type') == 'image' else ''}>Image</option>
+                <option value="video" ${'selected' if node.get('media', {}).get('type') == 'video' else ''}>Video</option>
+            </select>
+            <div class="choices-list" ${'hidden' if node['type'] == 'end' else ''}>
+                % for choice in node.get('choices', []):
+                <div class="choice">
+                    <input type="text" class="choice-text" placeholder="Choice text" value="${choice['text']}">
+                    <input type="text" class="choice-target" placeholder="Target Node ID" value="${choice['target_node_id']}">
+                    <button class="delete-choice">x</button>
+                </div>
+                % endfor
+                <button class="add-choice">Add Choice</button>
+            </div>
+        </div>
+        % endfor
+        <button class="add-node">Add Node</button>
+    </div>
+  
+    <div class="errors" style="color: red;"></div>
+</div>
