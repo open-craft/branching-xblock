@@ -1,0 +1,9 @@
+/* CSS for BranchingXBlock */
+
+.branching_xblock_block .count {
+    font-weight: bold;
+}
+
+.branching_xblock_block p {
+    cursor: pointer;
+}
