@@ -1,6 +1,6 @@
 function BranchingStudioEditor(runtime, element, data) {
     const $element = $(element);
-    const $editorEl  = $element.find("#branching-editor");
+    const $editorEl  = $element.find(".branching-scenario-editor");
     const { nodes, enable_undo, enable_scoring, max_score } = data;
 
     // Render settings
@@ -20,7 +20,7 @@ function BranchingStudioEditor(runtime, element, data) {
         <input type="number" name="max_score" value="${max_score}"/>
         </label>
     `;
-    $editorEl.appendChild(settings);
+    $editorEl.append(settings);
 
     // Render nodes
     const list = document.createElement("div");
@@ -55,7 +55,7 @@ function BranchingStudioEditor(runtime, element, data) {
         list.appendChild(nodeEl);
     });
     list.insertAdjacentHTML("beforeend","<button class='add-node'>Add Node</button>");
-    $editorEl.appendChild(list);
+    $editorEl.append(list);
 
 
     function saveScenario() {
@@ -163,6 +163,9 @@ function BranchingStudioEditor(runtime, element, data) {
         $.ajax({
             type: 'POST',
             url: runtime.handlerUrl(element, 'add_node'),
+            data: JSON.stringify({}),
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
             success: (data) => {
                 runtime.notify('reload');
                 runtime.notify('save', {state: 'saved'});

@@ -51,7 +51,10 @@ function BranchingXBlock(runtime, element) {
         runtime.notify('load', {state: 'loading'});
         $.ajax({
             url: runtime.handlerUrl(element, 'get_current_state'),
-            type: 'GET',
+            type: 'POST',
+            data: JSON.stringify({}),
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
             success: (data) => {
                 updateView(data);
                 runtime.notify('load', {state: 'loaded'});
