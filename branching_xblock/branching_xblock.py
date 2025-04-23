@@ -217,16 +217,21 @@ class BranchingXBlock(XBlock):
         frag.initialize_js('BranchingStudioEditor', init_data)
         return frag
     
+    def _get_state(self):
+        return {
+            "nodes":           self.scenario_data.get("nodes", []),
+            "enable_undo":     bool(self.enable_undo),
+            "enable_scoring":  bool(self.enable_scoring),
+            "max_score":       self.max_score,
+            "current_node_id": self.current_node_id,
+            "history":         list(self.history),
+            "has_completed":   bool(self.has_completed),
+            "score":           self.score,
+        }
+
     @XBlock.json_handler
     def get_current_state(self, data, suffix=''):
-        return {
-            "current_node": self.get_current_node(),
-            "enable_undo": self.enable_undo,
-            "has_completed": self.has_completed,
-            "score": self.score,
-            "max_score": self.max_score,
-            "history": self.history,
-        }
+        return self._get_state()
 
     @XBlock.json_handler
     def select_choice(self, data, suffix=''):
@@ -251,7 +256,7 @@ class BranchingXBlock(XBlock):
                 self.publish_grade()
             self.runtime.publish(self, "completion", {"completion": 1.0})
     
-        return {"success": True}
+        return {"success": True, **self._get_state()}
     
     @XBlock.json_handler
     def undo_choice(self, data, suffix=''):
@@ -266,14 +271,14 @@ class BranchingXBlock(XBlock):
             self.publish_grade()
         
         self.has_completed = False
-        return {"success": True}
+        return {"success": True, **self._get_state()}
     
     @XBlock.json_handler
     def save_settings(self, data, suffix=''):
         self.enable_undo = data.get("enable_undo", False)
         self.enable_scoring = data.get("enable_scoring", False)
         self.max_score = float(data.get("max_score", 100.0))
-        return {"success": True}
+        return {"success": True, **self._get_state()}
     
     @XBlock.json_handler
     def add_node(self, data, suffix=''):
@@ -284,7 +289,8 @@ class BranchingXBlock(XBlock):
             "id": new_id,
             "type": "normal",
             "content": "New Node",
-            "choices": []
+            "media": {"type": "", "url": ""},
+            "choices": [{"text": "", "target_node_id": ""}]
         }
         nodes = self.scenario_data["nodes"]
         if not nodes:
@@ -297,7 +303,7 @@ class BranchingXBlock(XBlock):
 
         nodes.append(new_node)
         self.scenario_data["start_node_id"] = nodes[0]["id"] if nodes else None
-        return {"success": True, "node_id": new_node["id"]}
+        return {"success": True, "node_id": new_node["id"], **self._get_state()}
     
     @XBlock.json_handler
     def save_scenario(self, data, suffix=''):
@@ -317,7 +323,7 @@ class BranchingXBlock(XBlock):
             errors = self.validate_scenario()
             if errors:
                 return {"success": False, "errors": errors}
-            return {"success": True}
+            return {"success": True, **self._get_state()}
         except KeyError as e:
             return {"success": False, "error": f"Missing key: {e}"}
     
@@ -349,7 +355,43 @@ class BranchingXBlock(XBlock):
         errors = self.validate_scenario()
         if errors:
             return {"success": False, "errors": errors}
-        return {"success": True}
+        return {"success": True, **self._get_state()}
+
+    @XBlock.json_handler
+    def add_choice(self, data, suffix=''):
+        node_index = data.get("node_index")
+        try:
+            node = self.scenario_data["nodes"][node_index]
+        except (IndexError, KeyError):
+            return {"success": False, "error": "Invalid node_index"}
+        node.setdefault("choices", []).append({
+            "text": "",
+            "target_node_id": "",
+        })
+        return {"success": True, **self._get_state()}
+
+    @XBlock.json_handler
+    def delete_choice(self, data, suffix=''):
+        """
+        Remove a choice from the given node.
+        Expects data = {"node_index": int, "choice_index": int}
+        """
+        node_index   = data.get("node_index")
+        choice_index = data.get("choice_index")
+
+        nodes = self.scenario_data["nodes"]
+        if node_index is None or choice_index is None:
+            return {"success": False, "error": "Missing node_index or choice_index"}
+        if not (0 <= node_index < len(nodes)):
+            return {"success": False, "error": "Invalid node_index"}
+        if not (0 <= choice_index < len(nodes[node_index].get("choices", []))):
+            return {"success": False, "error": "Invalid choice_index"}
+
+        nodes[node_index]["choices"].pop(choice_index)
+
+        self.scenario_data["nodes"] = nodes
+
+        return {"success": True, **self._get_state()}
 
     # TO-DO: change this to create the scenarios you'd like to see in the
     # workbench while developing your XBlock.
