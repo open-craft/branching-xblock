@@ -1,5 +1,5 @@
 """TO-DO: Write a description of what this XBlock is."""
-
+import json
 import os
 import uuid
 from importlib import resources
@@ -152,14 +152,6 @@ class BranchingXBlock(XBlock):
         
         if nodes[0].get("type") != "start":
             errors.append("First node must be a start node")
-        if nodes[-1].get("type") != "end":
-            errors.append("Last node must be an end node")
-        start_node = nodes[0]
-        if not start_node.get("choices"):
-            errors.append("Start node must have at least one choice")
-        end_node = nodes[-1]
-        if end_node.get("choices"):
-            errors.append("End node cannot have choices")
     
         # Check all choice targets exist
         for node in nodes:
@@ -272,126 +264,72 @@ class BranchingXBlock(XBlock):
         
         self.has_completed = False
         return {"success": True, **self._get_state()}
-    
-    @XBlock.json_handler
-    def save_settings(self, data, suffix=''):
-        self.enable_undo = data.get("enable_undo", False)
-        self.enable_scoring = data.get("enable_scoring", False)
-        self.max_score = float(data.get("max_score", 100.0))
-        return {"success": True, **self._get_state()}
-    
-    @XBlock.json_handler
-    def add_node(self, data, suffix=''):
-        new_id = f"node-{uuid.uuid4().hex[:6]}"
-        while any(n["id"] == new_id for n in self.scenario_data["nodes"]):
-            new_id = f"node-{uuid.uuid4().hex[:6]}"
-        new_node = {
-            "id": new_id,
-            "type": "normal",
-            "content": "New Node",
-            "media": {"type": "", "url": ""},
-            "choices": [{"text": "", "target_node_id": ""}]
-        }
-        nodes = self.scenario_data["nodes"]
-        if not nodes:
-            new_node["type"] = "start"
-        else:
-            new_node["type"] = "end"
-            for node in nodes:
-                if node["type"] == "end":
-                    node["type"] = "normal"
 
-        nodes.append(new_node)
-        self.scenario_data["start_node_id"] = nodes[0]["id"] if nodes else None
-        return {"success": True, "node_id": new_node["id"], **self._get_state()}
-    
     @XBlock.json_handler
-    def save_scenario(self, data, suffix=''):
+    def studio_submit(self, data, suffix=''):
         try:
-            nodes = data["nodes"]
-            for i, node in enumerate(nodes):
-                if i == 0:
-                    node["type"] = "start"
-                elif i == len(nodes) - 1:
-                    node["type"] = "end"
-                else:
-                    node["type"] = "normal"
-            self.scenario_data = {
-                "nodes": nodes,
-                "start_node_id": nodes[0]["id"] if nodes else None,
+            payload = data
+            nodes   = payload.get('nodes', [])
+        except Exception as e:
+            return {
+                "result": "error",
+                "message": f"Invalid data: {e}",
+                "field_errors": {"nodes_json": [f"Could not parse payload: {e}"]}
             }
-            errors = self.validate_scenario()
-            if errors:
-                return {"success": False, "errors": errors}
-            return {"success": True, **self._get_state()}
-        except KeyError as e:
-            return {"success": False, "error": f"Missing key: {e}"}
-    
-    @XBlock.json_handler
-    def delete_node(self, data, suffix=''):
-        node_id = data.get("node_id")
-        if not node_id:
-            return {"success": False, "error": "Missing node_id"}
-        self.scenario_data["nodes"] = [
-            n for n in self.scenario_data["nodes"] if n["id"] != node_id
-        ]
-        nodes = self.scenario_data["nodes"]
-        if nodes:
-            for i, node in enumerate(nodes):
-                if i == 0:
-                    node["type"] = "start"
-                elif i == len(nodes) - 1:
-                    node["type"] = "end"
-                else:
-                    node["type"] = "normal"
-                if "choices" in node:
-                    node["choices"] = [
-                        choice for choice in node["choices"]
-                        if choice.get("target_node_id") != node_id
-                    ]
-            self.scenario_data["start_node_id"] = nodes[0]["id"]
+        valid = []
+        for node in nodes:
+            has_content = bool(node.get('content','').strip())
+            has_media   = bool(node.get('media',{}).get('url','').strip())
+            has_choices = any(
+                (c.get('text','').strip() or c.get('target_node_id','').strip())
+                for c in node.get('choices', [])
+            )
+            if not (has_content or has_media or has_choices):
+                continue
+
+            nid = node.get('id') or ''
+            if nid.startswith('temp-') or not nid:
+                nid = f"node-{uuid.uuid4().hex[:6]}"
+
+            cleaned = []
+            for c in node.get('choices', []):
+                text   = c.get('text','').strip()
+                target = c.get('target_node_id','').strip()
+                if text or target:
+                    cleaned.append({'text': text, 'target_node_id': target})
+
+            valid.append({
+                'id': nid,
+                'type': 'start' if not valid else 'normal',
+                'content': node.get('content',''),
+                'media': {
+                    'type': node.get('media',{}).get('type',''),
+                    'url':  node.get('media',{}).get('url','')
+                },
+                'choices': cleaned
+            })
+        if valid:
+            self.scenario_data = {
+                'nodes': valid,
+                'start_node_id': valid[0]['id']
+            }
         else:
-            self.scenario_data["start_node_id"] = None
+            self.scenario_data = {'nodes': [], 'start_node_id': None}
+
+        self.enable_undo    = bool(payload.get('enable_undo', self.enable_undo))
+        self.enable_scoring = bool(payload.get('enable_scoring', self.enable_scoring))
+        self.max_score      = float(payload.get('max_score', self.max_score))
+
         errors = self.validate_scenario()
         if errors:
-            return {"success": False, "errors": errors}
-        return {"success": True, **self._get_state()}
+            return {
+                "result": "error",
+                "message": "Validation errors",
+                "field_errors": {"nodes_json": errors}
+            }
 
-    @XBlock.json_handler
-    def add_choice(self, data, suffix=''):
-        node_index = data.get("node_index")
-        try:
-            node = self.scenario_data["nodes"][node_index]
-        except (IndexError, KeyError):
-            return {"success": False, "error": "Invalid node_index"}
-        node.setdefault("choices", []).append({
-            "text": "",
-            "target_node_id": "",
-        })
-        return {"success": True, **self._get_state()}
+        return {"result": "success"}
 
-    @XBlock.json_handler
-    def delete_choice(self, data, suffix=''):
-        """
-        Remove a choice from the given node.
-        Expects data = {"node_index": int, "choice_index": int}
-        """
-        node_index   = data.get("node_index")
-        choice_index = data.get("choice_index")
-
-        nodes = self.scenario_data["nodes"]
-        if node_index is None or choice_index is None:
-            return {"success": False, "error": "Missing node_index or choice_index"}
-        if not (0 <= node_index < len(nodes)):
-            return {"success": False, "error": "Invalid node_index"}
-        if not (0 <= choice_index < len(nodes[node_index].get("choices", []))):
-            return {"success": False, "error": "Invalid choice_index"}
-
-        nodes[node_index]["choices"].pop(choice_index)
-
-        self.scenario_data["nodes"] = nodes
-
-        return {"success": True, **self._get_state()}
 
     # TO-DO: change this to create the scenarios you'd like to see in the
     # workbench while developing your XBlock.

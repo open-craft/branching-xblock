@@ -1,100 +1,62 @@
-.branching-scenario-editor {
-    font-family: Arial, sans-serif;
-    margin: 1em;
-}
-
-/* Settings panel */
-.branching-scenario-editor .settings label {
-    display: block;
-    margin-bottom: 0.75em;
-    cursor: pointer;
-}
-
-.branching-scenario-editor .settings input[type="number"] {
-    width: 4em;
-    margin-left: 0.5em;
-}
-
-/* Node list */
-.branching-scenario-editor .node-list {
-    margin-top: 1.5em;
-}
-
-/* Individual node */
-.branching-scenario-editor .node {
-    border: 1px solid #ccc;
+.wrapper-comp-settings {
+    background: #fff;
+    border: 1px solid #ddd;
     border-radius: 4px;
     padding: 1em;
-    margin-bottom: 1em;
-    background: #fafafa;
 }
 
-/* Node header */
-.branching-scenario-editor .node-header {
+.settings-panel label {
+    display: inline-block;
+    margin-right: 1em;
+    font-weight: 500;
+}
+
+.node-block {
+    background: #f9f9f9;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 0.75em;
+    margin-top: 1em;
+}
+
+.node-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.75em;
-}
-
-.branching-scenario-editor .node-header h3 {
-    margin: 0;
-    font-size: 1em;
-}
-
-/* Inputs inside node */
-.branching-scenario-editor textarea,
-.branching-scenario-editor input[type="text"],
-.branching-scenario-editor select {
-    width: 100%;
     margin-bottom: 0.5em;
-    padding: 0.5em;
-    font-size: 0.95em;
-    box-sizing: border-box;
 }
 
-/* Choices list */
-.branching-scenario-editor .choices-list {
-    margin-top: 0.75em;
+.node-header .node-title {
+    font-size: 1.1em;
+    font-weight: bold;
 }
 
-.branching-scenario-editor .choice {
+.choices-container {
+    margin-top: 0.5em;
+}
+
+.choice-row {
     display: flex;
     gap: 0.5em;
-    align-items: center;
     margin-bottom: 0.5em;
 }
 
-.branching-scenario-editor .choice-text,
-.branching-scenario-editor .choice-target {
+.choice-row input {
     flex: 1;
 }
 
-/* Buttons */
-.branching-scenario-editor button {
-    padding: 0.4em 0.8em;
-    font-size: 0.9em;
-    border: 1px solid #888;
-    border-radius: 3px;
-    background: #f0f0f0;
-    cursor: pointer;
+.btn-add-choice,
+.add-node {
+    margin-top: 0.5em;
 }
 
-.branching-scenario-editor .delete-node,
-.branching-scenario-editor .delete-choice {
-    background: #ffecec;
-    border-color: #dd5555;
-    color: #a00;
+.xblock-actions {
+    border-top: 1px solid #e0e0e0;
+    padding-top: 0.75em;
+    text-align: right;
+    margin-top: 1em;
 }
 
-.branching-scenario-editor .add-choice,
-.branching-scenario-editor .add-node {
-    background: #e6f7ff;
-    border-color: #66bfff;
-    color: #007acc;
-}
-
-/* Hidden attribute toggles */
-.hidden {
-    display: none !important;
+.xblock-actions .button {
+    margin-left: 0.5em;
 }
