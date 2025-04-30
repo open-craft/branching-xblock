@@ -49,11 +49,22 @@ function BranchingStudioEditor(runtime, element, data) {
     );
 
     nodes.forEach((node, idx) => {
+
+      const nodeOptions = state.nodes.map((n, j) => ({
+        id: n.id,
+        label: `Node ${j+1}`
+      }));
+
+      const renderOptions = selectedId => nodeOptions.map(opt =>
+        `<option value="${opt.id}" ${opt.id===selectedId?'selected':''}>${opt.label}</option>`
+      ).join('');
+
       const choiceHtml = (node.choices||[]).map((c,i) => `
         <div class="choice-row" data-choice-idx="${i}">
           <input class="choice-text" value="${c.text}" placeholder="Choice text"/>
-          <input class="choice-target" value="${c.target_node_id||''}"
-                 placeholder="Target Node ID"/>
+          <select class="choice-target">
+            ${ renderOptions(c.target_node_id||'') }
+          </select>
           <button type="button" class="btn-delete-choice">x</button>
         </div>
       `).join('');
@@ -100,10 +111,19 @@ function BranchingStudioEditor(runtime, element, data) {
 
     $editor.find('.btn-add-choice').on('click', function() {
       const $container = $(this).closest('.choices-container');
+      const nodeOptions = $editor.find('.node-block').map((j, nb) => ({
+        id:  $(nb).data('node-id'),
+        label: `Node ${j+1}`
+      })).get();
+      const renderOpts = sel => nodeOptions.map(opt =>
+        `<option value="${opt.id}" ${opt.id===sel?'selected':''}>${opt.label}</option>`
+      ).join('');
       $container.append(`
         <div class="choice-row">
           <input class="choice-text" placeholder="Choice text"/>
-          <input class="choice-target" placeholder="Target Node ID"/>
+          <select class="choice-target">
+            ${ renderOpts('') }
+          </select>
           <button type="button" class="btn-delete-choice">x</button>
         </div>
       `);

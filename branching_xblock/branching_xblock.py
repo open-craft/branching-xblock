@@ -267,59 +267,75 @@ class BranchingXBlock(XBlock):
 
     @XBlock.json_handler
     def studio_submit(self, data, suffix=''):
-        try:
-            payload = data
-            nodes   = payload.get('nodes', [])
-        except Exception as e:
-            return {
-                "result": "error",
-                "message": f"Invalid data: {e}",
-                "field_errors": {"nodes_json": [f"Could not parse payload: {e}"]}
-            }
-        valid = []
-        for node in nodes:
-            has_content = bool(node.get('content','').strip())
-            has_media   = bool(node.get('media',{}).get('url','').strip())
+        payload = data
+        raw_nodes = payload.get('nodes', [])
+
+        # 1) Assign real IDs and build id_map
+        id_map = {}
+        staged = []
+        for raw in raw_nodes:
+            old_id = raw.get('id','')
+            # new ID if temp or missing
+            if old_id.startswith('temp-') or not old_id:
+                new_id = f"node-{uuid.uuid4().hex[:6]}"
+            else:
+                new_id = old_id
+            id_map[old_id] = new_id
+            # carry forward content & media, but keep raw choices for next step
+            staged.append({
+                'id': new_id,
+                'content': raw.get('content',''),
+                'media': {
+                    'type': raw.get('media',{}).get('type',''),
+                    'url':  raw.get('media',{}).get('url','')
+                },
+                'choices': raw.get('choices', [])
+            })
+
+        # 2) Remap choice targets & clean arrays
+        final = []
+        for node in staged:
+            # filter out completely blank nodes
+            has_content = bool(node['content'].strip())
+            has_media   = bool(node['media']['url'].strip())
             has_choices = any(
                 (c.get('text','').strip() or c.get('target_node_id','').strip())
-                for c in node.get('choices', [])
+                for c in node['choices']
             )
             if not (has_content or has_media or has_choices):
                 continue
 
-            nid = node.get('id') or ''
-            if nid.startswith('temp-') or not nid:
-                nid = f"node-{uuid.uuid4().hex[:6]}"
-
+            # remap and clean
             cleaned = []
-            for c in node.get('choices', []):
-                text   = c.get('text','').strip()
-                target = c.get('target_node_id','').strip()
-                if text or target:
-                    cleaned.append({'text': text, 'target_node_id': target})
+            for raw in node['choices']:
+                text   = raw.get('text','').strip()
+                targ   = raw.get('target_node_id','').strip()
+                # map through id_map if it was a temp ID
+                real_target = id_map.get(targ, targ)
+                if text or real_target:
+                    cleaned.append({
+                        'text': text,
+                        'target_node_id': real_target
+                    })
 
-            valid.append({
-                'id': nid,
-                'type': 'start' if not valid else 'normal',
-                'content': node.get('content',''),
-                'media': {
-                    'type': node.get('media',{}).get('type',''),
-                    'url':  node.get('media',{}).get('url','')
-                },
-                'choices': cleaned
+            final.append({
+                'id':       node['id'],
+                'type':     'start' if not final else 'normal',
+                'content':  node['content'],
+                'media':    node['media'],
+                'choices':  cleaned
             })
-        if valid:
-            self.scenario_data = {
-                'nodes': valid,
-                'start_node_id': valid[0]['id']
-            }
-        else:
-            self.scenario_data = {'nodes': [], 'start_node_id': None}
 
+        # 3) Persist scenario_data & settings
+        self.scenario_data = {
+            'nodes': final,
+            'start_node_id': final[0]['id'] if final else None
+        }
         self.enable_undo    = bool(payload.get('enable_undo', self.enable_undo))
         self.enable_scoring = bool(payload.get('enable_scoring', self.enable_scoring))
         self.max_score      = float(payload.get('max_score', self.max_score))
 
+        # 4) Validate & respond
         errors = self.validate_scenario()
         if errors:
             return {
@@ -327,7 +343,6 @@ class BranchingXBlock(XBlock):
                 "message": "Validation errors",
                 "field_errors": {"nodes_json": errors}
             }
-
         return {"result": "success"}
 
 
