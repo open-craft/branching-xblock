@@ -53,7 +53,7 @@ function BranchingStudioEditor(runtime, element, data) {
       const nodeOptions = state.nodes.map((n, j) => ({
         id: n.id,
         label: `Node ${j+1}`
-      }));
+      })).filter(opt => opt.id !== node.id);;
 
       const renderOptions = selectedId => nodeOptions.map(opt =>
         `<option value="${opt.id}" ${opt.id===selectedId?'selected':''}>${opt.label}</option>`
@@ -111,10 +111,11 @@ function BranchingStudioEditor(runtime, element, data) {
 
     $editor.find('.btn-add-choice').on('click', function() {
       const $container = $(this).closest('.choices-container');
+      const currentNodeId = $(this).closest('.node-block').data('node-id');
       const nodeOptions = $editor.find('.node-block').map((j, nb) => ({
         id:  $(nb).data('node-id'),
         label: `Node ${j+1}`
-      })).get();
+      })).get().filter(opt => opt.id !== currentNodeId);
       const renderOpts = sel => nodeOptions.map(opt =>
         `<option value="${opt.id}" ${opt.id===sel?'selected':''}>${opt.label}</option>`
       ).join('');

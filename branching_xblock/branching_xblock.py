@@ -112,7 +112,7 @@ class BranchingXBlock(XBlock):
     
     def is_end_node(self, node_id):
         node = self.get_node(node_id)
-        return node and node.get("type") == "end"
+        return bool(node) and not node.get("choices")
     
     def get_choice(self, node, choice_index):
         """
@@ -215,7 +215,7 @@ class BranchingXBlock(XBlock):
             "enable_undo":     bool(self.enable_undo),
             "enable_scoring":  bool(self.enable_scoring),
             "max_score":       self.max_score,
-            "current_node_id": self.current_node_id,
+            "current_node":    self.get_current_node(),
             "history":         list(self.history),
             "has_completed":   bool(self.has_completed),
             "score":           self.score,
@@ -227,6 +227,7 @@ class BranchingXBlock(XBlock):
 
     @XBlock.json_handler
     def select_choice(self, data, suffix=''):
+        self.start_node()
         current_node = self.get_current_node()
         choice_index = data.get("choice_index")
         if not current_node or choice_index is None:

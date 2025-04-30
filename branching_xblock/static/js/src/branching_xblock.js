@@ -1,95 +1,79 @@
-/* Javascript for BranchingXBlock. */
 function BranchingXBlock(runtime, element) {
+    const $el = $(element);
 
-    function updateView(data) {
-        const $element = $(element);
+    function updateView(state) {
+        const node = state.current_node || (state.nodes && state.nodes.length ? state.nodes[0] : null);
 
-        if (data.has_completed) {
-            // Show completion screen
-            $element.find('.completion-screen').show();
-            $element.find('.active-scenario').hide();
-            $element.find('.end-feedback').html(data.current_node.end_consequences || '');
-            $element.find('.score-display').text(`Score: ${data.score}/${data.max_score}`);
+        // Active node
+        $el.find('[data-role="active"]').show();
+
+        const media = (node && node.media) || {};
+        const $media = $el.find('[data-role="media"]');
+        if (media.type === 'image') {
+            $media.html(`<img src="${media.url}" alt=""/>`);
+        } else if (media.type === 'video') {
+            $media.html(`<video src="${media.url}" controls></video>`);
         } else {
-            // Show active scenario
-            $element.find('.completion-screen').hide();
-            $element.find('.active-scenario').show();
+            $media.empty();
+        }
+        // Content
+        $el.find('[data-role="content"]').html(
+            (node && node.content) || ''
+        );
 
-            // Update media
-            const media = data.current_node.media || {};
-            const $mediaContainer = $element.find('.node-media');
-            if (media.type === 'image') {
-                $mediaContainer.html(`<img src="${media.url}" />`);
-            } else if (media.type === 'video') {
-                $mediaContainer.html(`<video src="${media.url}" controls />`);
-            } else {
-                $mediaContainer.empty();
-            }
+        // Choices
+        const $choices = $el.find('[data-role="choices"]').empty();
+        ((node && node.choices) || []).forEach((choice, idx) => {
+            $('<button>')
+            .addClass('choice-button')
+            .text(choice.text)
+            .attr('data-choice-index', idx)
+            .appendTo($choices);
+        });
 
-            // Update content
-            $element.find('.node-content').html(data.current_node.content || '');
+        const canUndo = state.enable_undo && state.history.length > 0;
+        $el.find('.undo-button').toggle(canUndo);
 
-            // Update choices
-            const $choicesList = $element.find('.choices-list');
-            $choicesList.empty();
-            (data.current_node.choices || []).forEach((choice, index) => {
-                $choicesList.append(`
-                    <button class="choice" data-choice-index="${index}">
-                        ${choice.text}
-                        ${choice.hint ? `<div class="hint">${choice.hint}</div>` : ''}
-                    </button>
-                `);
-            });
-
-            // Show/hide undo button
-            $element.find('.undo-button').toggle(data.enable_undo && data.history.length > 0);
+        const $score = $el.find('[data-role="score"]');
+        const isLeaf = !(node.choices && node.choices.length);
+        if (isLeaf && state.enable_scoring) {
+            $score.text(`Score: ${state.score}/${state.max_score}`).show();
+        } else {
+            $score.hide();
         }
     }
 
-    // Fetch initial data from server
     function refreshView() {
-        runtime.notify('load', {state: 'loading'});
-        $.ajax({
-            url: runtime.handlerUrl(element, 'get_current_state'),
-            type: 'POST',
-            data: JSON.stringify({}),
-            contentType: 'application/json; charset=utf-8',
-            dataType: 'json',
-            success: (data) => {
-                updateView(data);
-                runtime.notify('load', {state: 'loaded'});
-            }
-        });
+      $.ajax({
+        url: runtime.handlerUrl(element, 'get_current_state'),
+        type: 'POST',
+        data: JSON.stringify({}),
+        contentType: 'application/json',
+        dataType: 'json'
+      }).done(updateView);
     }
 
-    // Choice selection handler
-    $(element).on('click', '.choice', function() {
-        const choiceIndex = $(this).data('choice-index');
-        runtime.notify('save', {state: 'saving'});
-        $.ajax({
-            type: 'POST',
-            url: runtime.handlerUrl(element, 'select_choice'),
-            data: JSON.stringify({choice_index: choiceIndex}),
-            success: () => {
-                refreshView();  // Refresh after choice
-                runtime.notify('save', {state: 'saved'});
-            }
-        });
+    // Handle a choice click
+    $el.on('click', '.choice-button', function() {
+      const idx = +$(this).attr('data-choice-index');
+      $.ajax({
+        url: runtime.handlerUrl(element, 'select_choice'),
+        type: 'POST',
+        data: JSON.stringify({ choice_index: idx }),
+        contentType: 'application/json'
+      }).done(refreshView);
     });
 
-    // Undo handler
-    $(element).on('click', '.undo-button', function() {
-        runtime.notify('save', {state: 'saving'});
+    $el.on('click', '.undo-button', function() {
         $.ajax({
-            type: 'POST',
-            url: runtime.handlerUrl(element, 'undo_choice'),
-            success: () => {
-                refreshView();  // Refresh after undo
-                runtime.notify('save', {state: 'saved'});
-            }
-        });
+          url: runtime.handlerUrl(element, 'undo_choice'),
+          type: 'POST',
+          data: JSON.stringify({}),
+          contentType: 'application/json',
+          dataType: 'json'
+        }).done(refreshView);
     });
 
     // Initial load
     refreshView();
-}
+  }
