@@ -1,62 +1,150 @@
 .wrapper-comp-settings {
+    max-height: calc(100vh - 160px);
+    overflow-y: auto;
     background: #fff;
     border: 1px solid #ddd;
     border-radius: 4px;
     padding: 1em;
 }
 
-.settings-panel label {
-    display: inline-block;
-    margin-right: 1em;
-    font-weight: 500;
+.xblock-actions {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75em 1em;
+    border-top: 1px solid #e0e0e0;
+    background: #fff;
+}
+
+.xblock-actions .action-item {
+    margin: 0 0.25em;
+}
+
+.settings {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75em;
+    margin-bottom: 1.5em;
+}
+
+.settings label {
+    font-size: 1.1em;
+    font-weight: bold;
 }
 
 .node-block {
+    max-width: 800px;
     background: #f9f9f9;
     border: 1px solid #ccc;
     border-radius: 4px;
-    padding: 0.75em;
-    margin-top: 1em;
+    padding: 1em;
+    margin-bottom: 1em;
+}
+
+.node-block label {
+    display: block;
+    margin-bottom: 1em;
+}
+
+.node-header .btn-delete-node {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.4em 0.8em;
+    font-size: 0.9em;
+    cursor: pointer;
 }
 
 .node-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.5em;
 }
 
-.node-header .node-title {
-    font-size: 1.1em;
-    font-weight: bold;
+.node-block .node-content {
+    width: 100%;
+    min-height: 8em;
+    padding: 0.5em;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+.node-block .media-type {
+    display: inline-block;
+    width: auto;
+    max-width: 200px;
+    margin-top: 0.25em;
+}
+
+.node-block .media-url {
+    display: block;
+    margin-top: 0.5em;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .choices-container {
-    margin-top: 0.5em;
+    margin-top: 1em;
+}
+
+.choices-container::before {
+    content: "Choices";
+    display: block;
+    font-weight: bold;
+    margin-bottom: 0.5em;
 }
 
 .choice-row {
     display: flex;
+    align-items: center;
     gap: 0.5em;
-    margin-bottom: 0.5em;
+    margin-bottom: 0.75em;
 }
 
-.choice-row input {
+.choice-row input.choice-text {
     flex: 1;
 }
 
+.choice-row select.choice-target {
+    flex: none;
+    width: 200px;
+}
+
+.choice-row .btn-delete-choice {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.3em 0.6em;
+    font-size: 0.9em;
+    cursor: pointer;
+    flex: none;
+    line-height: 1;
+}
+
+.choice-row .btn-delete-choice:hover {
+    opacity: 0.85;
+}
+
 .btn-add-choice,
-.add-node {
-    margin-top: 0.5em;
+.btn-add-node {
+    display: inline-block;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    cursor: pointer;
+    margin-top: 0.75em;
 }
 
-.xblock-actions {
-    border-top: 1px solid #e0e0e0;
-    padding-top: 0.75em;
-    text-align: right;
-    margin-top: 1em;
+.btn-add-choice {
+    background-color: #28a745;
 }
 
-.xblock-actions .button {
-    margin-left: 0.5em;
+.btn-add-choice:hover,
+.btn-add-node:hover,
+.choice-row .btn-delete-choice:hover {
+    opacity: 0.85;
 }

@@ -161,7 +161,7 @@ function BranchingStudioEditor(runtime, element, data) {
           </div>
         </div>
       `);
-      $editor.append($newNode);
+      $(this).before($newNode);
       bindInteractions();
     });
   }
