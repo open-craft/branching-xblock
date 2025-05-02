@@ -12,6 +12,9 @@ from xblock.utils.resources import ResourceLoader
 
 resource_loader = ResourceLoader(__name__)
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class BranchingXBlock(XBlock):
     """

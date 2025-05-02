@@ -44,10 +44,6 @@ function BranchingStudioEditor(runtime, element, data) {
     `);
     $editor.append($settings);
 
-    $editor.append(
-      '<button type="button" class="btn-add-node">Add Node</button>'
-    );
-
     nodes.forEach((node, idx) => {
 
       const nodeOptions = state.nodes.map((n, j) => ({
@@ -70,7 +66,7 @@ function BranchingStudioEditor(runtime, element, data) {
       `).join('');
 
       const $nodeEl = $(`
-        <div class="node-block" data-node-idx="${idx}">
+        <div class="node-block" data-node-idx="${idx}" data-node-id="${node.id}">
           <div class="node-header">
             <span class="node-title">Node ${idx+1}</span>
             <button type="button" class="btn-delete-node">Delete</button>
@@ -96,12 +92,16 @@ function BranchingStudioEditor(runtime, element, data) {
       $editor.append($nodeEl);
     });
 
+    $editor.append(
+      '<button type="button" class="btn-add-node">Add Node</button>'
+    );
+
     bindInteractions();
     bindActions($settings);
   }
 
   function bindInteractions() {
-    $editor.find('.btn-delete-node').on('click', function() {
+    $editor.find('.btn-delete-node').off('click').on('click', function() {
       $(this).closest('.node-block').remove();
       $editor.find('.node-block').each((i, el) => {
           $(el).attr('data-node-idx', i)
@@ -109,7 +109,7 @@ function BranchingStudioEditor(runtime, element, data) {
       });
     });
 
-    $editor.find('.btn-add-choice').on('click', function() {
+    $editor.find('.btn-add-choice').off('click').on('click', function() {
       const $container = $(this).closest('.choices-container');
       const currentNodeId = $(this).closest('.node-block').data('node-id');
       const nodeOptions = $editor.find('.node-block').map((j, nb) => ({
@@ -131,11 +131,11 @@ function BranchingStudioEditor(runtime, element, data) {
       bindInteractions();
     });
 
-    $editor.find('.btn-delete-choice').on('click', function() {
+    $editor.find('.btn-delete-choice').off('click').on('click', function() {
       $(this).closest('.choice-row').remove();
     });
 
-    $editor.find('.btn-add-node').on('click', function() {
+    $editor.find('.btn-add-node').off('click').on('click', function() {
       const idx = $editor.find('.node-block').length;
       const $newNode = $(`
         <div class="node-block" data-node-idx="${idx}" data-node-id="temp-${idx}">
@@ -167,7 +167,7 @@ function BranchingStudioEditor(runtime, element, data) {
   }
 
   function bindActions($settings) {
-    $saveBtn.on('click', function() {
+    $saveBtn.off('click').on('click', function() {
       const payload = {
           nodes: [],
           enable_undo:    $settings.find('[name="enable_undo"]').is(':checked'),
@@ -199,6 +199,7 @@ function BranchingStudioEditor(runtime, element, data) {
           });
         }
       });
+      runtime.notify('save', { state: 'start' });
 
       $.ajax({
         type: 'POST',
@@ -208,7 +209,7 @@ function BranchingStudioEditor(runtime, element, data) {
       }).done(function(res) {
         if (res.result === 'success') {
             runtime.notify('save',  { state: 'saved' });
-            runtime.notify('close', {});
+            runtime.notify('cancel', {});
         } else {
             const errs = (res.field_errors || {}).nodes_json || [res.message];
             $errors.empty();
@@ -219,7 +220,7 @@ function BranchingStudioEditor(runtime, element, data) {
       });
     });
 
-    $cancelBtn.on('click', function(e) {
+    $cancelBtn.off('click').on('click', function(e) {
       e.preventDefault();
       runtime.notify('cancel', {});
     });
