@@ -63,6 +63,8 @@ class BranchingXBlock(XBlock):
         help="Score awarded when scenario is completed (if scoring enabled)"
     )
 
+    # Do we need both current_node_id and history? I feel history will include
+    # the current_node_id?
     current_node_id = String(
         scope=Scope.user_state,
         default=None,
@@ -81,6 +83,9 @@ class BranchingXBlock(XBlock):
         help="Accumulated score (if scoring enabled)"
     )
 
+    # Do we need to store this since it canbe calculated at runtime?
+    # There could be issues if someone gets this marked as completed and then
+    # more choices are added.
     has_completed = Boolean(
         scope=Scope.user_state,
         default=False,
@@ -93,30 +98,33 @@ class BranchingXBlock(XBlock):
         """
         if not self.current_node_id and self.scenario_data["start_node_id"]:
             self.current_node_id = self.scenario_data["start_node_id"]
-    
+
     def get_node(self, node_id):
         """
         Get a node by its ID
         """
+        # Since the order of nodes doesn't matter, why not make it a dictionary so you can
+        # get the node as self.scenario_data["nodes"][node_id]
         return next(
             (node for node in self.scenario_data["nodes"] if node["id"] == node_id),
             None
         )
-    
+
     def get_current_node(self):
         """
         Get the learner's current node
         """
         return self.get_node(self.current_node_id) if self.current_node_id else None
-    
+
     def is_start_node(self, node_id):
+        # Couldn't we also get this from 'start_node_id' ?
         node = self.get_node(node_id)
         return node and node.get("type") == "start"
-    
+
     def is_end_node(self, node_id):
         node = self.get_node(node_id)
         return bool(node) and not node.get("choices")
-    
+
     def get_choice(self, node, choice_index):
         """
         Validate and return a choice from a node
@@ -125,7 +133,7 @@ class BranchingXBlock(XBlock):
             return node["choices"][choice_index]
         except (IndexError, KeyError, TypeError):
             return None
-        
+
     def can_undo(self):
         """
         Check if undo is allowed and possible
@@ -148,20 +156,20 @@ class BranchingXBlock(XBlock):
         if not nodes:
             errors.append("At least one node is required")
             return errors
-    
+
         # Check start node exists
         if not self.get_node(self.scenario_data["start_node_id"]):
             errors.append("Start node ID does not exist")
-        
+
         if nodes[0].get("type") != "start":
             errors.append("First node must be a start node")
-    
+
         # Check all choice targets exist
         for node in nodes:
             for choice in node.get("choices", []):
                 if not self.get_node(choice["target_node_id"]):
                     errors.append(f"Invalid target {choice['target_node_id']} in node {node['id']}")
-        
+
         return errors
 
     def publish_grade(self):
@@ -193,7 +201,7 @@ class BranchingXBlock(XBlock):
         frag.add_javascript(self.resource_string("js/src/branching_xblock.js"))
         frag.initialize_js('BranchingXBlock')
         return frag
-    
+
     def studio_view(self, context=None):
         html = self.resource_string("html/branching_xblock_edit.html")
         frag = Fragment(html)
@@ -201,7 +209,7 @@ class BranchingXBlock(XBlock):
         # Add JS/CSS for Studio
         frag.add_javascript(self.resource_string("js/src/studio_editor.js"))
         frag.add_css(self.resource_string("css/studio_editor.css"))
-        
+
         init_data = {
             "nodes":       self.scenario_data.get("nodes", []),
             "enable_undo": bool(self.enable_undo),
@@ -211,7 +219,7 @@ class BranchingXBlock(XBlock):
         # Initialize JS
         frag.initialize_js('BranchingStudioEditor', init_data)
         return frag
-    
+
     def _get_state(self):
         return {
             "nodes":           self.scenario_data.get("nodes", []),
@@ -250,22 +258,24 @@ class BranchingXBlock(XBlock):
             if self.enable_scoring:
                 self.score = self.max_score
                 self.publish_grade()
+            # You should also add `has_custom_completion = True` to the XBlock to
+            # make sure this works as expected.
             self.runtime.publish(self, "completion", {"completion": 1.0})
-    
+
         return {"success": True, **self._get_state()}
-    
+
     @XBlock.json_handler
     def undo_choice(self, data, suffix=''):
         if not self.enable_undo or not self.history:
             return {"success": False, "error": "Undo not allowed"}
-        
+
         prev_node_id = self.history.pop()
         self.current_node_id = prev_node_id
 
         if self.has_completed and self.enable_scoring:
             self.score = 0.0
             self.publish_grade()
-        
+
         self.has_completed = False
         return {"success": True, **self._get_state()}
 
