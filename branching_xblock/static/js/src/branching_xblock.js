@@ -2,7 +2,7 @@ function BranchingXBlock(runtime, element) {
     const $el = $(element);
 
     function updateView(state) {
-        const node = state.current_node || state.nodes[state.start_node_id] || null;
+        const node = state.current_node || state.nodes[state.start_node_id] || {};
 
         // Active node
         $el.find('[data-role="active"]').show();
@@ -23,7 +23,8 @@ function BranchingXBlock(runtime, element) {
 
         // Choices
         const $choices = $el.find('[data-role="choices"]').empty();
-        ((node && node.choices) || []).forEach((choice, idx) => {
+        const choices = node.choices || [];
+        choices.forEach((choice, idx) => {
             $('<button>')
             .addClass('choice-button')
             .text(choice.text)
@@ -35,7 +36,7 @@ function BranchingXBlock(runtime, element) {
         $el.find('.undo-button').toggle(canUndo);
 
         const $score = $el.find('[data-role="score"]');
-        const isLeaf = !(node.choices && node.choices.length);
+        const isLeaf = choices.length === 0;
         if (isLeaf && state.enable_scoring) {
             $score.text(`Score: ${state.score}/${state.max_score}`).show();
         } else {

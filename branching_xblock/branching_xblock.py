@@ -1,10 +1,9 @@
 """TO-DO: Write a description of what this XBlock is."""
-import json
+import logging
 import os
 import uuid
-from importlib import resources
 
-from django.utils import translation
+from typing import Optional, Any
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
 from xblock.fields import Scope, Dict, Boolean, Float, String, List
@@ -12,7 +11,6 @@ from xblock.utils.resources import ResourceLoader
 
 resource_loader = ResourceLoader(__name__)
 
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -102,7 +100,7 @@ class BranchingXBlock(XBlock):
         """
         return self.scenario_data.get("nodes", {}).get(node_id)
 
-    def get_current_node(self):
+    def get_current_node(self) -> Optional[dict[str, Any]]:
         """
         Get the learner's current node
         """
@@ -188,6 +186,9 @@ class BranchingXBlock(XBlock):
         return frag
 
     def studio_view(self, context=None):
+        """
+        Studio editor view shown to course authors.
+        """
         html = self.resource_string("html/branching_xblock_edit.html")
         frag = Fragment(html)
 
@@ -208,6 +209,7 @@ class BranchingXBlock(XBlock):
     def _get_state(self):
         return {
             "nodes":           self.scenario_data.get("nodes", {}),
+            "start_node_id":   self.scenario_data.get("start_node_id"),
             "enable_undo":     bool(self.enable_undo),
             "enable_scoring":  bool(self.enable_scoring),
             "max_score":       self.max_score,
@@ -219,6 +221,9 @@ class BranchingXBlock(XBlock):
 
     @XBlock.json_handler
     def get_current_state(self, data, suffix=''):
+        """
+        Fetch current state of the XBlock
+        """
         return self._get_state()
 
     @XBlock.json_handler
@@ -226,7 +231,7 @@ class BranchingXBlock(XBlock):
         self.start_node()
         current_node = self.get_current_node()
         choice_index = data.get("choice_index")
-        if not current_node or choice_index is None:
+        if current_node is None or choice_index is None:
             return {"success": False, "error": "Invalid choice"}
         if choice_index < 0 or choice_index >= len(current_node.get("choices", [])):
             return {"success": False, "error": "Invalid choice index"}
@@ -243,14 +248,15 @@ class BranchingXBlock(XBlock):
             if self.enable_scoring:
                 self.score = self.max_score
                 self.publish_grade()
-            # You should also add `has_custom_completion = True` to the XBlock to
-            # make sure this works as expected.
             self.runtime.publish(self, "completion", {"completion": 1.0})
 
         return {"success": True, **self._get_state()}
 
     @XBlock.json_handler
     def undo_choice(self, data, suffix=''):
+        """
+        Handler for undo choice.
+        """
         if not self.enable_undo or not self.history:
             return {"success": False, "error": "Undo not allowed"}
 
@@ -266,6 +272,9 @@ class BranchingXBlock(XBlock):
 
     @XBlock.json_handler
     def studio_submit(self, data, suffix=''):
+        """
+        Handler for studio editor save.
+        """
         payload = data
         raw_nodes = payload.get('nodes', [])
 

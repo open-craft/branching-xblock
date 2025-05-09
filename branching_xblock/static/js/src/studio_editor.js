@@ -211,7 +211,7 @@ function BranchingStudioEditor(runtime, element, data) {
         contentType: 'application/json; charset=utf-8'
       }).done(function(res) {
         if (res.result === 'success') {
-            runtime.notify('save',  { state: 'saved' });
+            runtime.notify('save',  { state: 'end' });
             runtime.notify('cancel', {});
         } else {
             const errs = (res.field_errors || {}).nodes_json || [res.message];

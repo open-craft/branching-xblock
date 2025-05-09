@@ -64,20 +64,20 @@ def test_studio_submit_creates_scenario(rf, block):
     set start_node_id, and drop only completely blank placeholders.
     """
     payload = {
-        "nodes": {
-            "temp-1": {
+        "nodes": [
+            {
                 "id": "temp-1",
                 "content": "First node",
                 "media": {"type": "image", "url": "http://img"},
                 "choices": [{"text": "Go to 2", "target_node_id": "temp-2"}]
             },
-            "temp-2": {
+            {
                 "id": "temp-2",
                 "content": "Second node",
                 "media": {"type": "", "url": ""},
                 "choices": []
             }
-        },
+        ],
         "enable_undo": True,
         "enable_scoring": True,
         "max_score": 77
@@ -107,14 +107,14 @@ def test_studio_submit_fails_on_invalid_target(rf, block):
     studio_submit should return an error and list it in field_errors.
     """
     payload = {
-        "nodes": {
-            "temp-1": {
+        "nodes": [
+            {
                 "id": "temp-1",
                 "content": "Only node",
                 "media": {"type": "", "url": ""},
                 "choices": [{"text": "Nowhere", "target_node_id": "does-not-exist"}]
             }
-        },
+        ],
         "enable_undo": False,
         "enable_scoring": False,
         "max_score": 0
