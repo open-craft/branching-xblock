@@ -52,7 +52,7 @@ def test_get_current_state_empty(rf, block):
     )
     resp = block.get_current_state(req)
     state = json.loads(resp.body.decode('utf-8'))
-    assert state["nodes"] == []
+    assert state["nodes"] == {}
     assert state["current_node"] is None
     assert state["has_completed"] is False
     assert state["score"] == 0.0
@@ -64,20 +64,20 @@ def test_studio_submit_creates_scenario(rf, block):
     set start_node_id, and drop only completely blank placeholders.
     """
     payload = {
-        "nodes": [
-            {
+        "nodes": {
+            "temp-1": {
                 "id": "temp-1",
                 "content": "First node",
                 "media": {"type": "image", "url": "http://img"},
                 "choices": [{"text": "Go to 2", "target_node_id": "temp-2"}]
             },
-            {
+            "temp-2": {
                 "id": "temp-2",
                 "content": "Second node",
                 "media": {"type": "", "url": ""},
                 "choices": []
             }
-        ],
+        },
         "enable_undo": True,
         "enable_scoring": True,
         "max_score": 77
@@ -90,9 +90,12 @@ def test_studio_submit_creates_scenario(rf, block):
     assert result["result"] == "success"
 
     nodes = block.scenario_data["nodes"]
-    assert len(nodes) == 2
-    assert block.scenario_data["start_node_id"] == nodes[0]["id"]
-    assert nodes[0]["choices"][0]["target_node_id"] == nodes[1]["id"]
+    assert isinstance(nodes, dict)
+    node_list = list(nodes.values())
+    first_node = node_list[0]
+    second_node = node_list[1]
+    assert block.scenario_data["start_node_id"] == first_node["id"]
+    assert first_node["choices"][0]["target_node_id"] == second_node["id"]
     assert block.enable_undo is True
     assert block.enable_scoring is True
     assert block.max_score == 77
@@ -104,14 +107,14 @@ def test_studio_submit_fails_on_invalid_target(rf, block):
     studio_submit should return an error and list it in field_errors.
     """
     payload = {
-        "nodes": [
-            {
+        "nodes": {
+            "temp-1": {
                 "id": "temp-1",
                 "content": "Only node",
                 "media": {"type": "", "url": ""},
                 "choices": [{"text": "Nowhere", "target_node_id": "does-not-exist"}]
             }
-        ],
+        },
         "enable_undo": False,
         "enable_scoring": False,
         "max_score": 0
@@ -132,10 +135,10 @@ def test_lazy_initialize_and_select_choice(rf, block):
     initialized to start_node_id and the choice applied.
     """
     block.scenario_data = {
-        "nodes": [
-            {"id": "n1", "type": "start", "choices": [{"text": "Next", "target_node_id": "n2"}]},
-            {"id": "n2", "type": "end",   "choices": []}
-        ],
+        "nodes": {
+            "n1": {"id": "n1", "type": "start", "choices": [{"text": "Next", "target_node_id": "n2"}]},
+            "n2": {"id": "n2", "type": "end",   "choices": []}
+        },
         "start_node_id": "n1"
     }
     req = rf.post(
@@ -153,10 +156,10 @@ def test_select_choice_scores_and_completes(rf, block):
     should set has_completed and award max_score.
     """
     block.scenario_data = {
-        "nodes": [
-            {"id": "A", "type": "start", "choices": [{"text": "→ B", "target_node_id": "B"}]},
-            {"id": "B", "type": "end",   "choices": []}
-        ],
+        "nodes": {
+            "A": {"id": "A", "type": "start", "choices": [{"text": "→ B", "target_node_id": "B"}]},
+            "B": {"id": "B", "type": "end",   "choices": []}
+        },
         "start_node_id": "A"
     }
     block.enable_scoring = True
@@ -177,10 +180,10 @@ def test_undo_choice_honors_enable_undo(rf, block):
     - With enable_undo=True, it should revert to the previous node.
     """
     block.scenario_data = {
-        "nodes": [
-            {"id": "start", "type": "start", "choices": [{"text": "→ end", "target_node_id": "end"}]},
-            {"id": "end",   "type": "end",   "choices": []}
-        ],
+        "nodes": {
+            "start": {"id": "start", "type": "start", "choices": [{"text": "→ end", "target_node_id": "end"}]},
+            "end": {"id": "end",   "type": "end",   "choices": []}
+        },
         "start_node_id": "start"
     }
     block.enable_undo = True
@@ -204,18 +207,19 @@ def test_undo_choice_honors_enable_undo(rf, block):
 def test_get_current_state_includes_expected_fields(rf, block):
     """
     get_current_state should return a dict containing:
-    - nodes (list)
+    - nodes (dict)
     - current_node (dict or None)
     - history (list)
     - has_completed (bool)
     - score (float)
     """
     block.scenario_data = {
-        "nodes": [{"id": "X", "type": "start", "choices": []}],
+        "nodes": {"X": {"id": "X", "type": "start", "choices": []}},
         "start_node_id": "X"
     }
     req = rf.post("/", data=json.dumps({}), content_type="application/json")
     resp = block.get_current_state(req)
     state = json.loads(resp.body.decode('utf-8'))
-    for key in ("nodes", "current_node", "history", "has_completed", "score"):
+    assert isinstance(state["nodes"], dict)
+    for key in ("current_node", "history", "has_completed", "score"):
         assert key in state

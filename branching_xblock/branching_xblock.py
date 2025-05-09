@@ -38,7 +38,7 @@ class BranchingXBlock(XBlock):
     """
     scenario_data = Dict(
         default={
-            "nodes": [],
+            "nodes": {},
             "start_node_id": None,
         },
         scope=Scope.content,
@@ -63,8 +63,6 @@ class BranchingXBlock(XBlock):
         help="Score awarded when scenario is completed (if scoring enabled)"
     )
 
-    # Do we need both current_node_id and history? I feel history will include
-    # the current_node_id?
     current_node_id = String(
         scope=Scope.user_state,
         default=None,
@@ -83,14 +81,13 @@ class BranchingXBlock(XBlock):
         help="Accumulated score (if scoring enabled)"
     )
 
-    # Do we need to store this since it canbe calculated at runtime?
-    # There could be issues if someone gets this marked as completed and then
-    # more choices are added.
     has_completed = Boolean(
         scope=Scope.user_state,
         default=False,
         help="Completion status"
     )
+
+    has_custom_completion = True
 
     def start_node(self):
         """
@@ -103,23 +100,13 @@ class BranchingXBlock(XBlock):
         """
         Get a node by its ID
         """
-        # Since the order of nodes doesn't matter, why not make it a dictionary so you can
-        # get the node as self.scenario_data["nodes"][node_id]
-        return next(
-            (node for node in self.scenario_data["nodes"] if node["id"] == node_id),
-            None
-        )
+        return self.scenario_data.get("nodes", {}).get(node_id)
 
     def get_current_node(self):
         """
         Get the learner's current node
         """
         return self.get_node(self.current_node_id) if self.current_node_id else None
-
-    def is_start_node(self, node_id):
-        # Couldn't we also get this from 'start_node_id' ?
-        node = self.get_node(node_id)
-        return node and node.get("type") == "start"
 
     def is_end_node(self, node_id):
         node = self.get_node(node_id)
@@ -151,21 +138,19 @@ class BranchingXBlock(XBlock):
         Check for common configuration errors
         """
         errors = []
-        nodes = self.scenario_data["nodes"]
+        nodes = self.scenario_data.get("nodes", {})
 
         if not nodes:
             errors.append("At least one node is required")
             return errors
 
         # Check start node exists
-        if not self.get_node(self.scenario_data["start_node_id"]):
+        start_id = self.scenario_data.get("start_node_id")
+        if start_id not in nodes:
             errors.append("Start node ID does not exist")
 
-        if nodes[0].get("type") != "start":
-            errors.append("First node must be a start node")
-
         # Check all choice targets exist
-        for node in nodes:
+        for node in nodes.values():
             for choice in node.get("choices", []):
                 if not self.get_node(choice["target_node_id"]):
                     errors.append(f"Invalid target {choice['target_node_id']} in node {node['id']}")
@@ -222,7 +207,7 @@ class BranchingXBlock(XBlock):
 
     def _get_state(self):
         return {
-            "nodes":           self.scenario_data.get("nodes", []),
+            "nodes":           self.scenario_data.get("nodes", {}),
             "enable_undo":     bool(self.enable_undo),
             "enable_scoring":  bool(self.enable_scoring),
             "max_score":       self.max_score,
@@ -341,8 +326,9 @@ class BranchingXBlock(XBlock):
             })
 
         # 3) Persist scenario_data & settings
+        nodes_dict = {node['id']: node for node in final}
         self.scenario_data = {
-            'nodes': final,
+            'nodes': nodes_dict,
             'start_node_id': final[0]['id'] if final else None
         }
         self.enable_undo    = bool(payload.get('enable_undo', self.enable_undo))

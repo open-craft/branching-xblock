@@ -19,12 +19,15 @@ function BranchingStudioEditor(runtime, element, data) {
     $editor.empty();
     $errors.empty();
 
-    const nodes = state.nodes.length ? state.nodes : [{
-      id: 'temp',
-      content: '',
-      media: {type: '', url: ''},
-      choices: []
-    }];
+    const nodes = Object.values(state.nodes || {});
+    if (!nodes.length) {
+      nodes.push({
+        id: 'temp',
+        content: '',
+        media: {type: '', url: ''},
+        choices: []
+      });
+    }
 
     const $settings = $(`
       <div class="settings">
@@ -46,7 +49,7 @@ function BranchingStudioEditor(runtime, element, data) {
 
     nodes.forEach((node, idx) => {
 
-      const nodeOptions = state.nodes.map((n, j) => ({
+      const nodeOptions = nodes.map((n, j) => ({
         id: n.id,
         label: `Node ${j+1}`
       })).filter(opt => opt.id !== node.id);;

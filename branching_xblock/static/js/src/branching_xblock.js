@@ -2,7 +2,7 @@ function BranchingXBlock(runtime, element) {
     const $el = $(element);
 
     function updateView(state) {
-        const node = state.current_node || (state.nodes && state.nodes.length ? state.nodes[0] : null);
+        const node = state.current_node || state.nodes[state.start_node_id] || null;
 
         // Active node
         $el.find('[data-role="active"]').show();
