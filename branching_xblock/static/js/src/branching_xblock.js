@@ -12,7 +12,9 @@ function BranchingXBlock(runtime, element) {
         if (media.type === 'image') {
             $media.html(`<img src="${media.url}" alt=""/>`);
         } else if (media.type === 'video') {
-            $media.html(`<video src="${media.url}" controls></video>`);
+            $media.html(`<video src="${media.url}" controls />`);
+        } else if (media.type === 'audio'){
+            $media.html(`<audio src="${media.url}" controls />`);
         } else {
             $media.empty();
         }
@@ -20,6 +22,14 @@ function BranchingXBlock(runtime, element) {
         $el.find('[data-role="content"]').html(
             (node && node.content) || ''
         );
+
+        // Hint
+        const $hint = $el.find('[data-role="hint"]');
+        if (state.enable_hints && node.hint) {
+          $hint.text(node.hint).show();
+        } else {
+          $hint.hide().empty();
+        }
 
         // Choices
         const $choices = $el.find('[data-role="choices"]').empty();

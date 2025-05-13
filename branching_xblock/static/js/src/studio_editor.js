@@ -1,4 +1,11 @@
 function BranchingStudioEditor(runtime, element, data) {
+  const Templates = {};
+  ['settings-panel','node-block','choice-row'].forEach(name => {
+    const src = document.getElementById(name+'-tpl').innerHTML;
+    Templates[name] = Handlebars.compile(src);
+  });
+  Handlebars.registerHelper('inc', value => parseInt(value,10) + 1);
+  Handlebars.registerHelper('eq', (a,b) => a === b);
   const $root       = $(element);
   const $editor     = $root.find('.branching-scenario-editor');
   const $errors     = $root.find('.errors');
@@ -25,73 +32,27 @@ function BranchingStudioEditor(runtime, element, data) {
         id: 'temp',
         content: '',
         media: {type: '', url: ''},
-        choices: []
+        choices: [],
+        hint: ''
       });
     }
 
-    const $settings = $(`
-      <div class="settings">
-        <label>
-          <input type="checkbox" name="enable_undo" ${state.enable_undo ? 'checked' : ''}/>
-          Allow undo
-        </label>
-        <label>
-          <input type="checkbox" name="enable_scoring" ${state.enable_scoring ? 'checked' : ''}/>
-          Enable scoring
-        </label>
-        <label>
-          Max Score:
-          <input type="number" name="max_score" value="${state.max_score}"/>
-        </label>
-      </div>
-    `);
-    $editor.append($settings);
+    $editor.append(Templates['settings-panel'](state));
 
     nodes.forEach((node, idx) => {
 
-      const nodeOptions = nodes.map((n, j) => ({
+      const options = nodes.map((n, j) => ({
         id: n.id,
         label: `Node ${j+1}`
       })).filter(opt => opt.id !== node.id);;
 
-      const renderOptions = selectedId => nodeOptions.map(opt =>
-        `<option value="${opt.id}" ${opt.id===selectedId?'selected':''}>${opt.label}</option>`
-      ).join('');
+      const html = Templates['node-block']({ node, idx, enable_hints: state.enable_hints });
 
-      const choiceHtml = (node.choices||[]).map((c,i) => `
-        <div class="choice-row" data-choice-idx="${i}">
-          <input class="choice-text" value="${c.text}" placeholder="Choice text"/>
-          <select class="choice-target">
-            ${ renderOptions(c.target_node_id||'') }
-          </select>
-          <button type="button" class="btn-delete-choice">x</button>
-        </div>
-      `).join('');
-
-      const $nodeEl = $(`
-        <div class="node-block" data-node-idx="${idx}" data-node-id="${node.id}">
-          <div class="node-header">
-            <span class="node-title">Node ${idx+1}</span>
-            <button type="button" class="btn-delete-node">Delete</button>
-          </div>
-          <label>Content:
-            <textarea class="node-content">${node.content||''}</textarea>
-          </label>
-          <label>Media:
-            <select class="media-type">
-              <option value="">None</option>
-              <option value="image" ${node.media?.type==='image'?'selected':''}>Image</option>
-              <option value="video" ${node.media?.type==='video'?'selected':''}>Video</option>
-            </select>
-            <input type="text" class="media-url" placeholder="URL"
-                   value="${node.media?.url||''}"/>
-          </label>
-          <div class="choices-container">
-            ${choiceHtml}
-            <button type="button" class="btn-add-choice">Add Choice</button>
-          </div>
-        </div>
-      `);
+      const $nodeEl = $(html);
+      (node.choices||[]).forEach((choice,i) => {
+        const ch = Templates['choice-row']({ choice, i, options });
+        $nodeEl.find('.choices-container').append(ch);
+      });
       $editor.append($nodeEl);
     });
 
@@ -175,6 +136,7 @@ function BranchingStudioEditor(runtime, element, data) {
           nodes: [],
           enable_undo:    $settings.find('[name="enable_undo"]').is(':checked'),
           enable_scoring: $settings.find('[name="enable_scoring"]').is(':checked'),
+          enable_hints:   $settings.find('[name="enable_hints"]').is(':checked'),
           max_score:      parseFloat($settings.find('[name="max_score"]').val()) || 0
       };
 
@@ -184,6 +146,7 @@ function BranchingStudioEditor(runtime, element, data) {
         const mediaUrl = $n.find('.media-url').val().trim();
         const mediaType = $n.find('.media-type').val();
         const choices = [];
+        const nodeHint = $n.find('.node-hint').val()?.trim() || '';
 
         $n.find('.choice-row').each(function() {
           const $c = $(this);
@@ -198,7 +161,8 @@ function BranchingStudioEditor(runtime, element, data) {
               id:     $n.data('node-id'),
               content,
               media:  { type: mediaType, url: mediaUrl },
-              choices
+              choices,
+              hint: nodeHint
           });
         }
       });

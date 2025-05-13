@@ -1,0 +1,9 @@
+<div class="choice-row" data-choice-idx="{{i}}">
+  <input class="choice-text" value="{{choice.text}}" placeholder="Choice text"/>
+  <select class="choice-target">
+    {{#each options}}
+      <option value="{{this.id}}" {{#if (eq this.id ../choice.target_node_id)}}selected{{/if}}>{{this.label}}</option>
+    {{/each}}
+  </select>
+  <button type="button" class="btn-delete-choice">x</button>
+</div>
