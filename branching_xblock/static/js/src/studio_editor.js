@@ -44,9 +44,9 @@ function BranchingStudioEditor(runtime, element, data) {
       const options = nodes.map((n, j) => ({
         id: n.id,
         label: `Node ${j+1}`
-      })).filter(opt => opt.id !== node.id);;
+      })).filter(opt => opt.id !== node.id);
 
-      const html = Templates['node-block']({ node, idx, enable_hints: state.enable_hints });
+      const html = Templates['node-block']({ node, idx });
 
       const $nodeEl = $(html);
       (node.choices||[]).forEach((choice,i) => {
@@ -61,7 +61,7 @@ function BranchingStudioEditor(runtime, element, data) {
     );
 
     bindInteractions();
-    bindActions($settings);
+    bindActions();
   }
 
   function bindInteractions() {
@@ -80,18 +80,13 @@ function BranchingStudioEditor(runtime, element, data) {
         id:  $(nb).data('node-id'),
         label: `Node ${j+1}`
       })).get().filter(opt => opt.id !== currentNodeId);
-      const renderOpts = sel => nodeOptions.map(opt =>
-        `<option value="${opt.id}" ${opt.id===sel?'selected':''}>${opt.label}</option>`
-      ).join('');
-      $container.append(`
-        <div class="choice-row">
-          <input class="choice-text" placeholder="Choice text"/>
-          <select class="choice-target">
-            ${ renderOpts('') }
-          </select>
-          <button type="button" class="btn-delete-choice">x</button>
-        </div>
-      `);
+      const newIndex = $container.find('.choice-row').length;
+      const html = Templates['choice-row']({
+        choice: { text: '', target_node_id: '' },
+        i: newIndex,
+        nodeOptions
+      });
+      $container.append(html);
       bindInteractions();
     });
 
@@ -101,36 +96,28 @@ function BranchingStudioEditor(runtime, element, data) {
 
     $editor.find('.btn-add-node').off('click').on('click', function() {
       const idx = $editor.find('.node-block').length;
-      const $newNode = $(`
-        <div class="node-block" data-node-idx="${idx}" data-node-id="temp-${idx}">
-          <div class="node-header">
-            <span class="node-title">Node ${idx+1}</span>
-            <button type="button" class="btn-delete-node">Delete</button>
-          </div>
-          <label>
-            Content:
-            <textarea class="node-content"></textarea>
-          </label>
-          <label>
-            Media:
-            <select class="media-type">
-              <option value="">None</option>
-              <option value="image">Image</option>
-              <option value="video">Video</option>
-            </select>
-            <input type="text" class="media-url" placeholder="URL"/>
-          </label>
-          <div class="choices-container">
-            <button type="button" class="btn-add-choice">Add Choice</button>
-          </div>
-        </div>
-      `);
+      const nodeId = `temp-${idx}`;
+      const nodeContext = {
+        node: {
+          id:      nodeId,
+          content: '',
+          media:   { type: '', url: '' },
+          choices: [],
+          hint:    ''
+        },
+        idx
+      };
+      const html = Templates['node-block'](nodeContext);
+      const $newNode = $(html);
       $(this).before($newNode);
       bindInteractions();
     });
   }
 
-  function bindActions($settings) {
+  function bindActions() {
+
+    const $settings = $editor.find('.settings');
+
     $saveBtn.off('click').on('click', function() {
       const payload = {
           nodes: [],
@@ -152,7 +139,7 @@ function BranchingStudioEditor(runtime, element, data) {
           const $c = $(this);
           const text   = $c.find('.choice-text').val().trim();
           const target = $c.find('.choice-target').val().trim();
-          if (text || target) {
+          if (text && target) {
               choices.push({ text: text, target_node_id: target });
           }
         });

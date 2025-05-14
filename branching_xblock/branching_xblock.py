@@ -32,9 +32,11 @@ class BranchingXBlock(XBlock):
                 "feedback": "...",
                 "hint": "..."
             }
-        ]
+        ],
+        "hint": "some hint"
     }
     """
+
     display_name = String(
         default="Branching Scenario",
         scope=Scope.settings,
@@ -102,30 +104,33 @@ class BranchingXBlock(XBlock):
 
     def start_node(self):
         """
-        Set initial current_node_id if not set
+        Set initial current_node_id if not set.
         """
         if not self.current_node_id and self.scenario_data["start_node_id"]:
             self.current_node_id = self.scenario_data["start_node_id"]
 
     def get_node(self, node_id):
         """
-        Get a node by its ID
+        Get a node by its ID.
         """
         return self.scenario_data.get("nodes", {}).get(node_id)
 
     def get_current_node(self) -> Optional[dict[str, Any]]:
         """
-        Get the learner's current node
+        Get the learner's current node.
         """
         return self.get_node(self.current_node_id) if self.current_node_id else None
 
     def is_end_node(self, node_id):
+        """
+        Check if node is a leaf node.
+        """
         node = self.get_node(node_id)
         return bool(node) and not node.get("choices")
 
     def get_choice(self, node, choice_index):
         """
-        Validate and return a choice from a node
+        Validate and return a choice from a node.
         """
         try:
             return node["choices"][choice_index]
@@ -134,19 +139,19 @@ class BranchingXBlock(XBlock):
 
     def can_undo(self):
         """
-        Check if undo is allowed and possible
+        Check if undo is allowed and possible.
         """
         return self.enable_undo and len(self.history) > 0
 
     def get_previous_node_id(self):
         """
-        Get last node from history
+        Get last node from history.
         """
         return self.history[-1] if self.history else None
 
     def validate_scenario(self):
         """
-        Check for common configuration errors
+        Check for common configuration errors.
         """
         errors = []
         nodes = self.scenario_data.get("nodes", {})
@@ -170,7 +175,7 @@ class BranchingXBlock(XBlock):
 
     def publish_grade(self):
         """
-        Send score to gradebook
+        Send score to gradebook.
         """
         if self.enable_scoring:
             self.runtime.publish(
@@ -181,11 +186,10 @@ class BranchingXBlock(XBlock):
 
     def resource_string(self, path):
         """
-        Retrieve string contents for the file path
+        Retrieve string contents for the file path.
         """
         path = os.path.join('static', path)
         return resource_loader.load_unicode(path)
-
 
     def student_view(self, context=None):
         """
@@ -250,20 +254,24 @@ class BranchingXBlock(XBlock):
     @XBlock.json_handler
     def get_current_state(self, data, suffix=''):
         """
-        Fetch current state of the XBlock
+        Fetch current state of the XBlock.
         """
         return self._get_state()
 
     @XBlock.json_handler
     def select_choice(self, data, suffix=''):
+        """
+        Handle choice selection.
+        """
         self.start_node()
         current_node = self.get_current_node()
         choice_index = data.get("choice_index")
         if current_node is None or choice_index is None:
             return {"success": False, "error": "Invalid choice"}
-        if choice_index < 0 or choice_index >= len(current_node.get("choices", [])):
+        choices = current_node.get("choices", [])
+        if choice_index < 0 or choice_index >= len(choices):
             return {"success": False, "error": "Invalid choice index"}
-        choice = current_node["choices"][choice_index]
+        choice = choices[choice_index]
         target_node_id = choice.get("target_node_id")
         target_node = self.get_node(target_node_id)
         if not target_node:
@@ -283,7 +291,7 @@ class BranchingXBlock(XBlock):
     @XBlock.json_handler
     def undo_choice(self, data, suffix=''):
         """
-        Handler for undo choice.
+        Handle undo choice.
         """
         if not self.enable_undo or not self.history:
             return {"success": False, "error": "Undo not allowed"}
@@ -301,7 +309,7 @@ class BranchingXBlock(XBlock):
     @XBlock.json_handler
     def studio_submit(self, data, suffix=''):
         """
-        Handler for studio editor save.
+        Handle studio editor save.
         """
         payload = data
         raw_nodes = payload.get('nodes', [])
@@ -310,7 +318,7 @@ class BranchingXBlock(XBlock):
         id_map = {}
         staged = []
         for raw in raw_nodes:
-            old_id = raw.get('id','')
+            old_id = raw.get('id', '')
             # new ID if temp or missing
             if old_id.startswith('temp-') or not old_id:
                 new_id = f"node-{uuid.uuid4().hex[:6]}"
@@ -320,13 +328,13 @@ class BranchingXBlock(XBlock):
             # carry forward content & media, but keep raw choices for next step
             staged.append({
                 'id': new_id,
-                'content': raw.get('content',''),
+                'content': raw.get('content', ''),
                 'media': {
-                    'type': raw.get('media',{}).get('type',''),
-                    'url':  raw.get('media',{}).get('url','')
+                    'type': raw.get('media', {}).get('type', ''),
+                    'url':  raw.get('media', {}).get('url', '')
                 },
                 'choices': raw.get('choices', []),
-                'hint':     raw.get('hint','')
+                'hint':     raw.get('hint', '')
             })
 
         # 2) Remap choice targets & clean arrays
@@ -334,9 +342,9 @@ class BranchingXBlock(XBlock):
         for node in staged:
             # filter out completely blank nodes
             has_content = bool(node['content'].strip())
-            has_media   = bool(node['media']['url'].strip())
+            has_media = bool(node['media']['url'].strip())
             has_choices = any(
-                (c.get('text','').strip() or c.get('target_node_id','').strip())
+                (c.get('text', '').strip() or c.get('target_node_id', '').strip())
                 for c in node['choices']
             )
             if not (has_content or has_media or has_choices):
@@ -345,8 +353,8 @@ class BranchingXBlock(XBlock):
             # remap and clean
             cleaned = []
             for raw in node['choices']:
-                text   = raw.get('text','').strip()
-                targ   = raw.get('target_node_id','').strip()
+                text = raw.get('text', '').strip()
+                targ = raw.get('target_node_id', '').strip()
                 # map through id_map if it was a temp ID
                 real_target = id_map.get(targ, targ)
                 if text or real_target:
@@ -361,7 +369,7 @@ class BranchingXBlock(XBlock):
                 'content':  node['content'],
                 'media':    node['media'],
                 'choices':  cleaned,
-                'hint': node.get('hint','')
+                'hint': node.get('hint', '')
             })
 
         # 3) Persist scenario_data & settings
@@ -370,10 +378,10 @@ class BranchingXBlock(XBlock):
             'nodes': nodes_dict,
             'start_node_id': final[0]['id'] if final else None
         }
-        self.enable_undo    = bool(payload.get('enable_undo', self.enable_undo))
+        self.enable_undo = bool(payload.get('enable_undo', self.enable_undo))
         self.enable_scoring = bool(payload.get('enable_scoring', self.enable_scoring))
         self.enable_hints = bool(payload.get('enable_hints', self.enable_hints))
-        self.max_score      = float(payload.get('max_score', self.max_score))
+        self.max_score = float(payload.get('max_score', self.max_score))
 
         # 4) Validate & respond
         errors = self.validate_scenario()
@@ -385,12 +393,13 @@ class BranchingXBlock(XBlock):
             }
         return {"result": "success"}
 
-
     # TO-DO: change this to create the scenarios you'd like to see in the
     # workbench while developing your XBlock.
     @staticmethod
     def workbench_scenarios():
-        """Create canned scenario for display in the workbench."""
+        """
+        Create canned scenario for display in the workbench.
+        """
         return [
             ("BranchingXBlock",
              """<branching_xblock/>
