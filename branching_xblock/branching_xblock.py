@@ -1,13 +1,13 @@
-"""TO-DO: Write a description of what this XBlock is."""
+"""Branching Scenario XBlock."""
+import json
 import logging
 import os
-import json
 import uuid
+from typing import Any, Optional
 
-from typing import Optional, Any
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
-from xblock.fields import Scope, Dict, Boolean, Float, String, List
+from xblock.fields import Boolean, Dict, Float, List, Scope, String
 from xblock.utils.resources import ResourceLoader
 
 resource_loader = ResourceLoader(__name__)

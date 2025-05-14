@@ -73,10 +73,10 @@ function BranchingStudioEditor(runtime, element, data) {
       });
     });
 
-    $editor.find('.btn-add-choice').off('click').on('click', function() {
+    $editor.off('click', '.btn-add-choice').on('click', '.btn-add-choice', function() {
       const $container = $(this).closest('.choices-container');
       const currentNodeId = $(this).closest('.node-block').data('node-id');
-      const nodeOptions = $editor.find('.node-block').map((j, nb) => ({
+      const options = $editor.find('.node-block').map((j, nb) => ({
         id:  $(nb).data('node-id'),
         label: `Node ${j+1}`
       })).get().filter(opt => opt.id !== currentNodeId);
@@ -84,15 +84,14 @@ function BranchingStudioEditor(runtime, element, data) {
       const html = Templates['choice-row']({
         choice: { text: '', target_node_id: '' },
         i: newIndex,
-        nodeOptions
+        options
       });
       $container.append(html);
-      bindInteractions();
     });
 
-    $editor.find('.btn-delete-choice').off('click').on('click', function() {
-      $(this).closest('.choice-row').remove();
-    });
+  $editor.off('click', '.btn-delete-choice').on('click', '.btn-delete-choice', function() {
+    $(this).closest('.choice-row').remove();
+  });
 
     $editor.find('.btn-add-node').off('click').on('click', function() {
       const idx = $editor.find('.node-block').length;
