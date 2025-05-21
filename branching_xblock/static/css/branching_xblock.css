@@ -8,9 +8,22 @@
     cursor: pointer;
 }
 
+.branching-scenario .node-content {
+    padding: 1em 1em;
+}
+
+.branching-scenario .node-media {
+    padding: 0em 1em;
+}
+
+.branching-scenario .node-hint {
+    padding: 1.5em 1em;
+}
+
 .choices {
     display: flex;
     justify-content: space-between;
+    padding: 1em 1em;
 }
 
 .choices .choice-button {
@@ -22,4 +35,13 @@
     font-size: 1em;
     cursor: pointer;
     background-image: none !important;
+}
+
+.undo-button {
+    margin: 1em 1em;
+}
+
+.score-display {
+    padding: 1em 1em;
+    font-size: small;
 }

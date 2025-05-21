@@ -99,6 +99,7 @@
     align-items: center;
     gap: 0.5em;
     margin-bottom: 0.75em;
+    margin-top: 0.75em;
 }
 
 .choice-row input.choice-text {
@@ -137,6 +138,7 @@
     font-size: 1em;
     cursor: pointer;
     margin-top: 0.75em;
+    margin-bottom: 0.75em;
 }
 
 .btn-add-choice {
