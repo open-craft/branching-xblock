@@ -26,7 +26,7 @@ function BranchingXBlock(runtime, element) {
         // Hint
         const $hint = $el.find('[data-role="hint"]');
         if (state.enable_hints && node.hint) {
-          $hint.text(node.hint).show();
+          $hint.html(`<strong>Hint:</strong> ${node.hint}`).show();
         } else {
           $hint.hide().empty();
         }
@@ -36,7 +36,7 @@ function BranchingXBlock(runtime, element) {
         const choices = node.choices || [];
         choices.forEach((choice, idx) => {
             $('<button>')
-            .addClass('choice-button')
+            .addClass('choice-button bg-primary')
             .text(choice.text)
             .attr('data-choice-index', idx)
             .appendTo($choices);

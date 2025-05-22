@@ -19,22 +19,24 @@ class BranchingXBlock(XBlock):
     """
     Branching Scenario XBlock.
 
-    Example node structure:
-    {
-        "id": "node-1",
-        "type": "start",
-        "content": "<p>...</p>",
-        "media": {"type": "image", "url": "/asset.jpg"},
-        "choices": [
-            {
-                "text": "Choice 1",
-                "target_node_id": "node-2",
-                "feedback": "...",
-                "hint": "..."
-            }
-        ],
-        "hint": "some hint"
-    }
+    Example node structure::
+
+        {
+            "id": "node-1",
+            "type": "start",
+            "content": "<p>...</p>",
+            "media": {"type": "image", "url": "/asset.jpg"},
+            "choices": [
+                {
+                    "text": "Choice 1",
+                    "target_node_id": "node-2",
+                    "feedback": "...",
+                    "hint": "..."
+                }
+            ],
+            "hint": "some hint"
+        }
+
     """
 
     display_name = String(
