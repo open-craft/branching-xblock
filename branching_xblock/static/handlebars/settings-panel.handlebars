@@ -1,0 +1,18 @@
+<div class="settings">
+  <label>
+    <input type="checkbox" name="enable_undo" {{#if enable_undo}}checked{{/if}}/>
+    Allow undo
+  </label>
+  <label>
+    <input type="checkbox" name="enable_scoring" {{#if enable_scoring}}checked{{/if}}/>
+    Enable scoring
+  </label>
+  <label>
+    <input type="checkbox" name="enable_hints" {{#if enable_hints}}checked{{/if}}/>
+    Show hints in nodes
+  </label>
+  <label>
+    Max Score:
+    <input type="number" name="max_score" value="{{max_score}}"/>
+  </label>
+</div>

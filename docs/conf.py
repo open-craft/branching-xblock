@@ -67,6 +67,7 @@ extensions = [
 # A list of warning types to suppress arbitrary warning messages.
 suppress_warnings = [
     'image.nonlocal_uri',
+    'toc.not_readable',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
