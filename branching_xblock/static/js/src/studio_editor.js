@@ -1,172 +1,183 @@
 function BranchingStudioEditor(runtime, element, data) {
-    const $element = $(element);
-    const $editorEl  = $element.find("#branching-editor");
-    const { nodes, enable_undo, enable_scoring, max_score } = data;
+  const Templates = {};
+  ['settings-panel','node-block','choice-row'].forEach(name => {
+    const src = document.getElementById(name+'-tpl').innerHTML;
+    Templates[name] = Handlebars.compile(src);
+  });
+  Handlebars.registerHelper('inc', value => parseInt(value,10) + 1);
+  Handlebars.registerHelper('eq', (a,b) => a === b);
+  const $root       = $(element);
+  const $editor     = $root.find('.branching-scenario-editor');
+  const $errors     = $root.find('.errors');
+  const $saveBtn    = $root.find('.save-button');
+  const $cancelBtn  = $root.find('.cancel-button');
 
-    // Render settings
-    const settings = document.createElement("div");
-    settings.className = "settings";
-    settings.innerHTML = `
-        <label>
-        <input type="checkbox" ${enable_undo ? "checked" : ""} name="enable_undo"/>
-        Allow undo
-        </label>
-        <label>
-        <input type="checkbox" ${enable_scoring ? "checked" : ""} name="enable_scoring"/>
-        Enable scoring
-        </label>
-        <label>
-        Max Score:
-        <input type="number" name="max_score" value="${max_score}"/>
-        </label>
-    `;
-    $editorEl.appendChild(settings);
+  function loadState() {
+      return $.ajax({
+        type: 'POST',
+        url: runtime.handlerUrl(element, 'get_current_state'),
+        data: '{}',
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json'
+      });
+  }
 
-    // Render nodes
-    const list = document.createElement("div");
-    list.className = "node-list";
-    nodes.forEach(node => {
-        const nodeEl = document.createElement("div");
-        nodeEl.className = "node";
-        nodeEl.dataset.nodeId = node.id;
-        nodeEl.innerHTML = `
-        <div class="node-header">
-            <h3>${node.id} (${node.type})</h3>
-            <button class="delete-node">Delete</button>
-        </div>
-        <textarea class="node-content">${node.content||""}</textarea>
-        <input class="media-url" value="${node.media?.url||""}" placeholder="Media URL"/>
-        <select class="media-type">
-            <option value="">None</option>
-            <option value="image"${node.media?.type==="image"?" selected":""}>Image</option>
-            <option value="video"${node.media?.type==="video"?" selected":""}>Video</option>
-        </select>
-        <div class="choices-list"${node.type==="end"?" hidden":""}>
-            ${node.choices.map(choice=>`
-            <div class="choice">
-                <input class="choice-text" value="${choice.text}" placeholder="Choice text"/>
-                <input class="choice-target" value="${choice.target_node_id}" placeholder="Target Node ID"/>
-                <button class="delete-choice">x</button>
-            </div>
-            `).join("")}
-            <button class="add-choice">Add Choice</button>
-        </div>
-        `;
-        list.appendChild(nodeEl);
+  function render(state) {
+    $editor.empty();
+    $errors.empty();
+
+    const nodes = Object.values(state.nodes || {});
+    if (!nodes.length) {
+      nodes.push({
+        id: 'temp',
+        content: '',
+        media: {type: '', url: ''},
+        choices: [],
+        hint: ''
+      });
+    }
+
+    $editor.append(Templates['settings-panel'](state));
+
+    nodes.forEach((node, idx) => {
+
+      const options = nodes.map((n, j) => ({
+        id: n.id,
+        label: `Node ${j+1}`
+      })).filter(opt => opt.id !== node.id);
+
+      const html = Templates['node-block']({ node, idx });
+
+      const $nodeEl = $(html);
+      (node.choices||[]).forEach((choice,i) => {
+        const ch = Templates['choice-row']({ choice, i, options });
+        $nodeEl.find('.choices-container').append(ch);
+      });
+      $editor.append($nodeEl);
     });
-    list.insertAdjacentHTML("beforeend","<button class='add-node'>Add Node</button>");
-    $editorEl.appendChild(list);
 
+    $editor.append(
+      '<button type="button" class="btn-add-node">Add Node</button>'
+    );
 
-    function saveScenario() {
-        const nodes = [];
-        $element.find('.node').each(function() {
-            const $node = $(this);
-            const choices = [];
-            $node.find('.choice').each(function() {
-                choices.push({
-                    text: $(this).find('.choice-text').val(),
-                    target_node_id: $(this).find('.choice-target').val()
-                });
-            });
-            nodes.push({
-                id: $node.data('node-id'),
-                type: $node.find('.node-type').val(),
-                content: $node.find('.node-content').val(),
-                media: { url: $node.find('.media-url').val() },
-                choices: choices
-            });
-        });
-        runtime.notify('save', { state: 'saving' });
-        $.ajax({
-            type: 'POST',
-            url: runtime.handlerUrl(element, 'save_scenario'),
-            data: JSON.stringify({ nodes: nodes }),
-            success: (response) => {
-              if (response.success) {
-                runtime.notify('save', { state: 'saved' });
-              } else {
-                showErrors(response.errors);
-              }
-            }
-        });
-    }
+    bindInteractions();
+    bindActions();
+  }
 
-    function handleAddChoice(evt) {
-        const $choiceList = $(evt.target).closest('.choices-list');
-        $choiceList.append(`
-          <div class="choice">
-            <input type="text" class="choice-text" placeholder="Choice text">
-            <input type="text" class="choice-target" placeholder="Target Node ID">
-            <button class="delete-choice">x</button>
-          </div>
-        `);
-        saveScenario();
-    }
-      
-    function handleDeleteChoice(evt) {
-        $(evt.target).closest('.choice').remove();
-        saveScenario();
-    }
+  function bindInteractions() {
+    $editor.find('.btn-delete-node').off('click').on('click', function() {
+      $(this).closest('.node-block').remove();
+      $editor.find('.node-block').each((i, el) => {
+          $(el).attr('data-node-idx', i)
+               .find('.node-title').text(`Node ${i+1}`);
+      });
+    });
 
-    function showErrors(errors) {
-        const $errorDiv = $element.find('.errors');
-        $errorDiv.empty();
-        errors.forEach(err => $errorDiv.append(`<div>${err}</div>`));
-    }
+    $editor.off('click', '.btn-add-choice').on('click', '.btn-add-choice', function() {
+      const $container = $(this).closest('.choices-container');
+      const currentNodeId = $(this).closest('.node-block').data('node-id');
+      const options = $editor.find('.node-block').map((j, nb) => ({
+        id:  $(nb).data('node-id'),
+        label: `Node ${j+1}`
+      })).get().filter(opt => opt.id !== currentNodeId);
+      const newIndex = $container.find('.choice-row').length;
+      const html = Templates['choice-row']({
+        choice: { text: '', target_node_id: '' },
+        i: newIndex,
+        options
+      });
+      $container.append(html);
+    });
 
-    function deleteNode(evt) {
-        evt.preventDefault();
-        const $node = $(evt.target).closest('.node');
-        const nodeId = $node.data('node-id');
-      
-        runtime.notify('save', { state: 'saving' });
-        $.ajax({
-          type: 'POST',
-          url: runtime.handlerUrl(element, 'delete_node'),
-          data: JSON.stringify({ node_id: nodeId }),
-          success: () => {
-            $node.remove();
-            saveScenario();
-          },
-          error: (error) => {
-            showErrors([error.responseText]);
+  $editor.off('click', '.btn-delete-choice').on('click', '.btn-delete-choice', function() {
+    $(this).closest('.choice-row').remove();
+  });
+
+    $editor.find('.btn-add-node').off('click').on('click', function() {
+      const idx = $editor.find('.node-block').length;
+      const nodeId = `temp-${idx}`;
+      const nodeContext = {
+        node: {
+          id:      nodeId,
+          content: '',
+          media:   { type: '', url: '' },
+          choices: [],
+          hint:    ''
+        },
+        idx
+      };
+      const html = Templates['node-block'](nodeContext);
+      const $newNode = $(html);
+      $(this).before($newNode);
+      bindInteractions();
+    });
+  }
+
+  function bindActions() {
+
+    const $settings = $editor.find('.settings');
+
+    $saveBtn.off('click').on('click', function() {
+      const payload = {
+          nodes: [],
+          enable_undo:    $settings.find('[name="enable_undo"]').is(':checked'),
+          enable_scoring: $settings.find('[name="enable_scoring"]').is(':checked'),
+          enable_hints:   $settings.find('[name="enable_hints"]').is(':checked'),
+          max_score:      parseFloat($settings.find('[name="max_score"]').val()) || 0
+      };
+
+      $editor.find('.node-block').each(function() {
+        const $n = $(this);
+        const content = $n.find('.node-content').val().trim();
+        const mediaUrl = $n.find('.media-url').val().trim();
+        const mediaType = $n.find('.media-type').val();
+        const choices = [];
+        const nodeHint = $n.find('.node-hint').val()?.trim() || '';
+
+        $n.find('.choice-row').each(function() {
+          const $c = $(this);
+          const text   = $c.find('.choice-text').val().trim();
+          const target = $c.find('.choice-target').val().trim();
+          if (text && target) {
+              choices.push({ text: text, target_node_id: target });
           }
         });
-    }
-    
-    // Add these to your event listeners:
-    $element.on('click', '.add-choice', handleAddChoice);
-    $element.on('click', '.delete-choice', handleDeleteChoice);
-    $element.on('change', '.node-type, .node-content, .media-url, .choice-text, .choice-target', saveScenario);
-    $element.on('click', '.delete-node', deleteNode);
+        if (content || mediaUrl || choices.length) {
+          payload.nodes.push({
+              id:     $n.data('node-id'),
+              content,
+              media:  { type: mediaType, url: mediaUrl },
+              choices,
+              hint: nodeHint
+          });
+        }
+      });
+      runtime.notify('save', { state: 'start' });
 
-    // Save settings
-    $element.find('[name="enable_undo"], [name="enable_scoring"], [name="max_score"]').on('change', function() {
-        runtime.notify('save', {state: 'saving'});
-        const data = {
-            enable_undo: $element.find('[name="enable_undo"]').prop('checked'),
-            enable_scoring: $element.find('[name="enable_scoring"]').prop('checked'),
-            max_score: parseFloat($element.find('[name="max_score"]').val())
-        };
-        $.ajax({
-            type: 'POST',
-            url: runtime.handlerUrl(element, 'save_settings'),
-            data: JSON.stringify(data),
-            success: () => runtime.notify('save', {state: 'saved'})
-        });
+      $.ajax({
+        type: 'POST',
+        url: runtime.handlerUrl(element, 'studio_submit'),
+        data: JSON.stringify(payload),
+        contentType: 'application/json; charset=utf-8'
+      }).done(function(res) {
+        if (res.result === 'success') {
+            runtime.notify('save',  { state: 'end' });
+            runtime.notify('cancel', {});
+        } else {
+            const errs = (res.field_errors || {}).nodes_json || [res.message];
+            $errors.empty();
+            errs.forEach(msg => $errors.append($('<div>').text(msg)));
+        }
+      }).fail(function() {
+          $errors.text('Error saving scenario');
+      });
     });
 
-    // Add node
-    $element.find('.add-node').click(function() {
-        runtime.notify('save', {state: 'saving'});
-        $.ajax({
-            type: 'POST',
-            url: runtime.handlerUrl(element, 'add_node'),
-            success: (data) => {
-                runtime.notify('reload');
-                runtime.notify('save', {state: 'saved'});
-            }
-        });
+    $cancelBtn.off('click').on('click', function(e) {
+      e.preventDefault();
+      runtime.notify('cancel', {});
     });
+  }
+
+  loadState().then(render);
 }

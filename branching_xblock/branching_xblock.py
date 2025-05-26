@@ -1,41 +1,53 @@
-"""TO-DO: Write a description of what this XBlock is."""
-
+"""Branching Scenario XBlock."""
+import json
+import logging
 import os
 import uuid
-from importlib import resources
+from typing import Any, Optional
 
-from django.utils import translation
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
-from xblock.fields import Scope, Dict, Boolean, Float, String, List
+from xblock.fields import Boolean, Dict, Float, List, Scope, String
 from xblock.utils.resources import ResourceLoader
 
 resource_loader = ResourceLoader(__name__)
+
+logger = logging.getLogger(__name__)
 
 
 class BranchingXBlock(XBlock):
     """
     Branching Scenario XBlock.
 
-    Example node structure:
-    {
-        "id": "node-1",
-        "type": "start",
-        "content": "<p>...</p>",
-        "media": {"type": "image", "url": "/asset.jpg"},
-        "choices": [
-            {
-                "text": "Choice 1",
-                "target_node_id": "node-2",
-                "feedback": "...",
-                "hint": "..."
-            }
-        ]
-    }
+    Example node structure::
+
+        {
+            "id": "node-1",
+            "type": "start",
+            "content": "<p>...</p>",
+            "media": {"type": "image", "url": "/asset.jpg"},
+            "choices": [
+                {
+                    "text": "Choice 1",
+                    "target_node_id": "node-2",
+                    "feedback": "...",
+                    "hint": "..."
+                }
+            ],
+            "hint": "some hint"
+        }
+
     """
+
+    display_name = String(
+        default="Branching Scenario",
+        scope=Scope.settings,
+        help="Name of this XBlock in the course outline"
+    )
+
     scenario_data = Dict(
         default={
-            "nodes": [],
+            "nodes": {},
             "start_node_id": None,
         },
         scope=Scope.content,
@@ -52,6 +64,12 @@ class BranchingXBlock(XBlock):
         default=False,
         scope=Scope.content,
         help="Enable scoring for gradebook integration"
+    )
+
+    enable_hints = Boolean(
+        default=False,
+        scope=Scope.settings,
+        help="Enable showing hint for each node"
     )
 
     max_score = Float(
@@ -84,94 +102,82 @@ class BranchingXBlock(XBlock):
         help="Completion status"
     )
 
+    has_custom_completion = True
+
     def start_node(self):
         """
-        Set initial current_node_id if not set
+        Set initial current_node_id if not set.
         """
         if not self.current_node_id and self.scenario_data["start_node_id"]:
             self.current_node_id = self.scenario_data["start_node_id"]
-    
+
     def get_node(self, node_id):
         """
-        Get a node by its ID
+        Get a node by its ID.
         """
-        return next(
-            (node for node in self.scenario_data["nodes"] if node["id"] == node_id),
-            None
-        )
-    
-    def get_current_node(self):
+        return self.scenario_data.get("nodes", {}).get(node_id)
+
+    def get_current_node(self) -> Optional[dict[str, Any]]:
         """
-        Get the learner's current node
+        Get the learner's current node.
         """
         return self.get_node(self.current_node_id) if self.current_node_id else None
-    
-    def is_start_node(self, node_id):
-        node = self.get_node(node_id)
-        return node and node.get("type") == "start"
-    
+
     def is_end_node(self, node_id):
+        """
+        Check if node is a leaf node.
+        """
         node = self.get_node(node_id)
-        return node and node.get("type") == "end"
-    
+        return bool(node) and not node.get("choices")
+
     def get_choice(self, node, choice_index):
         """
-        Validate and return a choice from a node
+        Validate and return a choice from a node.
         """
         try:
             return node["choices"][choice_index]
         except (IndexError, KeyError, TypeError):
             return None
-        
+
     def can_undo(self):
         """
-        Check if undo is allowed and possible
+        Check if undo is allowed and possible.
         """
         return self.enable_undo and len(self.history) > 0
 
     def get_previous_node_id(self):
         """
-        Get last node from history
+        Get last node from history.
         """
         return self.history[-1] if self.history else None
 
     def validate_scenario(self):
         """
-        Check for common configuration errors
+        Check for common configuration errors.
         """
         errors = []
-        nodes = self.scenario_data["nodes"]
+        nodes = self.scenario_data.get("nodes", {})
 
         if not nodes:
             errors.append("At least one node is required")
             return errors
-    
+
         # Check start node exists
-        if not self.get_node(self.scenario_data["start_node_id"]):
+        start_id = self.scenario_data.get("start_node_id")
+        if start_id not in nodes:
             errors.append("Start node ID does not exist")
-        
-        if nodes[0].get("type") != "start":
-            errors.append("First node must be a start node")
-        if nodes[-1].get("type") != "end":
-            errors.append("Last node must be an end node")
-        start_node = nodes[0]
-        if not start_node.get("choices"):
-            errors.append("Start node must have at least one choice")
-        end_node = nodes[-1]
-        if end_node.get("choices"):
-            errors.append("End node cannot have choices")
-    
+
         # Check all choice targets exist
-        for node in nodes:
+        for node in nodes.values():
             for choice in node.get("choices", []):
                 if not self.get_node(choice["target_node_id"]):
                     errors.append(f"Invalid target {choice['target_node_id']} in node {node['id']}")
-        
+
         return errors
 
     def publish_grade(self):
         """
-        Send score to gradebook
+        Send score to gradebook.
         """
         if self.enable_scoring:
             self.runtime.publish(
@@ -182,11 +188,10 @@ class BranchingXBlock(XBlock):
 
     def resource_string(self, path):
         """
-        Retrieve string contents for the file path
+        Retrieve string contents for the file path.
         """
         path = os.path.join('static', path)
         return resource_loader.load_unicode(path)
-
 
     def student_view(self, context=None):
         """
@@ -198,15 +203,32 @@ class BranchingXBlock(XBlock):
         frag.add_javascript(self.resource_string("js/src/branching_xblock.js"))
         frag.initialize_js('BranchingXBlock')
         return frag
-    
+
     def studio_view(self, context=None):
+        """
+        Studio editor view shown to course authors.
+        """
         html = self.resource_string("html/branching_xblock_edit.html")
         frag = Fragment(html)
 
         # Add JS/CSS for Studio
+        frag.add_javascript_url(
+            self.runtime.local_resource_url(self, 'public/js/vendor/handlebars.js')
+        )
+        for tpl in ['settings-panel', 'node-block', 'choice-row']:
+            html = resource_loader.load_unicode(f'static/handlebars/{tpl}.handlebars')
+            frag.add_javascript(f"""
+                (function() {{
+                    var s = document.createElement('script');
+                    s.type = 'text/x-handlebars-template';
+                    s.id = '{tpl}-tpl';
+                    s.innerHTML = {json.dumps(html)};
+                    document.body.appendChild(s);
+                }})();
+            """)
         frag.add_javascript(self.resource_string("js/src/studio_editor.js"))
         frag.add_css(self.resource_string("css/studio_editor.css"))
-        
+
         init_data = {
             "nodes":       self.scenario_data.get("nodes", []),
             "enable_undo": bool(self.enable_undo),
@@ -216,27 +238,42 @@ class BranchingXBlock(XBlock):
         # Initialize JS
         frag.initialize_js('BranchingStudioEditor', init_data)
         return frag
-    
-    @XBlock.json_handler
-    def get_current_state(self, data, suffix=''):
+
+    def _get_state(self):
         return {
-            "current_node": self.get_current_node(),
-            "enable_undo": self.enable_undo,
-            "has_completed": self.has_completed,
-            "score": self.score,
-            "max_score": self.max_score,
-            "history": self.history,
+            "nodes":           self.scenario_data.get("nodes", {}),
+            "start_node_id":   self.scenario_data.get("start_node_id"),
+            "enable_undo":     bool(self.enable_undo),
+            "enable_scoring":  bool(self.enable_scoring),
+            "enable_hints":    bool(self.enable_hints),
+            "max_score":       self.max_score,
+            "current_node":    self.get_current_node(),
+            "history":         list(self.history),
+            "has_completed":   bool(self.has_completed),
+            "score":           self.score,
         }
 
     @XBlock.json_handler
+    def get_current_state(self, data, suffix=''):
+        """
+        Fetch current state of the XBlock.
+        """
+        return self._get_state()
+
+    @XBlock.json_handler
     def select_choice(self, data, suffix=''):
+        """
+        Handle choice selection.
+        """
+        self.start_node()
         current_node = self.get_current_node()
         choice_index = data.get("choice_index")
-        if not current_node or choice_index is None:
+        if current_node is None or choice_index is None:
             return {"success": False, "error": "Invalid choice"}
-        if choice_index < 0 or choice_index >= len(current_node.get("choices", [])):
+        choices = current_node.get("choices", [])
+        if choice_index < 0 or choice_index >= len(choices):
             return {"success": False, "error": "Invalid choice index"}
-        choice = current_node["choices"][choice_index]
+        choice = choices[choice_index]
         target_node_id = choice.get("target_node_id")
         target_node = self.get_node(target_node_id)
         if not target_node:
@@ -250,112 +287,121 @@ class BranchingXBlock(XBlock):
                 self.score = self.max_score
                 self.publish_grade()
             self.runtime.publish(self, "completion", {"completion": 1.0})
-    
-        return {"success": True}
-    
+
+        return {"success": True, **self._get_state()}
+
     @XBlock.json_handler
     def undo_choice(self, data, suffix=''):
+        """
+        Handle undo choice.
+        """
         if not self.enable_undo or not self.history:
             return {"success": False, "error": "Undo not allowed"}
-        
+
         prev_node_id = self.history.pop()
         self.current_node_id = prev_node_id
 
         if self.has_completed and self.enable_scoring:
             self.score = 0.0
             self.publish_grade()
-        
-        self.has_completed = False
-        return {"success": True}
-    
-    @XBlock.json_handler
-    def save_settings(self, data, suffix=''):
-        self.enable_undo = data.get("enable_undo", False)
-        self.enable_scoring = data.get("enable_scoring", False)
-        self.max_score = float(data.get("max_score", 100.0))
-        return {"success": True}
-    
-    @XBlock.json_handler
-    def add_node(self, data, suffix=''):
-        new_id = f"node-{uuid.uuid4().hex[:6]}"
-        while any(n["id"] == new_id for n in self.scenario_data["nodes"]):
-            new_id = f"node-{uuid.uuid4().hex[:6]}"
-        new_node = {
-            "id": new_id,
-            "type": "normal",
-            "content": "New Node",
-            "choices": []
-        }
-        nodes = self.scenario_data["nodes"]
-        if not nodes:
-            new_node["type"] = "start"
-        else:
-            new_node["type"] = "end"
-            for node in nodes:
-                if node["type"] == "end":
-                    node["type"] = "normal"
 
-        nodes.append(new_node)
-        self.scenario_data["start_node_id"] = nodes[0]["id"] if nodes else None
-        return {"success": True, "node_id": new_node["id"]}
-    
+        self.has_completed = False
+        return {"success": True, **self._get_state()}
+
     @XBlock.json_handler
-    def save_scenario(self, data, suffix=''):
-        try:
-            nodes = data["nodes"]
-            for i, node in enumerate(nodes):
-                if i == 0:
-                    node["type"] = "start"
-                elif i == len(nodes) - 1:
-                    node["type"] = "end"
-                else:
-                    node["type"] = "normal"
-            self.scenario_data = {
-                "nodes": nodes,
-                "start_node_id": nodes[0]["id"] if nodes else None,
-            }
-            errors = self.validate_scenario()
-            if errors:
-                return {"success": False, "errors": errors}
-            return {"success": True}
-        except KeyError as e:
-            return {"success": False, "error": f"Missing key: {e}"}
-    
-    @XBlock.json_handler
-    def delete_node(self, data, suffix=''):
-        node_id = data.get("node_id")
-        if not node_id:
-            return {"success": False, "error": "Missing node_id"}
-        self.scenario_data["nodes"] = [
-            n for n in self.scenario_data["nodes"] if n["id"] != node_id
-        ]
-        nodes = self.scenario_data["nodes"]
-        if nodes:
-            for i, node in enumerate(nodes):
-                if i == 0:
-                    node["type"] = "start"
-                elif i == len(nodes) - 1:
-                    node["type"] = "end"
-                else:
-                    node["type"] = "normal"
-                if "choices" in node:
-                    node["choices"] = [
-                        choice for choice in node["choices"]
-                        if choice.get("target_node_id") != node_id
-                    ]
-            self.scenario_data["start_node_id"] = nodes[0]["id"]
-        else:
-            self.scenario_data["start_node_id"] = None
+    def studio_submit(self, data, suffix=''):
+        """
+        Handle studio editor save.
+        """
+        payload = data
+        raw_nodes = payload.get('nodes', [])
+
+        # 1) Assign real IDs and build id_map
+        id_map = {}
+        staged = []
+        for raw in raw_nodes:
+            old_id = raw.get('id', '')
+            # new ID if temp or missing
+            if old_id.startswith('temp-') or not old_id:
+                new_id = f"node-{uuid.uuid4().hex[:6]}"
+            else:
+                new_id = old_id
+            id_map[old_id] = new_id
+            # carry forward content & media, but keep raw choices for next step
+            staged.append({
+                'id': new_id,
+                'content': raw.get('content', ''),
+                'media': {
+                    'type': raw.get('media', {}).get('type', ''),
+                    'url':  raw.get('media', {}).get('url', '')
+                },
+                'choices': raw.get('choices', []),
+                'hint':     raw.get('hint', '')
+            })
+
+        # 2) Remap choice targets & clean arrays
+        final = []
+        for node in staged:
+            # filter out completely blank nodes
+            has_content = bool(node['content'].strip())
+            has_media = bool(node['media']['url'].strip())
+            has_choices = any(
+                (c.get('text', '').strip() or c.get('target_node_id', '').strip())
+                for c in node['choices']
+            )
+            if not (has_content or has_media or has_choices):
+                continue
+
+            # remap and clean
+            cleaned = []
+            for raw in node['choices']:
+                text = raw.get('text', '').strip()
+                targ = raw.get('target_node_id', '').strip()
+                # map through id_map if it was a temp ID
+                real_target = id_map.get(targ, targ)
+                if text or real_target:
+                    cleaned.append({
+                        'text': text,
+                        'target_node_id': real_target
+                    })
+
+            final.append({
+                'id':       node['id'],
+                'type':     'start' if not final else 'normal',
+                'content':  node['content'],
+                'media':    node['media'],
+                'choices':  cleaned,
+                'hint': node.get('hint', '')
+            })
+
+        # 3) Persist scenario_data & settings
+        nodes_dict = {node['id']: node for node in final}
+        self.scenario_data = {
+            'nodes': nodes_dict,
+            'start_node_id': final[0]['id'] if final else None
+        }
+        self.enable_undo = bool(payload.get('enable_undo', self.enable_undo))
+        self.enable_scoring = bool(payload.get('enable_scoring', self.enable_scoring))
+        self.enable_hints = bool(payload.get('enable_hints', self.enable_hints))
+        self.max_score = float(payload.get('max_score', self.max_score))
+
+        # 4) Validate & respond
         errors = self.validate_scenario()
         if errors:
-            return {"success": False, "errors": errors}
-        return {"success": True}
+            return {
+                "result": "error",
+                "message": "Validation errors",
+                "field_errors": {"nodes_json": errors}
+            }
+        return {"result": "success"}
 
     # TO-DO: change this to create the scenarios you'd like to see in the
     # workbench while developing your XBlock.
     @staticmethod
     def workbench_scenarios():
-        """Create canned scenario for display in the workbench."""
+        """
+        Create canned scenario for display in the workbench.
+        """
         return [
             ("BranchingXBlock",
              """<branching_xblock/>

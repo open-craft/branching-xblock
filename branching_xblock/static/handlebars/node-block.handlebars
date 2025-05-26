@@ -1,0 +1,24 @@
+<div class="node-block" data-node-idx="{{idx}}" data-node-id="{{node.id}}">
+  <div class="node-header">
+    <span class="node-title">Node {{inc idx}}</span>
+    <button type="button" class="btn-delete-node">Delete</button>
+  </div>
+  <label>Content:
+    <textarea class="node-content">{{node.content}}</textarea>
+  </label>
+  <label>Media:
+    <select class="media-type">
+      <option value="" {{#unless node.media.type}}selected{{/unless}}>None</option>
+      <option value="image" {{#if (eq node.media.type 'image')}}selected{{/if}}>Image</option>
+      <option value="video" {{#if (eq node.media.type 'video')}}selected{{/if}}>Video</option>
+      <option value="audio" {{#if (eq node.media.type 'audio')}}selected{{/if}}>Audio</option>
+    </select>
+    <input type="text" class="media-url" placeholder="URL" value="{{node.media.url}}"/>
+  </label>
+  <label>Hint:<br/>
+    <textarea class="node-hint">{{node.hint}}</textarea>
+  </label>
+  <div class="choices-container">
+    <button type="button" class="btn-add-choice">Add Choice</button>
+  </div>
+</div>

@@ -197,7 +197,6 @@ enable =
 	wrong-spelling-in-comment,
 	wrong-spelling-in-docstring,
 	
-	unused-argument,
 	unused-import,
 	unused-variable,
 	
@@ -280,6 +279,7 @@ disable =
 	too-many-return-statements,
 	ungrouped-imports,
 	unspecified-encoding,
+	unused-argument,
 	unused-wildcard-import,
 	use-maxsplit-arg,
 	

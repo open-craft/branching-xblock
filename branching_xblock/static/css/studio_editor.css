@@ -1,100 +1,152 @@
-.branching-scenario-editor {
-    font-family: Arial, sans-serif;
-    margin: 1em;
+.wrapper-comp-settings {
+    max-height: calc(100vh - 160px);
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 1em;
 }
 
-/* Settings panel */
-.branching-scenario-editor .settings label {
-    display: block;
-    margin-bottom: 0.75em;
-    cursor: pointer;
+.xblock-actions {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75em 1em;
+    border-top: 1px solid #e0e0e0;
+    background: #fff;
 }
 
-.branching-scenario-editor .settings input[type="number"] {
-    width: 4em;
-    margin-left: 0.5em;
+.xblock-actions .action-item {
+    margin: 0 0.25em;
 }
 
-/* Node list */
-.branching-scenario-editor .node-list {
-    margin-top: 1.5em;
+.settings {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75em;
+    margin-bottom: 1.5em;
 }
 
-/* Individual node */
-.branching-scenario-editor .node {
+.settings label {
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.node-block {
+    max-width: 800px;
+    background: #f9f9f9;
     border: 1px solid #ccc;
     border-radius: 4px;
     padding: 1em;
     margin-bottom: 1em;
-    background: #fafafa;
 }
 
-/* Node header */
-.branching-scenario-editor .node-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75em;
+.node-block label {
+    display: block;
+    margin-bottom: 1em;
 }
 
-.branching-scenario-editor .node-header h3 {
-    margin: 0;
-    font-size: 1em;
-}
-
-/* Inputs inside node */
-.branching-scenario-editor textarea,
-.branching-scenario-editor input[type="text"],
-.branching-scenario-editor select {
-    width: 100%;
-    margin-bottom: 0.5em;
-    padding: 0.5em;
-    font-size: 0.95em;
-    box-sizing: border-box;
-}
-
-/* Choices list */
-.branching-scenario-editor .choices-list {
-    margin-top: 0.75em;
-}
-
-.branching-scenario-editor .choice {
-    display: flex;
-    gap: 0.5em;
-    align-items: center;
-    margin-bottom: 0.5em;
-}
-
-.branching-scenario-editor .choice-text,
-.branching-scenario-editor .choice-target {
-    flex: 1;
-}
-
-/* Buttons */
-.branching-scenario-editor button {
+.node-header .btn-delete-node {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
     padding: 0.4em 0.8em;
     font-size: 0.9em;
-    border: 1px solid #888;
-    border-radius: 3px;
-    background: #f0f0f0;
     cursor: pointer;
 }
 
-.branching-scenario-editor .delete-node,
-.branching-scenario-editor .delete-choice {
-    background: #ffecec;
-    border-color: #dd5555;
-    color: #a00;
+.node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.branching-scenario-editor .add-choice,
-.branching-scenario-editor .add-node {
-    background: #e6f7ff;
-    border-color: #66bfff;
-    color: #007acc;
+.node-block .node-content {
+    width: 100%;
+    min-height: 8em;
+    padding: 0.5em;
+    box-sizing: border-box;
+    resize: vertical;
 }
 
-/* Hidden attribute toggles */
-.hidden {
-    display: none !important;
+.node-block .media-type {
+    display: inline-block;
+    width: auto;
+    max-width: 200px;
+    margin-top: 0.25em;
+}
+
+.node-block .media-url {
+    display: block;
+    margin-top: 0.5em;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.choices-container {
+    margin-top: 1em;
+}
+
+.choices-container::before {
+    content: "Choices";
+    display: block;
+    font-weight: bold;
+    margin-bottom: 0.5em;
+}
+
+.choice-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    margin-bottom: 0.75em;
+    margin-top: 0.75em;
+}
+
+.choice-row input.choice-text {
+    flex: 1;
+}
+
+.choice-row select.choice-target {
+    flex: none;
+    width: 200px;
+}
+
+.choice-row .btn-delete-choice {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.3em 0.6em;
+    font-size: 0.9em;
+    cursor: pointer;
+    flex: none;
+    line-height: 1;
+}
+
+.choice-row .btn-delete-choice:hover {
+    opacity: 0.85;
+}
+
+.btn-add-choice,
+.btn-add-node {
+    display: inline-block;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    cursor: pointer;
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+}
+
+.btn-add-choice {
+    background-color: #28a745;
+}
+
+.btn-add-choice:hover,
+.btn-add-node:hover,
+.choice-row .btn-delete-choice:hover {
+    opacity: 0.85;
 }

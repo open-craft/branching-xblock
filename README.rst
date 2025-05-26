@@ -1,6 +1,67 @@
 Branching Scenario XBlock
 #########################
 
+The Branching Scenario XBlock provides interactive, decision-based learning experiences for Open edX courses. It allows course authors to create choose-your-own-adventure style scenarios where learners navigate through content by making choices that lead to different outcomes.
+
+Features
+********
+
+* **Interactive Decision Trees**: Create multi-path scenarios with branching narratives
+* **Rich Media Support**: Include images, videos, and formatted text in scenarios
+* **Choice Feedback**: Provide immediate feedback and hints for each decision point
+* **Undo Functionality**: Allow learners to backtrack through their choices (optional)
+* **Scoring Integration**: Award points for completed scenarios (optional)
+* **Completion Tracking**: Monitor learner progress through the scenario
+* **Studio Editor**: Visual editor for creating and managing branching scenarios
+* **Internationalization**: Support for multiple languages
+
+Installation
+************
+
+Install the XBlock within your Open EdX instance:
+
+.. code-block:: bash
+
+    git clone https://github.com/open-craft/branching-xblock.git
+    cd branching-xblock
+    pip install -e .
+
+
+Then add it to your advanced component list in Studio:
+
+.. code-block:: python
+
+    ADVANCED_COMPONENT_TYPES = [
+        # ... other components
+        'branching_xblock',
+    ]
+
+Usage
+*****
+
+Adding to a Course
+==================
+
+1. In Studio, navigate to the unit where you want to add the branching scenario
+2. Click "Add New Component" → "Advanced" → "Branching Scenario"
+3. Click "Edit" to open the scenario editor
+
+Creating a Scenario
+===================
+
+The scenario editor allows you to:
+
+1. **Add Nodes**: Create content blocks with text, images, or videos
+2. **Create Choices**: Add decision points that link to other nodes
+3. **Configure Settings**:
+   * Enable/disable undo functionality
+   * Enable/disable scoring
+   * Set maximum score value
+   * Enable/disable hints
+
+4. **Preview**: Test your scenario before publishing
+
+
 Testing with Docker
 *******************
 
