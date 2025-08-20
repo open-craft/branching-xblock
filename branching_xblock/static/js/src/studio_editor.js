@@ -12,6 +12,13 @@ function BranchingStudioEditor(runtime, element, data) {
   const $saveBtn    = $root.find('.save-button');
   const $cancelBtn  = $root.find('.cancel-button');
 
+  this.uniqueIdCount = 0;
+
+  const uniqueId = () => {
+    const i = this.uniqueIdCount++;
+    return `temp-${i}`;
+  };
+
   function loadState() {
       return $.ajax({
         type: 'POST',
@@ -64,6 +71,44 @@ function BranchingStudioEditor(runtime, element, data) {
     bindActions();
   }
 
+  function updateChoiceUI() {
+    const options = {};
+      $editor.find('.node-block').map((j, nb) => {
+        options[$(nb).data('node-id')] = `Node ${j+1}`;
+      });
+
+    $('.choice-target').each((_, choice) => {
+      const currentNodeId = $(choice).closest('.node-block').data('node-id');
+      const availableIds = Object.keys(options).filter(opt => opt !== currentNodeId);
+
+      let seenIds = [];
+
+      $(choice).find('option').each((_, option) => {
+        const $option = $(option);
+        const val = $option.val();
+        if (availableIds.includes(val)) {
+          // Update display text, as the node label may have changed
+          $option.text(options[val]);
+        } else {
+          // the node was deleted, so remove the option
+          $option.remove();
+        }
+        seenIds.push(val);
+      });
+
+      // add any new nodes
+      for (nodeId of availableIds) {
+        if (!seenIds.includes(nodeId)) {
+          const $option = $('<option>');
+          $option.val(nodeId);
+          $option.text(options[nodeId]);
+          $(choice).append($option);
+        }
+      }
+
+    });
+  }
+
   function bindInteractions() {
     $editor.find('.btn-delete-node').off('click').on('click', function() {
       $(this).closest('.node-block').remove();
@@ -71,6 +116,7 @@ function BranchingStudioEditor(runtime, element, data) {
           $(el).attr('data-node-idx', i)
                .find('.node-title').text(`Node ${i+1}`);
       });
+      updateChoiceUI();
     });
 
     $editor.off('click', '.btn-add-choice').on('click', '.btn-add-choice', function() {
@@ -95,10 +141,9 @@ function BranchingStudioEditor(runtime, element, data) {
 
     $editor.find('.btn-add-node').off('click').on('click', function() {
       const idx = $editor.find('.node-block').length;
-      const nodeId = `temp-${idx}`;
       const nodeContext = {
         node: {
-          id:      nodeId,
+          id:      uniqueId(),
           content: '',
           media:   { type: '', url: '' },
           choices: [],
@@ -110,6 +155,7 @@ function BranchingStudioEditor(runtime, element, data) {
       const $newNode = $(html);
       $(this).before($newNode);
       bindInteractions();
+      updateChoiceUI();
     });
   }
 
@@ -128,16 +174,16 @@ function BranchingStudioEditor(runtime, element, data) {
 
       $editor.find('.node-block').each(function() {
         const $n = $(this);
-        const content = $n.find('.node-content').val().trim();
-        const mediaUrl = $n.find('.media-url').val().trim();
+        const content = $n.find('.node-content').val()?.trim() || '';
+        const mediaUrl = $n.find('.media-url').val()?.trim() || '';
         const mediaType = $n.find('.media-type').val();
         const choices = [];
         const nodeHint = $n.find('.node-hint').val()?.trim() || '';
 
         $n.find('.choice-row').each(function() {
           const $c = $(this);
-          const text   = $c.find('.choice-text').val().trim();
-          const target = $c.find('.choice-target').val().trim();
+          const text   = $c.find('.choice-text').val()?.trim() || '';
+          const target = $c.find('.choice-target').val()?.trim() || '';
           if (text && target) {
               choices.push({ text: text, target_node_id: target });
           }
