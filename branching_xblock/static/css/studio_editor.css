@@ -150,3 +150,15 @@
 .choice-row .btn-delete-choice:hover {
     opacity: 0.85;
 }
+
+/* Small informational notes with icon */
+.editor-note {
+    font-size: 0.75em;
+    color: #555;
+    margin-top: 0.25em;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4em;
+    font-style: italic;
+}
+
