@@ -83,7 +83,8 @@ function BranchingStudioEditor(runtime, element, data) {
 
       let seenIds = [];
 
-      $(choice).find('option').each((_, option) => {
+      const selected = choice.selectedIndex;
+      $(choice).find('option').each((index, option) => {
         const $option = $(option);
         const val = $option.val();
         if (availableIds.includes(val)) {
@@ -92,6 +93,10 @@ function BranchingStudioEditor(runtime, element, data) {
         } else {
           // the node was deleted, so remove the option
           $option.remove();
+          // if the selected option was removed, unselect (otherwise another will be selected, which is confusing)
+          if (selected == index) {
+            choice.selectedIndex = -1;
+          }
         }
         seenIds.push(val);
       });
