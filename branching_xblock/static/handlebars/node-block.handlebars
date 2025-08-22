@@ -3,6 +3,7 @@
     <span class="node-title">Node {{inc idx}}</span>
     <button type="button" class="btn-delete-node">Delete</button>
   </div>
+  <p class="editor-note">If you delete this node, please update any choice target nodes that point to this node.</p>
   <label>Content:
     <textarea class="node-content">{{node.content}}</textarea>
   </label>
@@ -20,5 +21,6 @@
   </label>
   <div class="choices-container">
     <button type="button" class="btn-add-choice">Add Choice</button>
+    <p class="editor-note">Choices with blank node targets will be discarded.</p>
   </div>
 </div>
