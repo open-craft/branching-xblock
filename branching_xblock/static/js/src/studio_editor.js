@@ -12,6 +12,17 @@ function BranchingStudioEditor(runtime, element, data) {
   const $saveBtn    = $root.find('.save-button');
   const $cancelBtn  = $root.find('.cancel-button');
 
+  const $actionsBar = $root.next('.xblock-actions');
+  if ($actionsBar.length && !$actionsBar.data('branching-sticky')) {
+    $actionsBar.css({
+      position: 'sticky',
+      bottom: 0,
+      'z-index': 10,
+      'box-shadow': '0 -2px 6px rgba(0, 0, 0, 0.05)'
+    });
+    $actionsBar.data('branching-sticky', true);
+  }
+
   this.uniqueIdCount = 0;
 
   const uniqueId = () => {
