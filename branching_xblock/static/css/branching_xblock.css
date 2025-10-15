@@ -150,10 +150,6 @@
     flex: 0 0 auto;
 }
 
-.branching-scenario .choices-stacked .choice-button {
-    flex: 1 1 100%;
-}
-
 .branching-scenario .choices .choice-button:hover,
 .branching-scenario .choices .choice-button:focus {
     background-color: #005f94;

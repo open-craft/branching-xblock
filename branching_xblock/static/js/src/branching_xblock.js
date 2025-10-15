@@ -96,11 +96,7 @@ function BranchingXBlock(runtime, element) {
 
     $el.on('toggle', '[data-role="hint-collapsible"]', function() {
         const open = this.open;
-        isHintVisible = Boolean(open);
-        const $summary = $(this).find('[data-role="hint-summary"]');
-        if ($summary.length) {
-            $summary.text(open ? 'Hide hint' : 'Show hint');
-        }
+        setHintVisibility(open);
     });
 
     // Handle a choice click
@@ -127,7 +123,4 @@ function BranchingXBlock(runtime, element) {
     // Initial load
     refreshView();
 
-    $(window).on('resize.branchingChoices', () => {
-        applyChoiceLayout($el.find('[data-role="choices"]'));
-    });
 }
