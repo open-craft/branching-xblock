@@ -94,9 +94,8 @@ function BranchingXBlock(runtime, element) {
       }).done(updateView);
     }
 
-    $el.on('toggle', '[data-role="hint-collapsible"]', function() {
-        const open = this.open;
-        setHintVisibility(open);
+    $el.find('[data-role="hint-collapsible"]').on('toggle', function() {
+        setHintVisibility(this.open);
     });
 
     // Handle a choice click
