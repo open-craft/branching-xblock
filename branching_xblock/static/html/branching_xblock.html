@@ -2,7 +2,14 @@
     <div class="active-scenario" data-role="active">
         <div class="node-content" data-role="content"></div>
         <div class="node-media" data-role="media"></div>
-        <div data-role="hint" class="node-hint mx-3 px-2 py-3" style="display:none;"></div>
+        <div class="node-hint-container" data-role="hint-container">
+            <details class="hint-collapsible" data-role="hint-collapsible" hidden>
+                <summary class="hint-summary" data-role="hint-summary">
+                    Show hint
+                </summary>
+                <div data-role="hint" class="node-hint px-2 py-3"></div>
+            </details>
+        </div>
         <div class="choices" data-role="choices"></div>
 
         <button class="undo-button action-secondary btn-secondary" data-role="undo" style="display: none;">

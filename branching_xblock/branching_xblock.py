@@ -69,7 +69,7 @@ class BranchingXBlock(XBlock):
     enable_hints = Boolean(
         default=False,
         scope=Scope.settings,
-        help="Enable showing hint for each node"
+        help="Allow learners to reveal hints for each node"
     )
 
     max_score = Float(

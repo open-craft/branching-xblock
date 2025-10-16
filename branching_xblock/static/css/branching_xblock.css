@@ -13,31 +13,148 @@
 }
 
 .branching-scenario .node-media {
-    padding: 0em 1em;
+    padding: 0 1em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1em;
+}
+
+.branching-scenario .node-media > * {
+    max-width: 100%;
+    align-self: center;
+}
+
+.branching-scenario .node-media img,
+.branching-scenario .node-media video,
+.branching-scenario .node-media iframe {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.branching-scenario .node-media audio {
+    width: auto;
+    max-width: 100%;
 }
 
 .branching-scenario .node-hint {
     border: 1px solid #d9d9d9;
-    border-radius: 0.75em;
+    border-top: none;
+    border-bottom-left-radius: 0.75em;
+    border-bottom-right-radius: 0.75em;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
     font-style: italic;
-    background-color: #f1f0f0;
-    margin-top: 2em;
+    background-color: #f9f9f9;
+    margin-top: 0;
 }
 
-.choices {
-    display: flex;
-    justify-content: space-between;
-    padding: 1em 1em;
+.branching-scenario .node-hint-container {
+    padding: 0 1em;
+    margin-top: 1.5em;
 }
 
-.choices .choice-button {
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    padding: 0.6em 1.2em;
-    font-size: 1em;
+.branching-scenario .hint-collapsible[hidden] {
+    display: none;
+}
+
+.branching-scenario .hint-collapsible {
+    border-radius: 0.75em;
+}
+
+.branching-scenario .hint-summary {
     cursor: pointer;
+    font-weight: 600;
+    padding: 0.75em 1em;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    list-style: none;
+    border: 1px solid #d9d9d9;
+    border-radius: 0.75em;
+    background-color: #f9f9f9;
+}
+
+.branching-scenario .hint-summary::-webkit-details-marker {
+    display: none;
+}
+
+.branching-scenario .hint-summary::marker {
+    display: none;
+}
+
+.branching-scenario .hint-summary::before {
+    content: '►';
+    transition: transform 0.2s ease;
+    font-size: 0.75em;
+}
+
+.branching-scenario .hint-collapsible[open] .hint-summary::before {
+    transform: rotate(90deg);
+}
+
+.branching-scenario .hint-collapsible[open] .hint-summary {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
+}
+
+.branching-scenario .hint-collapsible[open] .node-hint {
+    margin-top: 0;
+}
+
+
+
+.branching-scenario .choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75em;
+    padding: 1em;
+    justify-content: flex-start;
+}
+
+/* inline mode keeps the natural width */
+.branching-scenario .choices-inline {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.branching-scenario .choices .choice-button {
+    color: #fff;
+    border: 1px solid #0e6aa6;
+    border-radius: 6px;
+    padding: 0.65em 1.4em;
+    font-size: 1rem;
+    font-weight: 400;
+    cursor: pointer;
+    background-color: #0075b4;
     background-image: none !important;
+    box-shadow: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.35em;
+    line-height: 1.3;
+    white-space: normal;
+    text-align: center;
+    min-width: 6rem;
+    max-width: 100%;
+    flex: 0 1 18rem;
+}
+
+.branching-scenario .choices-inline .choice-button {
+    flex: 0 0 auto;
+}
+
+.branching-scenario .choices .choice-button:hover,
+.branching-scenario .choices .choice-button:focus {
+    background-color: #005f94;
+    border-color: #0a5278;
+    text-decoration: none;
 }
 
 .undo-button {
