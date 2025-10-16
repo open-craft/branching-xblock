@@ -6,12 +6,11 @@ function BranchingXBlock(runtime, element) {
 
     function setHintVisibility(visible) {
         const $details = $el.find('[data-role="hint-collapsible"]');
+        isHintVisible = Boolean(visible);
         if (!$details.length) {
-            isHintVisible = Boolean(visible);
             return;
         }
         const $summary = $details.find('[data-role="hint-summary"]');
-        isHintVisible = Boolean(visible);
         $details.prop('open', isHintVisible);
         if ($summary.length) {
             $summary.text(isHintVisible ? 'Hide hint' : 'Show hint');
@@ -41,7 +40,7 @@ function BranchingXBlock(runtime, element) {
         );
 
         // Hint
-        const nodeId = node && node.id ? node.id : null;
+        const nodeId = node?.id || null;
         if (nodeId !== currentHintNodeId) {
             currentHintNodeId = nodeId;
             isHintVisible = false;
