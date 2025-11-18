@@ -40,7 +40,8 @@ function BranchingStudioEditor(runtime, element, data) {
         content: '',
         media: {type: '', url: ''},
         choices: [],
-        hint: ''
+        hint: '',
+        overlay_text: false
       });
     }
 
@@ -114,6 +115,18 @@ function BranchingStudioEditor(runtime, element, data) {
     });
   }
 
+  function toggleOverlayControl($node) {
+    const type = $node.find('.media-type').val();
+    const $control = $node.find('.overlay-text-control');
+    const $checkbox = $node.find('.overlay-text-checkbox');
+    if (type === 'image') {
+      $control.removeClass('is-hidden');
+    } else {
+      $control.addClass('is-hidden');
+      $checkbox.prop('checked', false);
+    }
+  }
+
   function bindInteractions() {
     $editor.find('.btn-delete-node').off('click').on('click', function() {
       $(this).closest('.node-block').remove();
@@ -152,7 +165,8 @@ function BranchingStudioEditor(runtime, element, data) {
           content: '',
           media:   { type: '', url: '' },
           choices: [],
-          hint:    ''
+          hint:    '',
+          overlay_text: false
         },
         idx
       };
@@ -161,6 +175,15 @@ function BranchingStudioEditor(runtime, element, data) {
       $(this).before($newNode);
       bindInteractions();
       updateChoiceUI();
+    });
+
+    $editor.find('.media-type').off('change.overlay').on('change.overlay', function() {
+      const $node = $(this).closest('.node-block');
+      toggleOverlayControl($node);
+    });
+
+    $editor.find('.node-block').each(function() {
+      toggleOverlayControl($(this));
     });
   }
 
@@ -184,6 +207,7 @@ function BranchingStudioEditor(runtime, element, data) {
         const mediaType = $n.find('.media-type').val();
         const choices = [];
         const nodeHint = $n.find('.node-hint').val()?.trim() || '';
+        const overlayEnabled = $n.find('.overlay-text-checkbox').is(':checked');
 
         $n.find('.choice-row').each(function() {
           const $c = $(this);
@@ -199,7 +223,8 @@ function BranchingStudioEditor(runtime, element, data) {
               content,
               media:  { type: mediaType, url: mediaUrl },
               choices,
-              hint: nodeHint
+              hint: nodeHint,
+              overlay_text: overlayEnabled
           });
         }
       });

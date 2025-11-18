@@ -115,7 +115,14 @@ class BranchingXBlock(XBlock):
         """
         Get a node by its ID.
         """
-        return self.scenario_data.get("nodes", {}).get(node_id)
+        node = self.scenario_data.get("nodes", {}).get(node_id)
+        if node is None:
+            return None
+        if "overlay_text" not in node:
+            # ensure older scenarios expose the flag downstream
+            node = {**node, "overlay_text": False}
+            self.scenario_data.setdefault("nodes", {})[node_id] = node
+        return node
 
     def get_current_node(self) -> Optional[dict[str, Any]]:
         """
@@ -240,8 +247,17 @@ class BranchingXBlock(XBlock):
         return frag
 
     def _get_state(self):
+        nodes = self.scenario_data.get("nodes", {})
+        nodes_with_defaults = {
+            node_id: {
+                **node,
+                "overlay_text": bool(node.get("overlay_text", False)),
+            }
+            for node_id, node in nodes.items()
+        }
+
         return {
-            "nodes":           self.scenario_data.get("nodes", {}),
+            "nodes":           nodes_with_defaults,
             "start_node_id":   self.scenario_data.get("start_node_id"),
             "enable_undo":     bool(self.enable_undo),
             "enable_scoring":  bool(self.enable_scoring),
@@ -336,7 +352,8 @@ class BranchingXBlock(XBlock):
                     'url':  raw.get('media', {}).get('url', '')
                 },
                 'choices': raw.get('choices', []),
-                'hint':     raw.get('hint', '')
+                'hint':     raw.get('hint', ''),
+                'overlay_text': bool(raw.get('overlay_text', False)),
             })
 
         # 2) Remap choice targets & clean arrays
@@ -371,7 +388,8 @@ class BranchingXBlock(XBlock):
                 'content':  node['content'],
                 'media':    node['media'],
                 'choices':  cleaned,
-                'hint': node.get('hint', '')
+                'hint': node.get('hint', ''),
+                'overlay_text': bool(node.get('overlay_text', False)),
             })
 
         # 3) Persist scenario_data & settings

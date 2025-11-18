@@ -24,8 +24,20 @@ function BranchingXBlock(runtime, element) {
         $el.find('[data-role="active"]').show();
 
         const media = (node && node.media) || {};
+        const contentHtml = (node && node.content) || '';
+        const overlayEnabled = Boolean(node?.overlay_text && media.type === 'image');
+
         const $media = $el.find('[data-role="media"]');
-        if (media.type === 'image') {
+        if (media.type === 'image' && overlayEnabled) {
+            $media.html(`
+                <div class="media-overlay">
+                    <img src="${media.url}" alt=""/>
+                    <div class="media-overlay__text">
+                        ${contentHtml}
+                    </div>
+                </div>
+            `);
+        } else if (media.type === 'image') {
             $media.html(`<img src="${media.url}" alt=""/>`);
         } else if (media.type === 'video') {
             $media.html(`<video src="${media.url}" controls />`);
@@ -35,9 +47,12 @@ function BranchingXBlock(runtime, element) {
             $media.empty();
         }
         // Content
-        $el.find('[data-role="content"]').html(
-            (node && node.content) || ''
-        );
+        const $content = $el.find('[data-role="content"]');
+        if (overlayEnabled) {
+            $content.empty();
+        } else {
+            $content.html(contentHtml);
+        }
 
         // Hint
         const nodeId = node?.id || null;

@@ -26,6 +26,50 @@
     align-self: center;
 }
 
+.branching-scenario .media-overlay {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    display: inline-block;
+}
+
+.branching-scenario .media-overlay img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+    border-radius: 0.5rem;
+}
+
+.branching-scenario .media-overlay__text {
+    position: absolute;
+    left: 50%;
+    bottom: 1.25rem;
+    transform: translateX(-50%);
+    width: calc(100% - 3rem);
+    max-width: 90%;
+    background: rgba(8, 36, 73, 0.85);
+    color: #fff;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    font-size: 1.05rem;
+    line-height: 1.5;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.branching-scenario .media-overlay__text p {
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .branching-scenario .media-overlay__text {
+        position: static;
+        transform: none;
+        width: 100%;
+        margin-top: 0.75rem;
+    }
+}
+
 .branching-scenario .node-media img,
 .branching-scenario .node-media video,
 .branching-scenario .node-media iframe {
