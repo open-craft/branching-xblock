@@ -22,6 +22,12 @@
       </label>
     </div>
   </label>
+  <div class="overlay-text-control {{#unless (eq node.media.type 'image')}}is-hidden{{/unless}}">
+    <label class="overlay-text-toggle">
+      <input type="checkbox" class="overlay-text-checkbox" {{#if node.overlay_text}}checked{{/if}}>
+      Overlay text on image
+    </label>
+  </div>
   <label>Hint:<br/>
     <textarea class="node-hint">{{node.hint}}</textarea>
   </label>

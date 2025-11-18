@@ -19,6 +19,16 @@ function BranchingStudioEditor(runtime, element, data) {
     return `temp-${i}`;
   };
 
+  function loadState() {
+      return $.ajax({
+        type: 'POST',
+        url: runtime.handlerUrl(element, 'get_current_state'),
+        data: '{}',
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json'
+      });
+  }
+
   function render(state) {
     $editor.empty();
     $errors.empty();
@@ -31,6 +41,7 @@ function BranchingStudioEditor(runtime, element, data) {
         media: {type: '', url: ''},
         choices: [],
         hint: '',
+        overlay_text: false,
         transcript_url: ''
       });
     }
@@ -38,6 +49,7 @@ function BranchingStudioEditor(runtime, element, data) {
     $editor.append(Templates['settings-panel'](state));
 
     nodes.forEach((node, idx) => {
+
       const options = nodes.map((n, j) => ({
         id: n.id,
         label: `Node ${j+1}`
@@ -118,6 +130,18 @@ function BranchingStudioEditor(runtime, element, data) {
     });
   }
 
+  function toggleOverlayControl($node) {
+    const type = $node.find('.media-type').val();
+    const $control = $node.find('.overlay-text-control');
+    const $checkbox = $node.find('.overlay-text-checkbox');
+    if (type === 'image') {
+      $control.removeClass('is-hidden');
+    } else {
+      $control.addClass('is-hidden');
+      $checkbox.prop('checked', false);
+    }
+  }
+
   function bindInteractions() {
     $editor.find('.btn-delete-node').off('click').on('click', function() {
       $(this).closest('.node-block').remove();
@@ -161,6 +185,7 @@ function BranchingStudioEditor(runtime, element, data) {
           media:   { type: '', url: '' },
           choices: [],
           hint:    '',
+          overlay_text: false,
           transcript_url: ''
         },
         idx
@@ -171,6 +196,15 @@ function BranchingStudioEditor(runtime, element, data) {
       bindInteractions();
       updateChoiceUI();
       updateTranscriptVisibility($newNode);
+    });
+
+    $editor.find('.media-type').off('change.overlay').on('change.overlay', function() {
+      const $node = $(this).closest('.node-block');
+      toggleOverlayControl($node);
+    });
+
+    $editor.find('.node-block').each(function() {
+      toggleOverlayControl($(this));
     });
   }
 
@@ -195,6 +229,7 @@ function BranchingStudioEditor(runtime, element, data) {
         const mediaType = $n.find('.media-type').val();
         const choices = [];
         const nodeHint = $n.find('.node-hint').val()?.trim() || '';
+        const overlayEnabled = $n.find('.overlay-text-checkbox').is(':checked');
         const transcriptUrl = $n.find('.transcript-url').val()?.trim() || '';
 
         $n.find('.choice-row').each(function() {
@@ -212,6 +247,7 @@ function BranchingStudioEditor(runtime, element, data) {
               media:  { type: mediaType, url: mediaUrl },
               choices,
               hint: nodeHint,
+              overlay_text: overlayEnabled,
               transcript_url: transcriptUrl
           });
         }
@@ -243,5 +279,5 @@ function BranchingStudioEditor(runtime, element, data) {
     });
   }
 
-  render(data || {});
+  loadState().then(render);
 }

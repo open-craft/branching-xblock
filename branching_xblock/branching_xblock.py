@@ -1,5 +1,6 @@
 """Branching Scenario XBlock."""
 import json
+import logging
 import os
 import uuid
 from typing import Any, Optional
@@ -12,6 +13,8 @@ from xblock.utils.resources import ResourceLoader
 from .compat import get_site_configuration_value, sanitize_html
 
 resource_loader = ResourceLoader(__name__)
+
+logger = logging.getLogger(__name__)
 
 
 class BranchingXBlock(XBlock):
@@ -114,7 +117,14 @@ class BranchingXBlock(XBlock):
         """
         Get a node by its ID.
         """
-        return self.scenario_data.get("nodes", {}).get(node_id)
+        node = self.scenario_data.get("nodes", {}).get(node_id)
+        if node is None:
+            return None
+        if "overlay_text" not in node:
+            # ensure older scenarios expose the flag downstream
+            node = {**node, "overlay_text": False}
+            self.scenario_data.setdefault("nodes", {})[node_id] = node
+        return node
 
     def get_current_node(self) -> Optional[dict[str, Any]]:
         """
@@ -128,6 +138,27 @@ class BranchingXBlock(XBlock):
         """
         node = self.get_node(node_id)
         return bool(node) and not node.get("choices")
+
+    def get_choice(self, node, choice_index):
+        """
+        Validate and return a choice from a node.
+        """
+        try:
+            return node["choices"][choice_index]
+        except (IndexError, KeyError, TypeError):
+            return None
+
+    def can_undo(self):
+        """
+        Check if undo is allowed and possible.
+        """
+        return self.enable_undo and len(self.history) > 0
+
+    def get_previous_node_id(self):
+        """
+        Get last node from history.
+        """
+        return self.history[-1] if self.history else None
 
     def validate_scenario(self):
         """
@@ -211,8 +242,7 @@ class BranchingXBlock(XBlock):
             get_site_configuration_value("branching_xblock", "AUTHORING_HELP_HTML") or ""
         )
         init_data = {
-            "nodes": self.scenario_data.get("nodes", {}),
-            "start_node_id": self.scenario_data.get("start_node_id"),
+            "nodes":       self.scenario_data.get("nodes", []),
             "enable_undo": bool(self.enable_undo),
             "enable_scoring": bool(self.enable_scoring),
             "enable_hints": bool(self.enable_hints),
@@ -225,8 +255,17 @@ class BranchingXBlock(XBlock):
         return frag
 
     def _get_state(self):
+        nodes = self.scenario_data.get("nodes", {})
+        nodes_with_defaults = {
+            node_id: {
+                **node,
+                "overlay_text": bool(node.get("overlay_text", False)),
+            }
+            for node_id, node in nodes.items()
+        }
+
         return {
-            "nodes":           self.scenario_data.get("nodes", {}),
+            "nodes":           nodes_with_defaults,
             "start_node_id":   self.scenario_data.get("start_node_id"),
             "enable_undo":     bool(self.enable_undo),
             "enable_scoring":  bool(self.enable_scoring),
@@ -323,6 +362,7 @@ class BranchingXBlock(XBlock):
                 },
                 'choices': raw.get('choices', []),
                 'hint':     raw.get('hint', ''),
+                'overlay_text': bool(raw.get('overlay_text', False)),
                 'transcript_url': raw.get('transcript_url', ''),
             })
 
@@ -359,6 +399,7 @@ class BranchingXBlock(XBlock):
                 'media':    node['media'],
                 'choices':  cleaned,
                 'hint': node.get('hint', ''),
+                'overlay_text': bool(node.get('overlay_text', False)),
                 'transcript_url': node.get('transcript_url', ''),
             })
 

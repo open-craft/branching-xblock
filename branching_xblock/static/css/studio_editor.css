@@ -239,3 +239,18 @@
     margin-top: 0.25em;
     font-style: italic;
 }
+
+.overlay-text-control {
+    margin-bottom: 1em;
+}
+
+.overlay-text-control.is-hidden {
+    display: none;
+}
+
+.overlay-text-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    font-weight: 600;
+}

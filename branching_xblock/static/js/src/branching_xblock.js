@@ -89,6 +89,9 @@ function BranchingXBlock(runtime, element) {
 
         const media = (node && node.media) || {};
         const mediaUrl = media.url || '';
+        const contentHtml = (node && node.content) || '';
+        const overlayEnabled = Boolean(node?.overlay_text && media.type === 'image');
+
         const $media = $el.find('[data-role="media"]');
         const $transcript = $el.find('[data-role="transcript"]');
         const setTranscript = (href) => {
@@ -98,7 +101,16 @@ function BranchingXBlock(runtime, element) {
                 $transcript.prop('hidden', true).empty();
             }
         };
-        if (media.type === 'image') {
+        if (media.type === 'image' && overlayEnabled) {
+            $media.html(`
+                <div class="media-overlay">
+                    <img src="${media.url}" alt=""/>
+                    <div class="media-overlay__text">
+                        ${contentHtml}
+                    </div>
+                </div>
+            `);
+        } else if (media.type === 'image') {
             $media.html(`<img src="${mediaUrl}" alt=""/>`);
             setTranscript(null);
         } else if (media.type === 'audio') {
@@ -121,8 +133,12 @@ function BranchingXBlock(runtime, element) {
             setTranscript(null);
         }
         // Content
-        const nodeContent = (node && node.content) || '';
-        $el.find('[data-role="content"]').html(nodeContent);
+        const $content = $el.find('[data-role="content"]');
+        if (overlayEnabled) {
+            $content.empty();
+        } else {
+            $content.html(contentHtml);
+        }
 
         // Hint
         const nodeId = node?.id || null;
