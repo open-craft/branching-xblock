@@ -188,10 +188,12 @@ function BranchingXBlock(runtime, element) {
         });
         const hasChoices = choices.length > 0;
         $el.find('[data-role="choice-heading"]').toggle(hasChoices);
-        $submitButton.closest('.choice-actions').toggle(hasChoices || canUndo);
-        $submitButton.toggle(hasChoices);
+        const disableSubmit = !hasChoices || selectedChoiceIndex === null;
+        $submitButton.prop('disabled', disableSubmit);
 
-        $el.find('.undo-button').toggle(canUndo);
+        $el.find('.undo-button')
+            .prop('disabled', !canUndo)
+            .toggleClass('is-disabled', !canUndo);
 
         const $score = $el.find('[data-role="score"]');
         const isLeaf = choices.length === 0;

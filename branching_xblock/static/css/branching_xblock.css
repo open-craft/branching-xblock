@@ -280,6 +280,11 @@
     color: #1f2a37;
 }
 
+.undo-button.is-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .score-display {
     padding: 1em 1em;
     font-size: small;
