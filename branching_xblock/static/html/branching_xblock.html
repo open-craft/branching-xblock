@@ -11,11 +11,20 @@
                 <div data-role="hint" class="node-hint px-2 py-3"></div>
             </details>
         </div>
-        <div class="choices" data-role="choices"></div>
-
-        <button class="undo-button action-secondary btn-secondary" data-role="undo" style="display: none;">
-            <i class="fa fa-undo" aria-hidden="true"></i>&nbsp;Undo
-        </button>
+        <div class="choices" data-role="choices">
+            <h3 class="choices-heading" data-role="choice-heading">Choose Next Step:</h3>
+            <form class="choices-form" data-role="choice-form">
+                <div class="choices-list" data-role="choice-list"></div>
+                <div class="choice-actions">
+                    <button type="button" class="undo-button action-secondary btn-secondary" data-role="undo" style="display: none;">
+                        Go Back
+                    </button>
+                    <button type="submit" class="choice-submit-button action-primary" data-role="submit-choice" disabled>
+                        Submit
+                    </button>
+                </div>
+            </form>
+        </div>
 
         <div class="score-display" data-role="score" style="display: none;"></div>
     </div>

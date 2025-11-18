@@ -3,6 +3,7 @@ function BranchingXBlock(runtime, element) {
 
     let currentHintNodeId = null;
     let isHintVisible = false;
+    let selectedChoiceIndex = null;
 
     const MEDIA_FILE_REGEX = /\.(mp4|webm|ogg|mp3|wav)(\?|#|$)/i;
 
@@ -160,19 +161,36 @@ function BranchingXBlock(runtime, element) {
         }
 
         // Choices
-        const $choices = $el.find('[data-role="choices"]').empty();
+        const $choiceForm = $el.find('[data-role="choice-form"]');
+        const $choiceList = $el.find('[data-role="choice-list"]').empty();
+        const $submitButton = $el.find('[data-role="submit-choice"]').prop('disabled', true);
         const choices = node.choices || [];
-        choices.forEach((choice, idx) => {
-            $('<button>')
-            .addClass('choice-button bg-primary')
-            .text(choice.text)
-            .attr('data-choice-index', idx)
-            .appendTo($choices);
-        });
-
-        $choices.addClass('choices-inline');
-
         const canUndo = state.enable_undo && state.history.length > 0;
+        selectedChoiceIndex = null;
+        choices.forEach((choice, idx) => {
+            const choiceId = `choice-${node.id || 'node'}-${idx}`;
+            const $label = $('<label>')
+                .addClass('choice-option')
+                .attr('for', choiceId);
+            const $input = $('<input>')
+                .attr({
+                    type: 'radio',
+                    name: 'branching-choice',
+                    id: choiceId,
+                    value: idx,
+                })
+                .addClass('choice-option__input');
+            const $text = $('<span>')
+                .addClass('choice-option__text')
+                .text(choice.text || `Choice ${idx + 1}`);
+            $label.append($input).append($text);
+            $choiceList.append($label);
+        });
+        const hasChoices = choices.length > 0;
+        $el.find('[data-role="choice-heading"]').toggle(hasChoices);
+        $submitButton.closest('.choice-actions').toggle(hasChoices || canUndo);
+        $submitButton.toggle(hasChoices);
+
         $el.find('.undo-button').toggle(canUndo);
 
         const $score = $el.find('[data-role="score"]');
@@ -198,15 +216,27 @@ function BranchingXBlock(runtime, element) {
         setHintVisibility(this.open);
     });
 
-    // Handle a choice click
-    $el.on('click', '.choice-button', function() {
-      const idx = +$(this).attr('data-choice-index');
-      $.ajax({
-        url: runtime.handlerUrl(element, 'select_choice'),
-        type: 'POST',
-        data: JSON.stringify({ choice_index: idx }),
-        contentType: 'application/json'
-      }).done(refreshView);
+    $el.on('change', 'input[name="branching-choice"]', function() {
+        selectedChoiceIndex = Number(this.value);
+        $el.find('[data-role="submit-choice"]').prop('disabled', false);
+        $el.find('.choice-option').removeClass('is-selected');
+        $(this).closest('.choice-option').addClass('is-selected');
+    });
+
+    $el.on('submit', '[data-role="choice-form"]', function(event) {
+        event.preventDefault();
+        if (selectedChoiceIndex === null) {
+            return;
+        }
+        $.ajax({
+            url: runtime.handlerUrl(element, 'select_choice'),
+            type: 'POST',
+            data: JSON.stringify({ choice_index: selectedChoiceIndex }),
+            contentType: 'application/json'
+        }).done(() => {
+            selectedChoiceIndex = null;
+            refreshView();
+        });
     });
 
     $el.on('click', '.undo-button', function() {
