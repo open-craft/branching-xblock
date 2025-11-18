@@ -176,3 +176,9 @@
     gap: 0.5em;
     font-weight: 600;
 }
+
+.overlay-text-help {
+    margin: 0.5em 0 0;
+    font-size: 0.85em;
+    color: #555;
+}
