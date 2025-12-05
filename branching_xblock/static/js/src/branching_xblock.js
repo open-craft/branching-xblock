@@ -4,6 +4,73 @@ function BranchingXBlock(runtime, element) {
     let currentHintNodeId = null;
     let isHintVisible = false;
 
+    const MEDIA_FILE_REGEX = /\.(mp4|webm|ogg|mp3|wav)(\?|#|$)/i;
+
+    function isMediaFile(url) {
+        return MEDIA_FILE_REGEX.test(url || '');
+    }
+
+    function normalizeYouTube(url) {
+        try {
+            const u = new URL(url);
+            const host = u.hostname.toLowerCase();
+            if (!host.includes('youtube.com') && !host.includes('youtu.be')) {
+                return null;
+            }
+            let videoId = u.searchParams.get('v');
+            if (!videoId && host.includes('youtu.be')) {
+                videoId = u.pathname.split('/').filter(Boolean)[0];
+            }
+            if (!videoId && u.pathname.includes('/embed/')) {
+                videoId = u.pathname.split('/').filter(Boolean).pop();
+            }
+            if (!videoId && u.pathname.includes('/shorts/')) {
+                videoId = u.pathname.split('/').filter(Boolean).pop();
+            }
+            return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function normalizeVimeo(url) {
+        try {
+            const u = new URL(url);
+            const host = u.hostname.toLowerCase();
+            if (!host.includes('vimeo.com')) {
+                return null;
+            }
+            const parts = u.pathname.split('/').filter(Boolean);
+            const last = parts.pop();
+            if (last && /^\d+$/.test(last)) {
+                return `https://player.vimeo.com/video/${last}`;
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function normalizePanopto(url) {
+        try {
+            const u = new URL(url);
+            if (!u.hostname.toLowerCase().includes('panopto')) {
+                return null;
+            }
+            const id = u.searchParams.get('id');
+            if (!id) {
+                return null;
+            }
+            return `${u.origin}/Panopto/Pages/Embed.aspx?id=${id}&autoplay=false`;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function iframeHtml(src) {
+        return `<div class="bx-media-embed"><iframe src="${src}" title="Embedded media" allow="autoplay; fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe></div>`;
+    }
+
     function setHintVisibility(visible) {
         const $details = $el.find('[data-role="hint-collapsible"]');
         isHintVisible = Boolean(visible);
@@ -24,13 +91,24 @@ function BranchingXBlock(runtime, element) {
         $el.find('[data-role="active"]').show();
 
         const media = (node && node.media) || {};
+        const mediaUrl = media.url || '';
         const $media = $el.find('[data-role="media"]');
         if (media.type === 'image') {
-            $media.html(`<img src="${media.url}" alt=""/>`);
+            $media.html(`<img src="${mediaUrl}" alt=""/>`);
+        } else if (media.type === 'audio') {
+            $media.html(`<audio src="${mediaUrl}" controls />`);
         } else if (media.type === 'video') {
-            $media.html(`<video src="${media.url}" controls />`);
-        } else if (media.type === 'audio'){
-            $media.html(`<audio src="${media.url}" controls />`);
+            if (!mediaUrl) {
+                $media.empty();
+            } else if (isMediaFile(mediaUrl)) {
+                $media.html(`<video src="${mediaUrl}" controls />`);
+            } else {
+                const yt = normalizeYouTube(mediaUrl);
+                const vm = normalizeVimeo(mediaUrl);
+                const pn = normalizePanopto(mediaUrl);
+                const embedUrl = yt || vm || pn || mediaUrl;
+                $media.html(iframeHtml(embedUrl));
+            }
         } else {
             $media.empty();
         }
