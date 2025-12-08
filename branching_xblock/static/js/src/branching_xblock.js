@@ -71,6 +71,10 @@ function BranchingXBlock(runtime, element) {
         return `<div class="bx-media-embed"><iframe src="${src}" title="Embedded media" allow="autoplay; fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe></div>`;
     }
 
+    function transcriptLink(href) {
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer">Download transcript</a>`;
+    }
+
     function setHintVisibility(visible) {
         const $details = $el.find('[data-role="hint-collapsible"]');
         isHintVisible = Boolean(visible);
@@ -93,24 +97,38 @@ function BranchingXBlock(runtime, element) {
         const media = (node && node.media) || {};
         const mediaUrl = media.url || '';
         const $media = $el.find('[data-role="media"]');
+        const $transcript = $el.find('[data-role="transcript"]');
+        const setTranscript = (href) => {
+            if (href) {
+                $transcript.html(transcriptLink(href)).prop('hidden', false);
+            } else {
+                $transcript.prop('hidden', true).empty();
+            }
+        };
         if (media.type === 'image') {
             $media.html(`<img src="${mediaUrl}" alt=""/>`);
+            setTranscript(null);
         } else if (media.type === 'audio') {
             $media.html(`<audio src="${mediaUrl}" controls />`);
+            setTranscript(node && node.transcript_url);
         } else if (media.type === 'video') {
             if (!mediaUrl) {
                 $media.empty();
+                setTranscript(null);
             } else if (isMediaFile(mediaUrl)) {
                 $media.html(`<video src="${mediaUrl}" controls />`);
+                setTranscript(node && node.transcript_url);
             } else {
                 const yt = normalizeYouTube(mediaUrl);
                 const vm = normalizeVimeo(mediaUrl);
                 const pn = normalizePanopto(mediaUrl);
                 const embedUrl = yt || vm || pn || mediaUrl;
                 $media.html(iframeHtml(embedUrl));
+                setTranscript(node && node.transcript_url);
             }
         } else {
             $media.empty();
+            setTranscript(null);
         }
         // Content
         $el.find('[data-role="content"]').html(

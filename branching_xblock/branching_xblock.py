@@ -338,7 +338,8 @@ class BranchingXBlock(XBlock):
                     'url':  raw.get('media', {}).get('url', '')
                 },
                 'choices': raw.get('choices', []),
-                'hint':     raw.get('hint', '')
+                'hint':     raw.get('hint', ''),
+                'transcript_url': raw.get('transcript_url', ''),
             })
 
         # 2) Remap choice targets & clean arrays
@@ -373,7 +374,8 @@ class BranchingXBlock(XBlock):
                 'content':  node['content'],
                 'media':    node['media'],
                 'choices':  cleaned,
-                'hint': node.get('hint', '')
+                'hint': node.get('hint', ''),
+                'transcript_url': node.get('transcript_url', ''),
             })
 
         # 3) Persist scenario_data & settings

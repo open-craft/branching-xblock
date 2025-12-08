@@ -49,6 +49,21 @@
     border: none;
 }
 
+.branching-scenario .transcript-link {
+    padding: 0 1em 1em;
+    font-size: 0.95em;
+}
+
+.branching-scenario .transcript-link a {
+    color: #0a6ebd;
+    text-decoration: none;
+}
+
+.branching-scenario .transcript-link a:hover,
+.branching-scenario .transcript-link a:focus {
+    text-decoration: underline;
+}
+
 .branching-scenario .node-media audio {
     width: auto;
     max-width: 100%;
