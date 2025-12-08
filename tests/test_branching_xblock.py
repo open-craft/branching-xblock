@@ -69,13 +69,15 @@ def test_studio_submit_creates_scenario(rf, block):
                 "id": "temp-1",
                 "content": "First node",
                 "media": {"type": "image", "url": "http://img"},
-                "choices": [{"text": "Go to 2", "target_node_id": "temp-2"}]
+                "choices": [{"text": "Go to 2", "target_node_id": "temp-2"}],
+                "transcript_url": ""
             },
             {
                 "id": "temp-2",
                 "content": "Second node",
                 "media": {"type": "", "url": ""},
-                "choices": []
+                "choices": [],
+                "transcript_url": "http://example.com/t.vtt"
             }
         ],
         "enable_undo": True,
@@ -96,6 +98,7 @@ def test_studio_submit_creates_scenario(rf, block):
     second_node = node_list[1]
     assert block.scenario_data["start_node_id"] == first_node["id"]
     assert first_node["choices"][0]["target_node_id"] == second_node["id"]
+    assert second_node["transcript_url"] == "http://example.com/t.vtt"
     assert block.enable_undo is True
     assert block.enable_scoring is True
     assert block.max_score == 77
