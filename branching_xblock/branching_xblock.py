@@ -234,6 +234,7 @@ class BranchingXBlock(XBlock):
             "enable_undo": bool(self.enable_undo),
             "enable_scoring": bool(self.enable_scoring),
             "max_score":   self.max_score,
+            "display_name": self.display_name,
         }
         # Initialize JS
         frag.initialize_js('BranchingStudioEditor', init_data)
@@ -247,6 +248,7 @@ class BranchingXBlock(XBlock):
             "enable_scoring":  bool(self.enable_scoring),
             "enable_hints":    bool(self.enable_hints),
             "max_score":       self.max_score,
+            "display_name":    self.display_name,
             "current_node":    self.get_current_node(),
             "history":         list(self.history),
             "has_completed":   bool(self.has_completed),
@@ -384,6 +386,7 @@ class BranchingXBlock(XBlock):
         self.enable_scoring = bool(payload.get('enable_scoring', self.enable_scoring))
         self.enable_hints = bool(payload.get('enable_hints', self.enable_hints))
         self.max_score = float(payload.get('max_score', self.max_score))
+        self.display_name = payload.get('display_name', self.display_name)
 
         # 4) Validate & respond
         errors = self.validate_scenario()
