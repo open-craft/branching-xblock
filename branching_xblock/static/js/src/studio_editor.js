@@ -37,7 +37,7 @@ function BranchingStudioEditor(runtime, element, data) {
     if (!nodes.length) {
       nodes.push({
         id: 'temp',
-        content: '',
+        content: state.first_node_html || '',
         media: {type: '', url: ''},
         choices: [],
         hint: '',
@@ -48,6 +48,9 @@ function BranchingStudioEditor(runtime, element, data) {
     $editor.append(Templates['settings-panel'](state));
 
     nodes.forEach((node, idx) => {
+      if (!node.content && idx === 0 && state.first_node_html) {
+        node.content = state.first_node_html;
+      }
 
       const options = nodes.map((n, j) => ({
         id: n.id,

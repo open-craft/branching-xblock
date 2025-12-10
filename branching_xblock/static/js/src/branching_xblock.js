@@ -131,9 +131,8 @@ function BranchingXBlock(runtime, element) {
             setTranscript(null);
         }
         // Content
-        $el.find('[data-role="content"]').html(
-            (node && node.content) || ''
-        );
+        const nodeContent = (node && node.content) || '';
+        $el.find('[data-role="content"]').html(nodeContent);
 
         // Hint
         const nodeId = node?.id || null;
