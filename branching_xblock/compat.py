@@ -3,11 +3,12 @@ Compatibility helpers for optional Open edX imports and sanitization.
 """
 from html import escape
 from typing import Any
+
 from django.conf import settings
 
 try:
-    import bleach
-except Exception:  # pragma: no cover - fallback if bleach isn't installed
+    import bleach  # pylint: disable=import-error
+except Exception:  # pylint: disable=broad-exception-caught
     bleach = None
 
 
@@ -74,19 +75,7 @@ def _get_site_configuration_value(domain: str, key: str, default: Any = None) ->
 
 def get_site_configuration_value(block_settings_key: str, config_key: str) -> str | None:
     """
-    Retrieve configuration value from site configuration based on execution context.
-
-    In Open edX, site configurations are defined separately for LMS and CMS (Studio)
-    environments. API keys are typically stored in the LMS site configuration.
-    This function handles the different contexts:
-
-    In LMS: Get the API key directly from the current site configuration.
-    In CMS: Get the API key using LMS site configuration.
-        The LMS domain is retrieved from CMS site configuration or Django settings.
-
-    This special handling is necessary because when an XBlock is being edited in Studio,
-    it needs to access API keys that are stored in the corresponding LMS site configuration,
-    not in the Studio site configuration.
+    Retrieve a value from site configuration for LMS/Studio contexts.
 
     Args:
         block_settings_key: The key under which block settings are stored.

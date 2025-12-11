@@ -1,4 +1,6 @@
 import json
+from unittest import mock
+
 import pytest
 
 from django.test.client import RequestFactory
@@ -40,6 +42,18 @@ def block(runtime, scope_ids):
         BranchingXBlock,
         scope_ids=scope_ids
     )
+
+
+@pytest.fixture(autouse=True)
+def _mock_site_config():
+    """
+    Prevent tests from depending on compat.py/site configuration lookups.
+    """
+    with mock.patch(
+        "branching_xblock.branching_xblock.get_site_configuration_value",
+        return_value="",
+    ):
+        yield
 
 
 def test_get_current_state_empty(rf, block):
