@@ -15,7 +15,7 @@ DEFAULT_ALLOWED_TAGS = [
     "p",
     "br",
     "strong",
-    "b"
+    "b",
     "em",
     "u",
     "h3",
