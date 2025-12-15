@@ -10,58 +10,51 @@ function BranchingXBlock(runtime, element) {
         return MEDIA_FILE_REGEX.test(url || '');
     }
 
-    function normalizeYouTube(url) {
+    function normalizeYouTube(u, host) {
+        if (!host.includes('youtube.com') && !host.includes('youtu.be')) {
+            return null;
+        }
+        let videoId = u.searchParams.get('v');
+        if (!videoId && host.includes('youtu.be')) {
+            videoId = u.pathname.split('/').filter(Boolean)[0];
+        }
+        if (!videoId && u.pathname.includes('/embed/')) {
+            videoId = u.pathname.split('/').filter(Boolean).pop();
+        }
+        if (!videoId && u.pathname.includes('/shorts/')) {
+            videoId = u.pathname.split('/').filter(Boolean).pop();
+        }
+        return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+    }
+
+    function normalizeVimeo(u, host) {
+        if (!host.includes('vimeo.com')) {
+            return null;
+        }
+        const parts = u.pathname.split('/').filter(Boolean);
+        const last = parts.pop();
+        if (last && /^\d+$/.test(last)) {
+            return `https://player.vimeo.com/video/${last}`;
+        }
+        return null;
+    }
+
+    function normalizePanopto(u, host) {
+        if (!host.includes('panopto')) {
+            return null;
+        }
+        const id = u.searchParams.get('id');
+        if (!id) {
+            return null;
+        }
+        return `${u.origin}/Panopto/Pages/Embed.aspx?id=${id}&autoplay=false`;
+    }
+
+    function normalizeEmbedUrl(url) {
         try {
             const u = new URL(url);
             const host = u.hostname.toLowerCase();
-            if (!host.includes('youtube.com') && !host.includes('youtu.be')) {
-                return null;
-            }
-            let videoId = u.searchParams.get('v');
-            if (!videoId && host.includes('youtu.be')) {
-                videoId = u.pathname.split('/').filter(Boolean)[0];
-            }
-            if (!videoId && u.pathname.includes('/embed/')) {
-                videoId = u.pathname.split('/').filter(Boolean).pop();
-            }
-            if (!videoId && u.pathname.includes('/shorts/')) {
-                videoId = u.pathname.split('/').filter(Boolean).pop();
-            }
-            return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function normalizeVimeo(url) {
-        try {
-            const u = new URL(url);
-            const host = u.hostname.toLowerCase();
-            if (!host.includes('vimeo.com')) {
-                return null;
-            }
-            const parts = u.pathname.split('/').filter(Boolean);
-            const last = parts.pop();
-            if (last && /^\d+$/.test(last)) {
-                return `https://player.vimeo.com/video/${last}`;
-            }
-            return null;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function normalizePanopto(url) {
-        try {
-            const u = new URL(url);
-            if (!u.hostname.toLowerCase().includes('panopto')) {
-                return null;
-            }
-            const id = u.searchParams.get('id');
-            if (!id) {
-                return null;
-            }
-            return `${u.origin}/Panopto/Pages/Embed.aspx?id=${id}&autoplay=false`;
+            return normalizeYouTube(u, host) || normalizeVimeo(u, host) || normalizePanopto(u, host);
         } catch (e) {
             return null;
         }
@@ -119,10 +112,7 @@ function BranchingXBlock(runtime, element) {
                 $media.html(`<video src="${mediaUrl}" controls />`);
                 setTranscript(node && node.transcript_url);
             } else {
-                const yt = normalizeYouTube(mediaUrl);
-                const vm = normalizeVimeo(mediaUrl);
-                const pn = normalizePanopto(mediaUrl);
-                const embedUrl = yt || vm || pn || mediaUrl;
+                const embedUrl = normalizeEmbedUrl(mediaUrl) || mediaUrl;
                 $media.html(iframeHtml(embedUrl));
                 setTranscript(node && node.transcript_url);
             }

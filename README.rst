@@ -74,6 +74,26 @@ To build and run it:
 
 The XBlock SDK Workbench, including this XBlock, will be available on the list of XBlocks at http://localhost:8000
 
+Site-config first-node message
+******************************
+
+Admins can define a global HTML snippet that is used as the default content for the first node in the Studio editor when that node has no content yet.
+
+- Configure this in Django SiteConfiguration ``site_values`` under the key ``branching_xblock``:
+
+  .. code-block:: json
+
+      {
+        "branching_xblock": {
+          "FIRST_NODE_HTML": "<p>Welcome to the scenario.</p>"
+        }
+      }
+
+- This value is sanitized server-side (via ``bleach`` when available). Allowed tags:
+  ``p``, ``br``, ``strong``, ``b``, ``em``, ``u``, ``h3``, ``h4``, ``h5``, ``h6``, ``hr``, ``ul``, ``ol``, ``li``, ``a``.
+  Allowed attributes: links permit ``href``, ``title``, ``target``, ``rel``.
+- Behavior note: this snippet is not automatically prepended/appended at runtime in the learner view; it is only used to pre-fill empty first-node content in Studio.
+
 Translating
 ***********
 
