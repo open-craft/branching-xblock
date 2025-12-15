@@ -118,6 +118,41 @@ def test_studio_submit_creates_scenario(rf, block):
     assert block.max_score == 77
 
 
+def test_studio_submit_persists_display_name(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "First node",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+                "transcript_url": "",
+            },
+        ],
+        "enable_undo": False,
+        "enable_scoring": False,
+        "max_score": 0,
+        "display_name": "My Branching Scenario",
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+    assert result["result"] == "success"
+    assert block.display_name == "My Branching Scenario"
+
+
+def test_get_current_state_includes_display_name(rf, block):
+    block.scenario_data = {
+        "nodes": {"X": {"id": "X", "type": "start", "choices": []}},
+        "start_node_id": "X",
+    }
+    block.display_name = "Scenario Title"
+    req = rf.post("/", data=json.dumps({}), content_type="application/json")
+    resp = block.get_current_state(req)
+    state = json.loads(resp.body.decode("utf-8"))
+    assert state["display_name"] == "Scenario Title"
+
+
 def test_studio_submit_fails_on_invalid_target(rf, block):
     """
     If a choice points to a node-ID that isn't in the draft,
@@ -240,3 +275,22 @@ def test_get_current_state_includes_expected_fields(rf, block):
     assert isinstance(state["nodes"], dict)
     for key in ("current_node", "history", "has_completed", "score"):
         assert key in state
+
+
+def test_get_current_state_includes_first_node_html_from_site_config(rf, block):
+    with mock.patch(
+        "branching_xblock.branching_xblock.get_site_configuration_value",
+        return_value="<p>Welcome</p>",
+    ), mock.patch(
+        "branching_xblock.branching_xblock.sanitize_html",
+        return_value="<p>Welcome</p>",
+    ) as sanitize_html:
+        block.scenario_data = {
+            "nodes": {"X": {"id": "X", "type": "start", "choices": []}},
+            "start_node_id": "X",
+        }
+        req = rf.post("/", data=json.dumps({}), content_type="application/json")
+        resp = block.get_current_state(req)
+        state = json.loads(resp.body.decode("utf-8"))
+        assert state["first_node_html"] == "<p>Welcome</p>"
+        sanitize_html.assert_called_once_with("<p>Welcome</p>")
