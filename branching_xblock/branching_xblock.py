@@ -10,6 +10,8 @@ from xblock.core import XBlock
 from xblock.fields import Boolean, Dict, Float, List, Scope, String
 from xblock.utils.resources import ResourceLoader
 
+from .compat import get_site_configuration_value, sanitize_html
+
 resource_loader = ResourceLoader(__name__)
 
 logger = logging.getLogger(__name__)
@@ -229,17 +231,25 @@ class BranchingXBlock(XBlock):
         frag.add_javascript(self.resource_string("js/src/studio_editor.js"))
         frag.add_css(self.resource_string("css/studio_editor.css"))
 
+        first_node_html = sanitize_html(
+            get_site_configuration_value("branching_xblock", "FIRST_NODE_HTML") or ""
+        )
         init_data = {
             "nodes":       self.scenario_data.get("nodes", []),
             "enable_undo": bool(self.enable_undo),
             "enable_scoring": bool(self.enable_scoring),
             "max_score":   self.max_score,
+            "display_name": self.display_name,
+            "first_node_html": first_node_html,
         }
         # Initialize JS
         frag.initialize_js('BranchingStudioEditor', init_data)
         return frag
 
     def _get_state(self):
+        first_node_html = sanitize_html(
+            get_site_configuration_value("branching_xblock", "FIRST_NODE_HTML") or ""
+        )
         return {
             "nodes":           self.scenario_data.get("nodes", {}),
             "start_node_id":   self.scenario_data.get("start_node_id"),
@@ -247,10 +257,12 @@ class BranchingXBlock(XBlock):
             "enable_scoring":  bool(self.enable_scoring),
             "enable_hints":    bool(self.enable_hints),
             "max_score":       self.max_score,
+            "display_name":    self.display_name,
             "current_node":    self.get_current_node(),
             "history":         list(self.history),
             "has_completed":   bool(self.has_completed),
             "score":           self.score,
+            "first_node_html": first_node_html,
         }
 
     @XBlock.json_handler
@@ -336,7 +348,8 @@ class BranchingXBlock(XBlock):
                     'url':  raw.get('media', {}).get('url', '')
                 },
                 'choices': raw.get('choices', []),
-                'hint':     raw.get('hint', '')
+                'hint':     raw.get('hint', ''),
+                'transcript_url': raw.get('transcript_url', ''),
             })
 
         # 2) Remap choice targets & clean arrays
@@ -371,7 +384,8 @@ class BranchingXBlock(XBlock):
                 'content':  node['content'],
                 'media':    node['media'],
                 'choices':  cleaned,
-                'hint': node.get('hint', '')
+                'hint': node.get('hint', ''),
+                'transcript_url': node.get('transcript_url', ''),
             })
 
         # 3) Persist scenario_data & settings
@@ -384,6 +398,7 @@ class BranchingXBlock(XBlock):
         self.enable_scoring = bool(payload.get('enable_scoring', self.enable_scoring))
         self.enable_hints = bool(payload.get('enable_hints', self.enable_hints))
         self.max_score = float(payload.get('max_score', self.max_score))
+        self.display_name = payload.get('display_name', self.display_name)
 
         # 4) Validate & respond
         errors = self.validate_scenario()

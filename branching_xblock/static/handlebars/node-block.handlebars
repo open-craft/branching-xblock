@@ -15,6 +15,12 @@
       <option value="audio" {{#if (eq node.media.type 'audio')}}selected{{/if}}>Audio</option>
     </select>
     <input type="text" class="media-url" placeholder="URL" value="{{node.media.url}}"/>
+    <p class="editor-note">Supports direct media files (.mp4/.webm/.mp3) or links from YouTube, Vimeo, Panopto.</p>
+    <div class="transcript-field">
+      <label class="transcript-label">Transcript URL (for audio/video):
+        <input type="text" class="transcript-url" placeholder="https://..." value="{{node.transcript_url}}" />
+      </label>
+    </div>
   </label>
   <label>Hint:<br/>
     <textarea class="node-hint">{{node.hint}}</textarea>

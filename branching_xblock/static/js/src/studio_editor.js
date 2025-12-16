@@ -37,16 +37,20 @@ function BranchingStudioEditor(runtime, element, data) {
     if (!nodes.length) {
       nodes.push({
         id: 'temp',
-        content: '',
+        content: state.first_node_html || '',
         media: {type: '', url: ''},
         choices: [],
-        hint: ''
+        hint: '',
+        transcript_url: ''
       });
     }
 
     $editor.append(Templates['settings-panel'](state));
 
     nodes.forEach((node, idx) => {
+      if (!node.content && idx === 0 && state.first_node_html) {
+        node.content = state.first_node_html;
+      }
 
       const options = nodes.map((n, j) => ({
         id: n.id,
@@ -69,6 +73,7 @@ function BranchingStudioEditor(runtime, element, data) {
 
     bindInteractions();
     bindActions();
+    updateTranscriptVisibility();
   }
 
   function updateChoiceUI() {
@@ -114,6 +119,19 @@ function BranchingStudioEditor(runtime, element, data) {
     });
   }
 
+  function updateTranscriptVisibility($scope) {
+    const $target = $scope ? $scope.find('.media-type') : $editor.find('.media-type');
+    $target.each(function() {
+      const type = $(this).val();
+      const $field = $(this).closest('label').find('.transcript-field');
+      if (type === 'audio' || type === 'video') {
+        $field.show();
+      } else {
+        $field.hide();
+      }
+    });
+  }
+
   function bindInteractions() {
     $editor.find('.btn-delete-node').off('click').on('click', function() {
       $(this).closest('.node-block').remove();
@@ -122,6 +140,10 @@ function BranchingStudioEditor(runtime, element, data) {
                .find('.node-title').text(`Node ${i+1}`);
       });
       updateChoiceUI();
+    });
+
+    $editor.find('.media-type').off('change').on('change', function() {
+      updateTranscriptVisibility($(this).closest('.node-block'));
     });
 
     $editor.off('click', '.btn-add-choice').on('click', '.btn-add-choice', function() {
@@ -152,7 +174,8 @@ function BranchingStudioEditor(runtime, element, data) {
           content: '',
           media:   { type: '', url: '' },
           choices: [],
-          hint:    ''
+          hint:    '',
+          transcript_url: ''
         },
         idx
       };
@@ -161,6 +184,7 @@ function BranchingStudioEditor(runtime, element, data) {
       $(this).before($newNode);
       bindInteractions();
       updateChoiceUI();
+      updateTranscriptVisibility($newNode);
     });
   }
 
@@ -174,7 +198,8 @@ function BranchingStudioEditor(runtime, element, data) {
           enable_undo:    $settings.find('[name="enable_undo"]').is(':checked'),
           enable_scoring: $settings.find('[name="enable_scoring"]').is(':checked'),
           enable_hints:   $settings.find('[name="enable_hints"]').is(':checked'),
-          max_score:      parseFloat($settings.find('[name="max_score"]').val()) || 0
+          max_score:      parseFloat($settings.find('[name="max_score"]').val()) || 0,
+          display_name:   $settings.find('[name="display_name"]').val()?.trim() || ''
       };
 
       $editor.find('.node-block').each(function() {
@@ -184,6 +209,7 @@ function BranchingStudioEditor(runtime, element, data) {
         const mediaType = $n.find('.media-type').val();
         const choices = [];
         const nodeHint = $n.find('.node-hint').val()?.trim() || '';
+        const transcriptUrl = $n.find('.transcript-url').val()?.trim() || '';
 
         $n.find('.choice-row').each(function() {
           const $c = $(this);
@@ -193,13 +219,14 @@ function BranchingStudioEditor(runtime, element, data) {
               choices.push({ text: text, target_node_id: target });
           }
         });
-        if (content || mediaUrl || choices.length) {
+        if (content || mediaUrl || choices.length || transcriptUrl) {
           payload.nodes.push({
               id:     $n.data('node-id'),
               content,
               media:  { type: mediaType, url: mediaUrl },
               choices,
-              hint: nodeHint
+              hint: nodeHint,
+              transcript_url: transcriptUrl
           });
         }
       });
