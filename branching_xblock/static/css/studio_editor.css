@@ -51,7 +51,11 @@
     border: 1px solid #d0d0d0;
     border-radius: 4px;
     background: #f8f9fa;
-    padding: 0.5em 0.75em;
+    padding: 1em;
+    align-self: flex-start;
+    width: 100%;
+    max-width: 800px;
+    box-sizing: content-box;
 }
 
 .bx-authoring-help summary {
@@ -62,6 +66,7 @@
     cursor: pointer;
     user-select: none;
     padding: 0.25em 0;
+    color: #1d4ed8;
 }
 
 .bx-authoring-help summary::-webkit-details-marker {
@@ -71,12 +76,12 @@
 .bx-authoring-help summary::after {
     content: "▾";
     margin-left: auto;
-    transform: rotate(-90deg);
+    transform: rotate(0deg);
     transition: transform 150ms ease-in-out;
 }
 
 .bx-authoring-help[open] summary::after {
-    transform: rotate(0deg);
+    transform: rotate(180deg);
 }
 
 .bx-authoring-help summary:hover {
