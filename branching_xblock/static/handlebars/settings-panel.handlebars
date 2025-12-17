@@ -19,4 +19,10 @@
     Max Score:
     <input type="number" name="max_score" value="{{max_score}}"/>
   </label>
+  {{#if authoring_help_html}}
+    <details class="bx-authoring-help">
+      <summary>Content authoring guidelines</summary>
+      <div class="editor-note bx-authoring-help-body">{{{authoring_help_html}}}</div>
+    </details>
+  {{/if}}
 </div>

@@ -19,6 +19,7 @@ DEFAULT_ALLOWED_TAGS = [
     "b",
     "em",
     "u",
+    "code",
     "h3",
     "h4",
     "h5",
