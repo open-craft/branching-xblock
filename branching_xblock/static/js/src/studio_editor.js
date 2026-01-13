@@ -19,16 +19,6 @@ function BranchingStudioEditor(runtime, element, data) {
     return `temp-${i}`;
   };
 
-  function loadState() {
-      return $.ajax({
-        type: 'POST',
-        url: runtime.handlerUrl(element, 'get_current_state'),
-        data: '{}',
-        contentType: 'application/json; charset=utf-8',
-        dataType: 'json'
-      });
-  }
-
   function render(state) {
     $editor.empty();
     $errors.empty();
@@ -36,8 +26,8 @@ function BranchingStudioEditor(runtime, element, data) {
     const nodes = Object.values(state.nodes || {});
     if (!nodes.length) {
       nodes.push({
-        id: 'temp',
-        content: state.first_node_html || '',
+        id: uniqueId(),
+        content: '',
         media: {type: '', url: ''},
         choices: [],
         hint: '',
@@ -48,10 +38,6 @@ function BranchingStudioEditor(runtime, element, data) {
     $editor.append(Templates['settings-panel'](state));
 
     nodes.forEach((node, idx) => {
-      if (!node.content && idx === 0 && state.first_node_html) {
-        node.content = state.first_node_html;
-      }
-
       const options = nodes.map((n, j) => ({
         id: n.id,
         label: `Node ${j+1}`
@@ -82,7 +68,7 @@ function BranchingStudioEditor(runtime, element, data) {
         options[$(nb).data('node-id')] = `Node ${j+1}`;
       });
 
-    $('.choice-target').each((_, choice) => {
+    $editor.find('.choice-target').each((_, choice) => {
       const currentNodeId = $(choice).closest('.node-block').data('node-id');
       const availableIds = Object.keys(options).filter(opt => opt !== currentNodeId);
 
@@ -107,7 +93,7 @@ function BranchingStudioEditor(runtime, element, data) {
       });
 
       // add any new nodes
-      for (nodeId of availableIds) {
+      for (const nodeId of availableIds) {
         if (!seenIds.includes(nodeId)) {
           const $option = $('<option>');
           $option.val(nodeId);
@@ -257,5 +243,5 @@ function BranchingStudioEditor(runtime, element, data) {
     });
   }
 
-  loadState().then(render);
+  render(data || {});
 }

@@ -277,20 +277,29 @@ def test_get_current_state_includes_expected_fields(rf, block):
         assert key in state
 
 
-def test_get_current_state_includes_first_node_html_from_site_config(rf, block):
+def test_studio_view_passes_authoring_help_html_in_init_data(block):
+    calls = {}
+
+    def fake_initialize_js(_self, name, init_data):
+        calls["name"] = name
+        calls["init_data"] = init_data
+
     with mock.patch(
         "branching_xblock.branching_xblock.get_site_configuration_value",
-        return_value="<p>Welcome</p>",
+        side_effect=lambda _domain, key: "<p>Help</p>" if key == "AUTHORING_HELP_HTML" else "",
     ), mock.patch(
         "branching_xblock.branching_xblock.sanitize_html",
-        return_value="<p>Welcome</p>",
-    ) as sanitize_html:
-        block.scenario_data = {
-            "nodes": {"X": {"id": "X", "type": "start", "choices": []}},
-            "start_node_id": "X",
-        }
-        req = rf.post("/", data=json.dumps({}), content_type="application/json")
-        resp = block.get_current_state(req)
-        state = json.loads(resp.body.decode("utf-8"))
-        assert state["first_node_html"] == "<p>Welcome</p>"
-        sanitize_html.assert_called_once_with("<p>Welcome</p>")
+        side_effect=lambda v: v,
+    ), mock.patch(
+        "branching_xblock.branching_xblock.Fragment.initialize_js",
+        autospec=True,
+        side_effect=fake_initialize_js,
+    ), mock.patch.object(
+        block.runtime,
+        "local_resource_url",
+        return_value="http://example.com/handlebars.js",
+    ):
+        block.studio_view({})
+
+    assert calls["name"] == "BranchingStudioEditor"
+    assert calls["init_data"]["authoring_help_html"] == "<p>Help</p>"

@@ -1,6 +1,5 @@
 """Branching Scenario XBlock."""
 import json
-import logging
 import os
 import uuid
 from typing import Any, Optional
@@ -13,8 +12,6 @@ from xblock.utils.resources import ResourceLoader
 from .compat import get_site_configuration_value, sanitize_html
 
 resource_loader = ResourceLoader(__name__)
-
-logger = logging.getLogger(__name__)
 
 
 class BranchingXBlock(XBlock):
@@ -132,27 +129,6 @@ class BranchingXBlock(XBlock):
         node = self.get_node(node_id)
         return bool(node) and not node.get("choices")
 
-    def get_choice(self, node, choice_index):
-        """
-        Validate and return a choice from a node.
-        """
-        try:
-            return node["choices"][choice_index]
-        except (IndexError, KeyError, TypeError):
-            return None
-
-    def can_undo(self):
-        """
-        Check if undo is allowed and possible.
-        """
-        return self.enable_undo and len(self.history) > 0
-
-    def get_previous_node_id(self):
-        """
-        Get last node from history.
-        """
-        return self.history[-1] if self.history else None
-
     def validate_scenario(self):
         """
         Check for common configuration errors.
@@ -231,25 +207,24 @@ class BranchingXBlock(XBlock):
         frag.add_javascript(self.resource_string("js/src/studio_editor.js"))
         frag.add_css(self.resource_string("css/studio_editor.css"))
 
-        first_node_html = sanitize_html(
-            get_site_configuration_value("branching_xblock", "FIRST_NODE_HTML") or ""
+        authoring_help_html = sanitize_html(
+            get_site_configuration_value("branching_xblock", "AUTHORING_HELP_HTML") or ""
         )
         init_data = {
-            "nodes":       self.scenario_data.get("nodes", []),
+            "nodes": self.scenario_data.get("nodes", {}),
+            "start_node_id": self.scenario_data.get("start_node_id"),
             "enable_undo": bool(self.enable_undo),
             "enable_scoring": bool(self.enable_scoring),
+            "enable_hints": bool(self.enable_hints),
             "max_score":   self.max_score,
             "display_name": self.display_name,
-            "first_node_html": first_node_html,
+            "authoring_help_html": authoring_help_html,
         }
         # Initialize JS
         frag.initialize_js('BranchingStudioEditor', init_data)
         return frag
 
     def _get_state(self):
-        first_node_html = sanitize_html(
-            get_site_configuration_value("branching_xblock", "FIRST_NODE_HTML") or ""
-        )
         return {
             "nodes":           self.scenario_data.get("nodes", {}),
             "start_node_id":   self.scenario_data.get("start_node_id"),
@@ -262,7 +237,6 @@ class BranchingXBlock(XBlock):
             "history":         list(self.history),
             "has_completed":   bool(self.has_completed),
             "score":           self.score,
-            "first_node_html": first_node_html,
         }
 
     @XBlock.json_handler
