@@ -1,22 +1,32 @@
 function BranchingStudioEditor(runtime, element, data) {
   const Templates = {};
-  ['settings-panel','node-block','choice-row'].forEach(name => {
+  ['settings-step', 'nodes-step', 'node-list-item', 'node-editor', 'choice-row'].forEach(name => {
     const src = document.getElementById(name+'-tpl').innerHTML;
     Templates[name] = Handlebars.compile(src);
   });
   Handlebars.registerHelper('inc', value => parseInt(value,10) + 1);
   Handlebars.registerHelper('eq', (a,b) => a === b);
   const $root       = $(element);
-  const $editor     = $root.find('.branching-scenario-editor');
+  const $stepSettings = $root.find('[data-role="step-settings"]');
+  const $stepNodes = $root.find('[data-role="step-nodes"]');
   const $errors     = $root.find('.errors');
-  const $saveBtn    = $root.find('.save-button');
-  const $cancelBtn  = $root.find('.cancel-button');
+  const $continueBtn = $root.find('[data-role="continue"]');
+  const $saveBtn = $root.find('[data-role="save"]');
+  const $backBtn = $root.find('[data-role="back"]');
+  const $cancelBtn  = $root.find('[data-role="cancel"]');
 
   this.uniqueIdCount = 0;
 
   const uniqueId = () => {
     const i = this.uniqueIdCount++;
     return `temp-${i}`;
+  };
+
+  const wizard = {
+    currentStep: 'settings',
+    selectedNodeId: null,
+    draftSettings: {},
+    draftNodes: [],
   };
 
   function loadState() {
@@ -29,231 +39,215 @@ function BranchingStudioEditor(runtime, element, data) {
       });
   }
 
-  function render(state) {
-    $editor.empty();
-    $errors.empty();
+  function normalizeNode(raw) {
+    return {
+      id: raw?.id || uniqueId(),
+      content: raw?.content || '',
+      media: {
+        type: raw?.media?.type || '',
+        url: raw?.media?.url || '',
+      },
+      choices: Array.isArray(raw?.choices) ? raw.choices.map(c => ({
+        text: c?.text || '',
+        target_node_id: c?.target_node_id || '',
+      })) : [],
+      hint: raw?.hint || '',
+      overlay_text: Boolean(raw?.overlay_text),
+      transcript_url: raw?.transcript_url || '',
+    };
+  }
 
-    const nodes = Object.values(state.nodes || {});
+  function normalizeInitialState(state) {
+    const nodes = Object.values(state?.nodes || {}).map(normalizeNode);
     if (!nodes.length) {
-      nodes.push({
-        id: uniqueId(),
-        content: '',
-        media: {type: '', url: ''},
-        choices: [],
-        hint: '',
-        overlay_text: false,
-        transcript_url: ''
-      });
+      nodes.push(normalizeNode({}));
     }
+    wizard.draftNodes = nodes;
+    wizard.selectedNodeId = nodes[0].id;
+    wizard.draftSettings = {
+      display_name: state?.display_name || '',
+      enable_undo: Boolean(state?.enable_undo),
+      enable_scoring: Boolean(state?.enable_scoring),
+      enable_reset_activity: Boolean(state?.enable_reset_activity),
+      background_image_url: state?.background_image_url || '',
+      background_image_alt_text: state?.background_image_alt_text || '',
+      background_image_is_decorative: Boolean(state?.background_image_is_decorative),
+    };
+  }
 
-    $editor.append(Templates['settings-panel'](state));
+  function showStep(step) {
+    wizard.currentStep = step;
+    const showSettings = step === 'settings';
+    $stepSettings.attr('hidden', !showSettings);
+    $stepNodes.attr('hidden', showSettings);
+    $continueBtn.attr('hidden', !showSettings);
+    $saveBtn.attr('hidden', showSettings);
+    $backBtn.attr('hidden', showSettings);
+  }
 
-    nodes.forEach((node, idx) => {
+  function nodeIndexById(nodeId) {
+    return wizard.draftNodes.findIndex(n => n.id === nodeId);
+  }
 
-      const options = nodes.map((n, j) => ({
+  function currentNode() {
+    const idx = nodeIndexById(wizard.selectedNodeId);
+    return idx >= 0 ? wizard.draftNodes[idx] : null;
+  }
+
+  function nodeOptions(excludeNodeId) {
+    return wizard.draftNodes
+      .map((n, idx) => ({ id: n.id, label: `Node ${idx + 1}` }))
+      .filter(opt => opt.id !== excludeNodeId);
+  }
+
+  function renderSettings() {
+    $stepSettings.html(Templates['settings-step'](wizard.draftSettings));
+  }
+
+  function renderNodeList() {
+    const $list = $stepNodes.find('[data-role="node-list"]').empty();
+    wizard.draftNodes.forEach((n, idx) => {
+      $list.append(Templates['node-list-item']({
         id: n.id,
-        label: `Node ${j+1}`
-      })).filter(opt => opt.id !== node.id);
-
-      const html = Templates['node-block']({ node, idx });
-
-      const $nodeEl = $(html);
-      (node.choices||[]).forEach((choice,i) => {
-        const ch = Templates['choice-row']({ choice, i, options });
-        $nodeEl.find('.choices-container').append(ch);
-      });
-      $editor.append($nodeEl);
+        number: idx + 1,
+        is_selected: n.id === wizard.selectedNodeId,
+      }));
     });
 
-    $editor.append(
-      '<button type="button" class="btn-add-node">Add Node</button>'
-    );
-
-    bindInteractions();
-    bindActions();
-    updateTranscriptVisibility();
+    const atLimit = wizard.draftNodes.length >= 30;
+    $stepNodes.find('[data-role="add-node"]').prop('disabled', atLimit);
   }
 
-  function updateChoiceUI() {
-    const options = {};
-      $editor.find('.node-block').map((j, nb) => {
-        options[$(nb).data('node-id')] = `Node ${j+1}`;
-      });
-
-    $editor.find('.choice-target').each((_, choice) => {
-      const currentNodeId = $(choice).closest('.node-block').data('node-id');
-      const availableIds = Object.keys(options).filter(opt => opt !== currentNodeId);
-
-      let seenIds = [];
-
-      const selected = choice.selectedIndex;
-      $(choice).find('option').each((index, option) => {
-        const $option = $(option);
-        const val = $option.val();
-        if (availableIds.includes(val)) {
-          // Update display text, as the node label may have changed
-          $option.text(options[val]);
-        } else {
-          // the node was deleted, so remove the option
-          $option.remove();
-          // if the selected option was removed, unselect (otherwise another will be selected, which is confusing)
-          if (selected == index) {
-            choice.selectedIndex = -1;
-          }
-        }
-        seenIds.push(val);
-      });
-
-      // add any new nodes
-      for (const nodeId of availableIds) {
-        if (!seenIds.includes(nodeId)) {
-          const $option = $('<option>');
-          $option.val(nodeId);
-          $option.text(options[nodeId]);
-          $(choice).append($option);
-        }
-      }
-
-    });
-  }
-
-  function updateTranscriptVisibility($scope) {
-    const $target = $scope ? $scope.find('.media-type') : $editor.find('.media-type');
-    $target.each(function() {
-      const type = $(this).val();
-      const $field = $(this).closest('label').find('.transcript-field');
-      if (type === 'audio' || type === 'video') {
-        $field.show();
-      } else {
-        $field.hide();
-      }
-    });
-  }
-
-  function toggleOverlayControl($node) {
-    const type = $node.find('.media-type').val();
-    const $control = $node.find('.overlay-text-control');
-    const $checkbox = $node.find('.overlay-text-checkbox');
-    if (type === 'image') {
-      $control.removeClass('is-hidden');
-    } else {
-      $control.addClass('is-hidden');
-      $checkbox.prop('checked', false);
+  function renderNodeEditor() {
+    const node = currentNode();
+    const idx = nodeIndexById(wizard.selectedNodeId);
+    if (!node || idx < 0) {
+      $stepNodes.find('[data-role="node-editor"]').empty();
+      return;
     }
+
+    const mediaType = node.media?.type || '';
+    const showMediaUrl = Boolean(mediaType);
+    const showTranscript = mediaType === 'audio' || mediaType === 'video';
+    const showOverlay = mediaType === 'image';
+    const noBranches = !Array.isArray(node.choices) || node.choices.length === 0;
+
+    const html = Templates['node-editor']({
+      ...node,
+      number: idx + 1,
+      show_media_url: showMediaUrl,
+      show_transcript: showTranscript,
+      show_overlay: showOverlay,
+      no_branches: noBranches,
+    });
+    const $editor = $stepNodes.find('[data-role="node-editor"]').html(html);
+    const $choices = $editor.find('[data-role="choices-container"]').empty();
+    const options = nodeOptions(node.id);
+    (node.choices || []).forEach((choice, i) => {
+      $choices.append(Templates['choice-row']({ choice, i, options }));
+    });
   }
 
-  function bindInteractions() {
-    $editor.find('.btn-delete-node').off('click').on('click', function() {
-      $(this).closest('.node-block').remove();
-      $editor.find('.node-block').each((i, el) => {
-          $(el).attr('data-node-idx', i)
-               .find('.node-title').text(`Node ${i+1}`);
-      });
-      updateChoiceUI();
-    });
+  function renderNodesStep() {
+    $stepNodes.html(Templates['nodes-step']({}));
+    renderNodeList();
+    renderNodeEditor();
+  }
 
-    $editor.find('.media-type').off('change').on('change', function() {
-      updateTranscriptVisibility($(this).closest('.node-block'));
-    });
+  function renderAll() {
+    $errors.empty();
+    renderSettings();
+    renderNodesStep();
+    showStep(wizard.currentStep);
+  }
 
-    $editor.off('click', '.btn-add-choice').on('click', '.btn-add-choice', function() {
-      const $container = $(this).closest('.choices-container');
-      const currentNodeId = $(this).closest('.node-block').data('node-id');
-      const options = $editor.find('.node-block').map((j, nb) => ({
-        id:  $(nb).data('node-id'),
-        label: `Node ${j+1}`
-      })).get().filter(opt => opt.id !== currentNodeId);
-      const newIndex = $container.find('.choice-row').length;
-      const html = Templates['choice-row']({
-        choice: { text: '', target_node_id: '' },
-        i: newIndex,
-        options
-      });
-      $container.append(html);
-    });
+  function syncSettingsFromDom() {
+    const $s = $stepSettings;
+    wizard.draftSettings.display_name = $s.find('[name="display_name"]').val()?.trim() || '';
+    wizard.draftSettings.enable_undo = $s.find('[name="enable_undo"]').is(':checked');
+    wizard.draftSettings.enable_reset_activity = $s.find('[name="enable_reset_activity"]').is(':checked');
+    wizard.draftSettings.enable_scoring = $s.find('[name="enable_scoring"]').is(':checked');
+    wizard.draftSettings.background_image_url = $s.find('[name="background_image_url"]').val()?.trim() || '';
+    wizard.draftSettings.background_image_is_decorative = $s.find('[name="background_image_is_decorative"]').is(':checked');
+    wizard.draftSettings.background_image_alt_text = $s.find('[name="background_image_alt_text"]').val()?.trim() || '';
+  }
 
-  $editor.off('click', '.btn-delete-choice').on('click', '.btn-delete-choice', function() {
-    $(this).closest('.choice-row').remove();
-  });
+  function syncCurrentNodeFromDom() {
+    const node = currentNode();
+    if (!node) {
+      return;
+    }
+    const $e = $stepNodes.find('.bx-node-editor-inner');
+    node.content = $e.find('[data-role="node-content"]').val() || '';
+    node.hint = $e.find('[data-role="node-hint"]').val() || '';
 
-    $editor.find('.btn-add-node').off('click').on('click', function() {
-      const idx = $editor.find('.node-block').length;
-      const nodeContext = {
-        node: {
-          id:      uniqueId(),
-          content: '',
-          media:   { type: '', url: '' },
-          choices: [],
-          hint:    '',
-          overlay_text: false,
-          transcript_url: ''
-        },
-        idx
-      };
-      const html = Templates['node-block'](nodeContext);
-      const $newNode = $(html);
-      $(this).before($newNode);
-      bindInteractions();
-      updateChoiceUI();
-      updateTranscriptVisibility($newNode);
-    });
+    const mediaType = $e.find('[data-role="media-type"]').val() || '';
+    const mediaUrl = $e.find('[data-role="media-url"]').val()?.trim() || '';
+    const transcriptUrl = $e.find('[data-role="transcript-url"]').val()?.trim() || '';
+    node.media.type = mediaType;
+    node.media.url = mediaType ? mediaUrl : '';
+    node.transcript_url = (mediaType === 'audio' || mediaType === 'video') ? transcriptUrl : '';
+    node.overlay_text = mediaType === 'image' ? $e.find('[data-role="overlay-text"]').is(':checked') : false;
 
-    $editor.find('.media-type').off('change.overlay').on('change.overlay', function() {
-      const $node = $(this).closest('.node-block');
-      toggleOverlayControl($node);
-    });
+    const noBranches = $e.find('[data-role="no-branches"]').is(':checked');
+    if (noBranches) {
+      node.choices = [];
+      return;
+    }
 
-    $editor.find('.node-block').each(function() {
-      toggleOverlayControl($(this));
+    const choices = [];
+    $e.find('.choice-row').each(function() {
+      const $row = $(this);
+      const text = $row.find('.choice-text').val()?.trim() || '';
+      const target = $row.find('.choice-target').val()?.trim() || '';
+      if (text || target) {
+        choices.push({ text, target_node_id: target });
+      }
     });
+    node.choices = choices;
+  }
+
+  function showErrors(res) {
+    const errs = (res.field_errors || {}).nodes_json || [res.message];
+    $errors.empty();
+    errs.forEach(msg => $errors.append($('<div>').text(msg)));
   }
 
   function bindActions() {
+    $continueBtn.off('click').on('click', function() {
+      syncSettingsFromDom();
+      showStep('nodes');
+    });
 
-    const $settings = $editor.find('.settings');
+    $backBtn.off('click').on('click', function() {
+      syncCurrentNodeFromDom();
+      showStep('settings');
+    });
 
     $saveBtn.off('click').on('click', function() {
-	      const payload = {
-	          nodes: [],
-	          enable_undo:    $settings.find('[name="enable_undo"]').is(':checked'),
-	          enable_scoring: $settings.find('[name="enable_scoring"]').is(':checked'),
-	          enable_reset_activity: $settings.find('[name="enable_reset_activity"]').is(':checked'),
-	          max_score:      parseFloat($settings.find('[name="max_score"]').val()) || 0,
-	          display_name:   $settings.find('[name="display_name"]').val()?.trim() || ''
-	      };
+      syncSettingsFromDom();
+      syncCurrentNodeFromDom();
 
-      $editor.find('.node-block').each(function() {
-        const $n = $(this);
-        const content = $n.find('.node-content').val()?.trim() || '';
-        const mediaUrl = $n.find('.media-url').val()?.trim() || '';
-        const mediaType = $n.find('.media-type').val();
-        const choices = [];
-        const nodeHint = $n.find('.node-hint').val()?.trim() || '';
-        const overlayEnabled = $n.find('.overlay-text-checkbox').is(':checked');
-        const transcriptUrl = $n.find('.transcript-url').val()?.trim() || '';
+      const payload = {
+        nodes: wizard.draftNodes.map(n => ({
+          id: n.id,
+          content: (n.content || '').trim(),
+          media: { type: n.media?.type || '', url: (n.media?.url || '').trim() },
+          choices: Array.isArray(n.choices) ? n.choices.filter(c => c?.text && c?.target_node_id) : [],
+          hint: (n.hint || '').trim(),
+          overlay_text: Boolean(n.overlay_text),
+          transcript_url: (n.transcript_url || '').trim(),
+        })),
+        enable_undo: Boolean(wizard.draftSettings.enable_undo),
+        enable_scoring: Boolean(wizard.draftSettings.enable_scoring),
+        enable_reset_activity: Boolean(wizard.draftSettings.enable_reset_activity),
+        display_name: wizard.draftSettings.display_name || '',
+        background_image_url: wizard.draftSettings.background_image_url || '',
+        background_image_alt_text: wizard.draftSettings.background_image_alt_text || '',
+        background_image_is_decorative: Boolean(wizard.draftSettings.background_image_is_decorative),
+      };
 
-        $n.find('.choice-row').each(function() {
-          const $c = $(this);
-          const text   = $c.find('.choice-text').val()?.trim() || '';
-          const target = $c.find('.choice-target').val()?.trim() || '';
-          if (text && target) {
-              choices.push({ text: text, target_node_id: target });
-          }
-        });
-        if (content || mediaUrl || choices.length || transcriptUrl) {
-          payload.nodes.push({
-              id:     $n.data('node-id'),
-              content,
-              media:  { type: mediaType, url: mediaUrl },
-              choices,
-              hint: nodeHint,
-              overlay_text: overlayEnabled,
-              transcript_url: transcriptUrl
-          });
-        }
-      });
       runtime.notify('save', { state: 'start' });
-
       $.ajax({
         type: 'POST',
         url: runtime.handlerUrl(element, 'studio_submit'),
@@ -261,15 +255,13 @@ function BranchingStudioEditor(runtime, element, data) {
         contentType: 'application/json; charset=utf-8'
       }).done(function(res) {
         if (res.result === 'success') {
-            runtime.notify('save',  { state: 'end' });
-            runtime.notify('cancel', {});
+          runtime.notify('save',  { state: 'end' });
+          runtime.notify('cancel', {});
         } else {
-            const errs = (res.field_errors || {}).nodes_json || [res.message];
-            $errors.empty();
-            errs.forEach(msg => $errors.append($('<div>').text(msg)));
+          showErrors(res);
         }
       }).fail(function() {
-          $errors.text('Error saving scenario');
+        $errors.text('Error saving scenario');
       });
     });
 
@@ -279,5 +271,116 @@ function BranchingStudioEditor(runtime, element, data) {
     });
   }
 
-  loadState().then(render);
+  function bindInteractions() {
+    $root.off('change.bx-settings input.bx-settings', '[data-role="step-settings"] input, [data-role="step-settings"] textarea');
+    $root.on('change.bx-settings input.bx-settings', '[data-role="step-settings"] input, [data-role="step-settings"] textarea', function() {
+      syncSettingsFromDom();
+      const decorative = wizard.draftSettings.background_image_is_decorative;
+      const $alt = $stepSettings.find('[name="background_image_alt_text"]');
+      $alt.prop('disabled', decorative);
+      if (decorative) {
+        $alt.val('');
+        wizard.draftSettings.background_image_alt_text = '';
+      }
+    });
+
+    $root.off('click.bx-nodes', '[data-role="add-node"]');
+    $root.on('click.bx-nodes', '[data-role="add-node"]', function() {
+      if (wizard.draftNodes.length >= 30) {
+        return;
+      }
+      syncCurrentNodeFromDom();
+      const node = normalizeNode({});
+      wizard.draftNodes.push(node);
+      wizard.selectedNodeId = node.id;
+      renderNodeList();
+      renderNodeEditor();
+    });
+
+    $root.off('click.bx-nodes', '[data-role="select-node"]');
+    $root.on('click.bx-nodes', '[data-role="select-node"]', function() {
+      const nodeId = $(this).data('node-id');
+      if (!nodeId || nodeId === wizard.selectedNodeId) {
+        return;
+      }
+      syncCurrentNodeFromDom();
+      wizard.selectedNodeId = nodeId;
+      renderNodeList();
+      renderNodeEditor();
+    });
+
+    $root.off('click.bx-nodes', '[data-role="delete-node"]');
+    $root.on('click.bx-nodes', '[data-role="delete-node"]', function() {
+      const nodeId = $(this).data('node-id');
+      if (!nodeId) {
+        return;
+      }
+      syncCurrentNodeFromDom();
+
+      wizard.draftNodes = wizard.draftNodes.filter(n => n.id !== nodeId);
+      wizard.draftNodes.forEach(n => {
+        n.choices = (n.choices || []).filter(c => c.target_node_id !== nodeId);
+      });
+
+      if (!wizard.draftNodes.length) {
+        const node = normalizeNode({});
+        wizard.draftNodes = [node];
+        wizard.selectedNodeId = node.id;
+      } else if (wizard.selectedNodeId === nodeId) {
+        wizard.selectedNodeId = wizard.draftNodes[0].id;
+      }
+
+      renderNodeList();
+      renderNodeEditor();
+    });
+
+    $root.off('change.bx-node', '[data-role="media-type"]');
+    $root.on('change.bx-node', '[data-role="media-type"]', function() {
+      syncCurrentNodeFromDom();
+      renderNodeEditor();
+    });
+
+    $root.off('change.bx-node', '[data-role="no-branches"]');
+    $root.on('change.bx-node', '[data-role="no-branches"]', function() {
+      syncCurrentNodeFromDom();
+      renderNodeEditor();
+    });
+
+    $root.off('click.bx-node', '[data-role="add-choice"]');
+    $root.on('click.bx-node', '[data-role="add-choice"]', function() {
+      const node = currentNode();
+      if (!node) {
+        return;
+      }
+      syncCurrentNodeFromDom();
+      node.choices = Array.isArray(node.choices) ? node.choices : [];
+      node.choices.push({ text: '', target_node_id: '' });
+      renderNodeEditor();
+    });
+
+    $root.off('click.bx-node', '.btn-delete-choice');
+    $root.on('click.bx-node', '.btn-delete-choice', function() {
+      const node = currentNode();
+      if (!node) {
+        return;
+      }
+      const idx = Number($(this).closest('.choice-row').data('choice-idx'));
+      syncCurrentNodeFromDom();
+      if (!Number.isNaN(idx)) {
+        node.choices.splice(idx, 1);
+      }
+      renderNodeEditor();
+    });
+  }
+
+  function init() {
+    bindActions();
+    bindInteractions();
+    loadState().then(function(state) {
+      normalizeInitialState(state || {});
+      renderAll();
+    });
+  }
+
+  init();
 }

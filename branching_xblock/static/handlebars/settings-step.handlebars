@@ -1,0 +1,56 @@
+<div class="bx-wizard bx-settings-step">
+  <h2 class="bx-step-title">Settings</h2>
+
+  <label class="bx-field">
+    <div class="bx-field__label">Display Name</div>
+    <input type="text" name="display_name" value="{{display_name}}" class="bx-input" />
+  </label>
+
+  <label class="bx-checkbox">
+    <input type="checkbox" name="enable_undo" {{#if enable_undo}}checked{{/if}} />
+    <span>Let learners try the previous node again</span>
+  </label>
+
+  <label class="bx-checkbox">
+    <input type="checkbox" name="enable_reset_activity" {{#if enable_reset_activity}}checked{{/if}} />
+    <span>Let learners reset the activity</span>
+  </label>
+
+  <label class="bx-checkbox">
+    <input type="checkbox" name="enable_scoring" {{#if enable_scoring}}checked{{/if}} />
+    <span>Include a grade report at the end of the activity</span>
+  </label>
+
+  <h3 class="bx-section-title">Background image</h3>
+  <p class="bx-help">
+    This image will appear in the background of any nodes with “Image” as the media type.
+  </p>
+
+  <label class="bx-field">
+    <div class="bx-field__label">Image URL</div>
+    <input
+      type="text"
+      name="background_image_url"
+      class="bx-input"
+      placeholder="URL"
+      value="{{background_image_url}}"
+    />
+  </label>
+
+  <div class="bx-field">
+    <div class="bx-field__label">Alt text</div>
+    <label class="bx-checkbox bx-checkbox--nested">
+      <input type="checkbox" name="background_image_is_decorative" {{#if background_image_is_decorative}}checked{{/if}} />
+      <span>Decorative image</span>
+    </label>
+    <input
+      type="text"
+      name="background_image_alt_text"
+      class="bx-input"
+      placeholder="Alt text"
+      value="{{background_image_alt_text}}"
+      {{#if background_image_is_decorative}}disabled{{/if}}
+    />
+  </div>
+</div>
+

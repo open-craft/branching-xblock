@@ -1,0 +1,55 @@
+<div class="bx-node-editor-inner" data-node-id="{{id}}">
+  <h2 class="bx-step-title">Node {{number}}</h2>
+
+  <label class="bx-field">
+    <div class="bx-field__label">Content</div>
+    <textarea class="bx-textarea" data-role="node-content">{{content}}</textarea>
+  </label>
+
+  <label class="bx-field">
+    <div class="bx-field__label">Media</div>
+    <select class="bx-select" data-role="media-type">
+      <option value="" {{#unless media.type}}selected{{/unless}}>None</option>
+      <option value="image" {{#if (eq media.type 'image')}}selected{{/if}}>Image</option>
+      <option value="video" {{#if (eq media.type 'video')}}selected{{/if}}>Video</option>
+      <option value="audio" {{#if (eq media.type 'audio')}}selected{{/if}}>Audio</option>
+    </select>
+  </label>
+
+  <label class="bx-field {{#unless show_media_url}}is-hidden{{/unless}}" data-role="media-url-field">
+    <div class="bx-field__label">URL</div>
+    <input type="text" class="bx-input" data-role="media-url" placeholder="URL" value="{{media.url}}" />
+    <div class="bx-help">Supports direct media files (.mp4/.webm/.mp3) or links from YouTube, Vimeo, Panopto.</div>
+  </label>
+
+  <label class="bx-field {{#unless show_transcript}}is-hidden{{/unless}}" data-role="transcript-url-field">
+    <div class="bx-field__label">Transcript URL</div>
+    <input type="text" class="bx-input" data-role="transcript-url" placeholder="https://..." value="{{transcript_url}}" />
+  </label>
+
+  <div class="overlay-text-control {{#unless show_overlay}}is-hidden{{/unless}}" data-role="overlay-text-control">
+    <label class="overlay-text-toggle">
+      <input type="checkbox" class="overlay-text-checkbox" data-role="overlay-text" {{#if overlay_text}}checked{{/if}}>
+      Overlay text on image
+    </label>
+    <p class="overlay-text-help">If left unchecked, text will appear outside the image.</p>
+  </div>
+
+  <label class="bx-checkbox">
+    <input type="checkbox" data-role="no-branches" {{#if no_branches}}checked{{/if}} />
+    <span>This node has no branches</span>
+  </label>
+
+  <label class="bx-field">
+    <div class="bx-field__label">Hint</div>
+    <textarea class="bx-textarea" data-role="node-hint">{{hint}}</textarea>
+  </label>
+
+  <div class="bx-choices {{#if no_branches}}is-hidden{{/if}}" data-role="choices-section">
+    <h3 class="bx-section-title">Choices</h3>
+    <button type="button" class="bx-btn bx-btn--secondary" data-role="add-choice">Add Choice</button>
+    <div class="bx-help">Choices with blank node targets will be discarded.</div>
+    <div class="choices-container" data-role="choices-container"></div>
+  </div>
+</div>
+

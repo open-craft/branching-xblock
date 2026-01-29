@@ -74,6 +74,24 @@ class BranchingXBlock(XBlock):
         help="Allow learners to reset the activity"
     )
 
+    background_image_url = String(
+        default="",
+        scope=Scope.content,
+        help="Background image URL used for image nodes"
+    )
+
+    background_image_alt_text = String(
+        default="",
+        scope=Scope.content,
+        help="Alt text for the background image"
+    )
+
+    background_image_is_decorative = Boolean(
+        default=False,
+        scope=Scope.content,
+        help="Whether the background image is decorative"
+    )
+
     max_score = Float(
         default=100.0,
         scope=Scope.content,
@@ -224,7 +242,13 @@ class BranchingXBlock(XBlock):
         frag.add_javascript_url(
             self.runtime.local_resource_url(self, 'public/js/vendor/handlebars.js')
         )
-        for tpl in ['settings-panel', 'node-block', 'choice-row']:
+        for tpl in [
+            'settings-step',
+            'nodes-step',
+            'node-list-item',
+            'node-editor',
+            'choice-row',
+        ]:
             html = resource_loader.load_unicode(f'static/handlebars/{tpl}.handlebars')
             frag.add_javascript(f"""
                 (function() {{
@@ -270,6 +294,9 @@ class BranchingXBlock(XBlock):
             "enable_undo":     bool(self.enable_undo),
             "enable_scoring":  bool(self.enable_scoring),
             "enable_reset_activity": bool(self.enable_reset_activity),
+            "background_image_url": self.background_image_url,
+            "background_image_alt_text": self.background_image_alt_text,
+            "background_image_is_decorative": bool(self.background_image_is_decorative),
             "max_score":       self.max_score,
             "display_name":    self.display_name,
             "current_node":    self.get_current_node(),
@@ -360,6 +387,23 @@ class BranchingXBlock(XBlock):
         """
         payload = data
         raw_nodes = payload.get('nodes', [])
+        background_image_url = (payload.get('background_image_url') or '').strip()
+        background_image_alt_text = (payload.get('background_image_alt_text') or '').strip()
+        background_image_is_decorative = bool(payload.get('background_image_is_decorative', False))
+
+        if len(raw_nodes) > 30:
+            return {
+                "result": "error",
+                "message": "Validation errors",
+                "field_errors": {"nodes_json": ["Too many nodes (max 30)."]}
+            }
+
+        if background_image_url and not background_image_is_decorative and not background_image_alt_text:
+            return {
+                "result": "error",
+                "message": "Validation errors",
+                "field_errors": {"nodes_json": ["Background image alt text is required unless the image is marked decorative."]}
+            }
 
         # 1) Assign real IDs and build id_map
         id_map = {}
@@ -434,6 +478,9 @@ class BranchingXBlock(XBlock):
         self.enable_reset_activity = bool(payload.get('enable_reset_activity', self.enable_reset_activity))
         self.max_score = float(payload.get('max_score', self.max_score))
         self.display_name = payload.get('display_name', self.display_name)
+        self.background_image_url = background_image_url
+        self.background_image_alt_text = background_image_alt_text
+        self.background_image_is_decorative = background_image_is_decorative
 
         # 4) Validate & respond
         errors = self.validate_scenario()

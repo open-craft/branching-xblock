@@ -7,9 +7,19 @@
     padding: 1em;
 }
 
+.branching-editor-step[hidden] {
+    display: none !important;
+}
+
+.xblock-actions [hidden] {
+    display: none !important;
+}
+
 .xblock-actions {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 1em;
     padding: 0.75em 1em;
     border-top: 1px solid #e0e0e0;
     background: #fff;
@@ -17,6 +27,175 @@
     bottom: 0;
     z-index: 1;
     box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.xblock-actions [data-role="back"],
+.xblock-actions [data-role="cancel"] {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #0f62a1;
+    text-decoration: none;
+}
+
+.xblock-actions [data-role="back"]:hover,
+.xblock-actions [data-role="cancel"]:hover {
+    text-decoration: underline;
+}
+
+.bx-wizard {
+    max-width: 980px;
+}
+
+.bx-step-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 1rem;
+}
+
+.bx-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.5rem;
+}
+
+.bx-help {
+    margin: 0 0 1rem;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.bx-field {
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.bx-field__label {
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.bx-input,
+.bx-select,
+.bx-textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.bx-textarea {
+    min-height: 8em;
+    resize: vertical;
+}
+
+.bx-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+.bx-checkbox--nested {
+    margin: 0.25rem 0 0.5rem;
+}
+
+.bx-nodes-step {
+    display: flex;
+    gap: 1rem;
+    min-height: 520px;
+}
+
+.bx-nodes-sidebar {
+    width: 220px;
+    flex: none;
+    border-right: 1px solid #e0e0e0;
+    padding-right: 1rem;
+}
+
+.bx-btn {
+    border: 1px solid #0f62a1;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+}
+
+.bx-btn--primary {
+    background: #0f62a1;
+    color: #fff;
+}
+
+.bx-btn--primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bx-btn--secondary {
+    background: #28a745;
+    border-color: #28a745;
+    color: #fff;
+    margin: 0.5rem 0;
+}
+
+.bx-node-limit {
+    margin: 0.5rem 0 1rem;
+    font-size: 0.85em;
+    color: #666;
+}
+
+.bx-node-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.bx-node-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 0.4rem 0.5rem;
+}
+
+.bx-node-list-item.is-selected {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+}
+
+.bx-node-list-item__select {
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    flex: 1;
+}
+
+.bx-node-list-item__delete {
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.bx-node-list-item__delete:hover {
+    opacity: 1;
+}
+
+.bx-nodes-main {
+    flex: 1;
+    padding-left: 0.5rem;
+}
+
+.bx-node-editor-inner .bx-help {
+    margin-top: 0.35rem;
+}
+
+.bx-choices .choices-container {
+    margin-top: 0.75rem;
+}
+
+.is-hidden {
+    display: none !important;
 }
 
 .xblock-actions .action-item {
