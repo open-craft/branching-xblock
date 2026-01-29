@@ -111,6 +111,7 @@ function BranchingXBlock(runtime, element) {
                     </div>
                 </div>
             `);
+            setTranscript(null);
         } else if (media.type === 'image') {
             $media.html(`<img src="${mediaUrl}" alt=""/>`);
             setTranscript(null);
@@ -150,8 +151,9 @@ function BranchingXBlock(runtime, element) {
         const $hintContainer = $el.find('[data-role="hint-container"]');
         const $hintDetails = $hintContainer.find('[data-role="hint-collapsible"]');
         const $hint = $hintDetails.find('[data-role="hint"]');
-        if (state.enable_hints && node && node.hint) {
-            $hint.html(`<strong>Hint:</strong> ${node.hint}`);
+        const hintText = (node && node.hint ? String(node.hint) : '').trim();
+        if (node && hintText) {
+            $hint.html(`<strong>Hint:</strong> ${hintText}`);
             $hintDetails.prop('hidden', false);
             setHintVisibility(isHintVisible);
         } else {
@@ -187,16 +189,19 @@ function BranchingXBlock(runtime, element) {
             $choiceList.append($label);
         });
         const hasChoices = choices.length > 0;
+        const isLeaf = !hasChoices;
+        const showReset = Boolean(state.enable_reset_activity && isLeaf);
         $el.find('[data-role="choice-heading"]').toggle(hasChoices);
-        const disableSubmit = !hasChoices || selectedChoiceIndex === null;
-        $submitButton.prop('disabled', disableSubmit);
+        $submitButton.toggle(hasChoices);
+        $submitButton.prop('disabled', !hasChoices || selectedChoiceIndex === null);
+        $el.find('.choice-actions').toggle(hasChoices || canUndo || showReset);
 
         $el.find('.undo-button')
             .prop('disabled', !canUndo)
             .toggleClass('is-disabled', !canUndo);
 
         const $score = $el.find('[data-role="score"]');
-        const isLeaf = choices.length === 0;
+        $el.find('[data-role="reset-activity"]').toggle(showReset);
         if (isLeaf && state.enable_scoring) {
             $score.text(`Score: ${state.score}/${state.max_score}`).show();
         } else {
@@ -244,6 +249,16 @@ function BranchingXBlock(runtime, element) {
     $el.on('click', '.undo-button', function() {
         $.ajax({
           url: runtime.handlerUrl(element, 'undo_choice'),
+          type: 'POST',
+          data: JSON.stringify({}),
+          contentType: 'application/json',
+          dataType: 'json'
+        }).done(refreshView);
+    });
+
+    $el.on('click', '[data-role="reset-activity"]', function() {
+        $.ajax({
+          url: runtime.handlerUrl(element, 'reset_activity'),
           type: 'POST',
           data: JSON.stringify({}),
           contentType: 'application/json',

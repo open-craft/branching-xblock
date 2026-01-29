@@ -68,10 +68,10 @@ class BranchingXBlock(XBlock):
         help="Enable scoring for gradebook integration"
     )
 
-    enable_hints = Boolean(
+    enable_reset_activity = Boolean(
         default=False,
-        scope=Scope.settings,
-        help="Allow learners to reveal hints for each node"
+        scope=Scope.content,
+        help="Allow learners to reset the activity"
     )
 
     max_score = Float(
@@ -245,7 +245,7 @@ class BranchingXBlock(XBlock):
             "nodes":       self.scenario_data.get("nodes", []),
             "enable_undo": bool(self.enable_undo),
             "enable_scoring": bool(self.enable_scoring),
-            "enable_hints": bool(self.enable_hints),
+            "enable_reset_activity": bool(self.enable_reset_activity),
             "max_score":   self.max_score,
             "display_name": self.display_name,
             "authoring_help_html": authoring_help_html,
@@ -269,7 +269,7 @@ class BranchingXBlock(XBlock):
             "start_node_id":   self.scenario_data.get("start_node_id"),
             "enable_undo":     bool(self.enable_undo),
             "enable_scoring":  bool(self.enable_scoring),
-            "enable_hints":    bool(self.enable_hints),
+            "enable_reset_activity": bool(self.enable_reset_activity),
             "max_score":       self.max_score,
             "display_name":    self.display_name,
             "current_node":    self.get_current_node(),
@@ -331,6 +331,26 @@ class BranchingXBlock(XBlock):
             self.publish_grade()
 
         self.has_completed = False
+        return {"success": True, **self._get_state()}
+
+    @XBlock.json_handler
+    def reset_activity(self, data, suffix=''):
+        """
+        Reset learner state to the start node.
+        """
+        if not self.enable_reset_activity:
+            return {"success": False, "error": "Reset not allowed"}
+
+        self.current_node_id = None
+        self.history = []
+        self.has_completed = False
+
+        if self.enable_scoring:
+            self.score = 0.0
+            self.publish_grade()
+
+        self.start_node()
+        self.runtime.publish(self, "completion", {"completion": 0.0})
         return {"success": True, **self._get_state()}
 
     @XBlock.json_handler
@@ -411,7 +431,7 @@ class BranchingXBlock(XBlock):
         }
         self.enable_undo = bool(payload.get('enable_undo', self.enable_undo))
         self.enable_scoring = bool(payload.get('enable_scoring', self.enable_scoring))
-        self.enable_hints = bool(payload.get('enable_hints', self.enable_hints))
+        self.enable_reset_activity = bool(payload.get('enable_reset_activity', self.enable_reset_activity))
         self.max_score = float(payload.get('max_score', self.max_score))
         self.display_name = payload.get('display_name', self.display_name)
 
