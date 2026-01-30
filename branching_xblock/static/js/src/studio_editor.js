@@ -54,6 +54,8 @@ function BranchingStudioEditor(runtime, element, data) {
       hint: raw?.hint || '',
       overlay_text: Boolean(raw?.overlay_text),
       transcript_url: raw?.transcript_url || '',
+      left_image_url: raw?.left_image_url ?? null,
+      right_image_url: raw?.right_image_url ?? null,
     };
   }
 
@@ -127,18 +129,29 @@ function BranchingStudioEditor(runtime, element, data) {
     }
 
     const mediaType = node.media?.type || '';
-    const showMediaUrl = Boolean(mediaType);
+    const isImage = mediaType === 'image';
+    const showMediaUrl = Boolean(mediaType) && !isImage;
     const showTranscript = mediaType === 'audio' || mediaType === 'video';
     const showOverlay = mediaType === 'image';
     const noBranches = !Array.isArray(node.choices) || node.choices.length === 0;
 
+    const leftImageUrl = isImage
+      ? (node.left_image_url ?? node.media?.url ?? '')
+      : '';
+    const rightImageUrl = isImage
+      ? (node.right_image_url ?? '')
+      : '';
+
     const html = Templates['node-editor']({
       ...node,
       number: idx + 1,
+      is_image: isImage,
       show_media_url: showMediaUrl,
       show_transcript: showTranscript,
       show_overlay: showOverlay,
       no_branches: noBranches,
+      left_image_url: leftImageUrl,
+      right_image_url: rightImageUrl,
     });
     const $editor = $stepNodes.find('[data-role="node-editor"]').html(html);
     const $choices = $editor.find('[data-role="choices-container"]').empty();
@@ -185,9 +198,17 @@ function BranchingStudioEditor(runtime, element, data) {
     const mediaUrl = $e.find('[data-role="media-url"]').val()?.trim() || '';
     const transcriptUrl = $e.find('[data-role="transcript-url"]').val()?.trim() || '';
     node.media.type = mediaType;
-    node.media.url = mediaType ? mediaUrl : '';
+    node.media.url = (mediaType && mediaType !== 'image') ? mediaUrl : '';
     node.transcript_url = (mediaType === 'audio' || mediaType === 'video') ? transcriptUrl : '';
     node.overlay_text = mediaType === 'image' ? $e.find('[data-role="overlay-text"]').is(':checked') : false;
+
+    if (mediaType === 'image') {
+      node.left_image_url = $e.find('[data-role="left-image-url"]').val()?.trim() || '';
+      node.right_image_url = $e.find('[data-role="right-image-url"]').val()?.trim() || '';
+    } else {
+      node.left_image_url = '';
+      node.right_image_url = '';
+    }
 
     const noBranches = $e.find('[data-role="no-branches"]').is(':checked');
     if (noBranches) {
@@ -232,10 +253,15 @@ function BranchingStudioEditor(runtime, element, data) {
         nodes: wizard.draftNodes.map(n => ({
           id: n.id,
           content: (n.content || '').trim(),
-          media: { type: n.media?.type || '', url: (n.media?.url || '').trim() },
+          media: {
+            type: n.media?.type || '',
+            url: (n.media?.type === 'image') ? '' : (n.media?.url || '').trim(),
+          },
           choices: Array.isArray(n.choices) ? n.choices.filter(c => c?.text && c?.target_node_id) : [],
           hint: (n.hint || '').trim(),
           overlay_text: Boolean(n.overlay_text),
+          left_image_url: (n.left_image_url || '').trim(),
+          right_image_url: (n.right_image_url || '').trim(),
           transcript_url: (n.transcript_url || '').trim(),
         })),
         enable_undo: Boolean(wizard.draftSettings.enable_undo),

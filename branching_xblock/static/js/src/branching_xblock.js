@@ -78,7 +78,7 @@ function BranchingXBlock(runtime, element) {
         const $summary = $details.find('[data-role="hint-summary"]');
         $details.prop('open', isHintVisible);
         if ($summary.length) {
-            $summary.text(isHintVisible ? 'Hide hint' : 'Show hint');
+            $summary.text(isHintVisible ? 'Hide' : 'Show hint');
         }
     }
 
@@ -92,6 +92,11 @@ function BranchingXBlock(runtime, element) {
         const mediaUrl = media.url || '';
         const contentHtml = (node && node.content) || '';
         const overlayEnabled = Boolean(node?.overlay_text && media.type === 'image');
+        const backgroundImageUrl = state?.background_image_url || '';
+        const leftImageUrl = (node?.left_image_url !== undefined && node?.left_image_url !== null)
+            ? node.left_image_url
+            : (mediaUrl || '');
+        const rightImageUrl = node?.right_image_url || '';
 
         const $media = $el.find('[data-role="media"]');
         const $transcript = $el.find('[data-role="transcript"]');
@@ -102,18 +107,45 @@ function BranchingXBlock(runtime, element) {
                 $transcript.prop('hidden', true).empty();
             }
         };
-        if (media.type === 'image' && overlayEnabled) {
-            $media.html(`
-                <div class="media-overlay">
-                    <img src="${media.url}" alt=""/>
-                    <div class="media-overlay__text">
-                        ${contentHtml}
-                    </div>
-                </div>
-            `);
-            setTranscript(null);
-        } else if (media.type === 'image') {
-            $media.html(`<img src="${mediaUrl}" alt=""/>`);
+        if (media.type === 'image') {
+            const $composite = $('<div>').addClass('bx-image-composite');
+            if (backgroundImageUrl) {
+                $composite.css('background-image', `url("${backgroundImageUrl}")`);
+            }
+
+            const hasForeground = Boolean(leftImageUrl || rightImageUrl);
+            if (!hasForeground && backgroundImageUrl) {
+                $composite.addClass('bx-image-composite--bg-only');
+            } else if (hasForeground) {
+                const $fg = $('<div>').addClass('bx-image-composite__fg');
+                if (leftImageUrl) {
+                    $fg.append(
+                        $('<img>')
+                            .addClass('bx-image-composite__img bx-image-composite__img--left')
+                            .attr('src', leftImageUrl)
+                            .attr('alt', '')
+                    );
+                }
+                if (rightImageUrl) {
+                    $fg.append(
+                        $('<img>')
+                            .addClass('bx-image-composite__img bx-image-composite__img--right')
+                            .attr('src', rightImageUrl)
+                            .attr('alt', '')
+                    );
+                }
+                $composite.append($fg);
+            }
+
+            if (overlayEnabled) {
+                $composite.append(
+                    $('<div>')
+                        .addClass('media-overlay__text bx-image-composite__overlay')
+                        .html(contentHtml)
+                );
+            }
+
+            $media.empty().append($composite);
             setTranscript(null);
         } else if (media.type === 'audio') {
             $media.html(`<audio src="${mediaUrl}" controls />`);
@@ -136,7 +168,7 @@ function BranchingXBlock(runtime, element) {
         }
         // Content
         const $content = $el.find('[data-role="content"]');
-        if (overlayEnabled) {
+        if (overlayEnabled && media.type === 'image') {
             $content.empty();
         } else {
             $content.html(contentHtml);

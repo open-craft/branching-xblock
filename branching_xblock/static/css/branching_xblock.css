@@ -26,6 +26,61 @@
     align-self: center;
 }
 
+.branching-scenario .bx-image-composite {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0.5rem;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    padding: 0.75rem;
+    box-sizing: border-box;
+}
+
+.branching-scenario .bx-image-composite--bg-only {
+    padding: 0;
+    aspect-ratio: 16 / 9;
+}
+
+.branching-scenario .bx-image-composite__fg {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.branching-scenario .bx-image-composite__img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+    border-radius: 0.5rem;
+}
+
+.branching-scenario .bx-image-composite__overlay {
+    position: absolute;
+    left: 50%;
+    bottom: 1.25rem;
+    transform: translateX(-50%);
+    width: calc(100% - 3rem);
+    max-width: 90%;
+}
+
+@media (max-width: 768px) {
+    .branching-scenario .bx-image-composite__fg {
+        grid-template-columns: 1fr;
+    }
+
+    .branching-scenario .bx-image-composite__overlay {
+        position: static;
+        transform: none;
+        width: 100%;
+        max-width: 100%;
+        margin-top: 0.75rem;
+    }
+}
+
 .branching-scenario .media-overlay {
     position: relative;
     width: 100%;

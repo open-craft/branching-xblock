@@ -138,9 +138,22 @@ class BranchingXBlock(XBlock):
         node = self.scenario_data.get("nodes", {}).get(node_id)
         if node is None:
             return None
+        changed = False
         if "overlay_text" not in node:
-            # ensure older scenarios expose the flag downstream
             node = {**node, "overlay_text": False}
+            changed = True
+
+        if "left_image_url" not in node:
+            media = node.get("media") or {}
+            left_fallback = media.get("url", "") if (media.get("type") == "image") else ""
+            node = {**node, "left_image_url": left_fallback}
+            changed = True
+
+        if "right_image_url" not in node:
+            node = {**node, "right_image_url": ""}
+            changed = True
+
+        if changed:
             self.scenario_data.setdefault("nodes", {})[node_id] = node
         return node
 
@@ -284,6 +297,12 @@ class BranchingXBlock(XBlock):
             node_id: {
                 **node,
                 "overlay_text": bool(node.get("overlay_text", False)),
+                "left_image_url": (
+                    node.get("left_image_url")
+                    if node.get("left_image_url") is not None
+                    else (node.get("media") or {}).get("url", "")
+                ),
+                "right_image_url": node.get("right_image_url", "") or "",
             }
             for node_id, node in nodes.items()
         }
@@ -424,6 +443,8 @@ class BranchingXBlock(XBlock):
                     'type': raw.get('media', {}).get('type', ''),
                     'url':  raw.get('media', {}).get('url', '')
                 },
+                'left_image_url': raw.get('left_image_url', ''),
+                'right_image_url': raw.get('right_image_url', ''),
                 'choices': raw.get('choices', []),
                 'hint':     raw.get('hint', ''),
                 'overlay_text': bool(raw.get('overlay_text', False)),
@@ -464,6 +485,8 @@ class BranchingXBlock(XBlock):
                 'choices':  cleaned,
                 'hint': node.get('hint', ''),
                 'overlay_text': bool(node.get('overlay_text', False)),
+                'left_image_url': (node.get('left_image_url', '') or '').strip(),
+                'right_image_url': (node.get('right_image_url', '') or '').strip(),
                 'transcript_url': node.get('transcript_url', ''),
             })
 

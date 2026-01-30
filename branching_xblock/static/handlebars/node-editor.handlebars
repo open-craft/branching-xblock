@@ -16,6 +16,17 @@
     </select>
   </label>
 
+  <div class="{{#unless is_image}}is-hidden{{/unless}}" data-role="image-url-fields">
+    <label class="bx-field">
+      <div class="bx-field__label">Left image URL</div>
+      <input type="text" class="bx-input" data-role="left-image-url" placeholder="URL" value="{{left_image_url}}" />
+    </label>
+    <label class="bx-field">
+      <div class="bx-field__label">Right image URL</div>
+      <input type="text" class="bx-input" data-role="right-image-url" placeholder="URL" value="{{right_image_url}}" />
+    </label>
+  </div>
+
   <label class="bx-field {{#unless show_media_url}}is-hidden{{/unless}}" data-role="media-url-field">
     <div class="bx-field__label">URL</div>
     <input type="text" class="bx-input" data-role="media-url" placeholder="URL" value="{{media.url}}" />
@@ -52,4 +63,3 @@
     <div class="choices-container" data-role="choices-container"></div>
   </div>
 </div>
-
