@@ -9,11 +9,19 @@ from xblock.core import XBlock
 from xblock.fields import Boolean, Dict, Float, List, Scope, String
 from xblock.utils.resources import ResourceLoader
 
+try:
+    from xmodule.edxnotes_utils import edxnotes
+except ModuleNotFoundError:
+    def edxnotes(func):  # noqa: D103
+        return func
+
 from .compat import get_site_configuration_value, sanitize_html
 
 resource_loader = ResourceLoader(__name__)
 
 
+@XBlock.needs("user")
+@edxnotes
 class BranchingXBlock(XBlock):
     """
     Branching Scenario XBlock.
@@ -171,12 +179,19 @@ class BranchingXBlock(XBlock):
         path = os.path.join('static', path)
         return resource_loader.load_unicode(path)
 
+    def get_html(self):
+        """
+        Retrive the HTML from the static file.
+
+        This is required for the edxnotes decorator to inject the HTML.
+        """
+        return self.resource_string("html/branching_xblock.html")
+
     def student_view(self, context=None):
         """
         Create primary view of the BranchingXBlock, shown to students when viewing courses.
         """
-        html = self.resource_string("html/branching_xblock.html")
-        frag = Fragment(html)
+        frag = Fragment(self.get_html())
         frag.add_css(self.resource_string("css/branching_xblock.css"))
         frag.add_javascript(self.resource_string("js/src/branching_xblock.js"))
         frag.initialize_js('BranchingXBlock')
