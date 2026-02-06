@@ -183,7 +183,7 @@ function BranchingStudioEditor(runtime, element, data) {
           nodes: [],
           enable_undo:    $settings.find('[name="enable_undo"]').is(':checked'),
           enable_scoring: $settings.find('[name="enable_scoring"]').is(':checked'),
-          enable_hints:   $settings.find('[name="enable_hints"]').is(':checked'),
+          enable_reset_activity: $settings.find('[name="enable_reset_activity"]').is(':checked'),
           max_score:      parseFloat($settings.find('[name="max_score"]').val()) || 0,
           display_name:   $settings.find('[name="display_name"]').val()?.trim() || ''
       };

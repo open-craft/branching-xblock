@@ -187,14 +187,43 @@
     text-decoration: none;
 }
 
+.branching-scenario .action-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
 .undo-button {
-    border: none;
+    border: 1px solid #4a5568;
     border-radius: 4px;
     padding: 0.6em 1.2em;
     font-size: 1em;
     cursor: pointer;
-    background-image: none !important;
-    margin-left: 1em;
+    background: transparent;
+    color: #1f2a37;
+}
+
+.reset-button {
+    border: 1px solid #c2410c;
+    border-radius: 4px;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    cursor: pointer;
+    background: transparent;
+    color: #c2410c;
+}
+
+.reset-button:hover,
+.reset-button:focus {
+    background: #fff7ed;
+    border-color: #9a3412;
+    color: #9a3412;
+}
+
+.reset-button:focus-visible {
+    outline: 2px solid #ea580c;
+    outline-offset: 2px;
 }
 
 .score-display {
