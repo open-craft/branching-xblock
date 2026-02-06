@@ -40,6 +40,15 @@ function BranchingStudioEditor(runtime, element, data) {
   }
 
   function normalizeNode(raw) {
+    const normalizeChoice = (choice) => {
+      const parsedScore = Number.parseInt(choice?.score, 10);
+      return {
+        text: choice?.text || '',
+        target_node_id: choice?.target_node_id || '',
+        score: Number.isNaN(parsedScore) ? 0 : parsedScore,
+      };
+    };
+
     return {
       id: raw?.id || uniqueId(),
       content: raw?.content || '',
@@ -47,10 +56,7 @@ function BranchingStudioEditor(runtime, element, data) {
         type: raw?.media?.type || '',
         url: raw?.media?.url || '',
       },
-      choices: Array.isArray(raw?.choices) ? raw.choices.map(c => ({
-        text: c?.text || '',
-        target_node_id: c?.target_node_id || '',
-      })) : [],
+      choices: Array.isArray(raw?.choices) ? raw.choices.map(normalizeChoice) : [],
       hint: raw?.hint || '',
       overlay_text: Boolean(raw?.overlay_text),
       transcript_url: raw?.transcript_url || '',
@@ -221,8 +227,10 @@ function BranchingStudioEditor(runtime, element, data) {
       const $row = $(this);
       const text = $row.find('.choice-text').val()?.trim() || '';
       const target = $row.find('.choice-target').val()?.trim() || '';
+      const parsedScore = Number.parseInt($row.find('.choice-score').val(), 10);
+      const score = Number.isNaN(parsedScore) ? 0 : parsedScore;
       if (text || target) {
-        choices.push({ text, target_node_id: target });
+        choices.push({ text, target_node_id: target, score });
       }
     });
     node.choices = choices;
@@ -257,7 +265,15 @@ function BranchingStudioEditor(runtime, element, data) {
             type: n.media?.type || '',
             url: (n.media?.type === 'image') ? '' : (n.media?.url || '').trim(),
           },
-          choices: Array.isArray(n.choices) ? n.choices.filter(c => c?.text && c?.target_node_id) : [],
+          choices: Array.isArray(n.choices)
+            ? n.choices
+              .filter(c => c?.text && c?.target_node_id)
+              .map(c => ({
+                text: c.text,
+                target_node_id: c.target_node_id,
+                score: Number.isNaN(Number.parseInt(c.score, 10)) ? 0 : Number.parseInt(c.score, 10),
+              }))
+            : [],
           hint: (n.hint || '').trim(),
           overlay_text: Boolean(n.overlay_text),
           left_image_url: (n.left_image_url || '').trim(),
@@ -380,7 +396,7 @@ function BranchingStudioEditor(runtime, element, data) {
       }
       syncCurrentNodeFromDom();
       node.choices = Array.isArray(node.choices) ? node.choices : [];
-      node.choices.push({ text: '', target_node_id: '' });
+      node.choices.push({ text: '', target_node_id: '', score: 0 });
       renderNodeEditor();
     });
 

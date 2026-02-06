@@ -116,6 +116,12 @@ class BranchingXBlock(XBlock):
         help="Accumulated score (if scoring enabled)"
     )
 
+    score_history = List(
+        scope=Scope.user_state,
+        default=[],
+        help="Awarded points per selected choice, used for undo/reset"
+    )
+
     has_completed = Boolean(
         scope=Scope.user_state,
         default=False,
@@ -138,24 +144,52 @@ class BranchingXBlock(XBlock):
         node = self.scenario_data.get("nodes", {}).get(node_id)
         if node is None:
             return None
-        changed = False
         if "overlay_text" not in node:
             node = {**node, "overlay_text": False}
-            changed = True
 
         if "left_image_url" not in node:
             media = node.get("media") or {}
             left_fallback = media.get("url", "") if (media.get("type") == "image") else ""
             node = {**node, "left_image_url": left_fallback}
-            changed = True
 
         if "right_image_url" not in node:
             node = {**node, "right_image_url": ""}
-            changed = True
 
-        if changed:
-            self.scenario_data.setdefault("nodes", {})[node_id] = node
+        node_choices = node.get("choices", []) or []
+        normalized_choices = []
+        for choice in node_choices:
+            score = self._coerce_choice_score(choice.get("score", 0))
+            if score is None:
+                score = 0
+            normalized_choices.append({**choice, "score": score})
+        if normalized_choices != node_choices:
+            node = {**node, "choices": normalized_choices}
         return node
+
+    @staticmethod
+    def _coerce_choice_score(raw_score):
+        """
+        Parse and validate choice score.
+        """
+        if isinstance(raw_score, bool):
+            return None
+        if isinstance(raw_score, int):
+            score = raw_score
+        elif isinstance(raw_score, float):
+            if not raw_score.is_integer():
+                return None
+            score = int(raw_score)
+        elif isinstance(raw_score, str):
+            stripped = raw_score.strip()
+            if not stripped or not stripped.lstrip('-').isdigit():
+                return None
+            score = int(stripped)
+        else:
+            try:
+                score = int(raw_score)
+            except (TypeError, ValueError):
+                return None
+        return score if 0 <= score <= 100 else None
 
     def get_current_node(self) -> Optional[dict[str, Any]]:
         """
@@ -293,8 +327,17 @@ class BranchingXBlock(XBlock):
 
     def _get_state(self):
         nodes = self.scenario_data.get("nodes", {})
-        nodes_with_defaults = {
-            node_id: {
+        nodes_with_defaults = {}
+        for node_id, node in nodes.items():
+            normalized_choices = []
+            for choice in (node.get("choices", []) or []):
+                score = self._coerce_choice_score(choice.get("score", 0))
+                normalized_choices.append({
+                    **choice,
+                    "score": score if score is not None else 0,
+                })
+
+            nodes_with_defaults[node_id] = {
                 **node,
                 "overlay_text": bool(node.get("overlay_text", False)),
                 "left_image_url": (
@@ -303,9 +346,8 @@ class BranchingXBlock(XBlock):
                     else (node.get("media") or {}).get("url", "")
                 ),
                 "right_image_url": node.get("right_image_url", "") or "",
+                "choices": normalized_choices,
             }
-            for node_id, node in nodes.items()
-        }
 
         return {
             "nodes":           nodes_with_defaults,
@@ -320,6 +362,7 @@ class BranchingXBlock(XBlock):
             "display_name":    self.display_name,
             "current_node":    self.get_current_node(),
             "history":         list(self.history),
+            "score_history":   list(self.score_history),
             "has_completed":   bool(self.has_completed),
             "score":           self.score,
         }
@@ -349,13 +392,21 @@ class BranchingXBlock(XBlock):
         target_node = self.get_node(target_node_id)
         if not target_node:
             return {"success": False, "error": f"Target node {target_node_id} not found"}
+
+        awarded_points = 0
+        if self.enable_scoring:
+            awarded_points = self._coerce_choice_score(choice.get("score", 0))
+            if awarded_points is None:
+                awarded_points = 0
+            self.score += awarded_points
+            self.score_history.append(float(awarded_points))
+
         if self.enable_undo:
             self.history.append(self.current_node_id)
         self.current_node_id = target_node_id
         if self.is_end_node(target_node_id):
             self.has_completed = True
             if self.enable_scoring:
-                self.score = self.max_score
                 self.publish_grade()
             self.runtime.publish(self, "completion", {"completion": 1.0})
 
@@ -372,8 +423,9 @@ class BranchingXBlock(XBlock):
         prev_node_id = self.history.pop()
         self.current_node_id = prev_node_id
 
-        if self.has_completed and self.enable_scoring:
-            self.score = 0.0
+        if self.enable_scoring:
+            awarded_points = self.score_history.pop() if self.score_history else 0.0
+            self.score = max(0.0, self.score - awarded_points)
             self.publish_grade()
 
         self.has_completed = False
@@ -392,6 +444,7 @@ class BranchingXBlock(XBlock):
         self.has_completed = False
 
         if self.enable_scoring:
+            self.score_history = []
             self.score = 0.0
             self.publish_grade()
 
@@ -427,6 +480,7 @@ class BranchingXBlock(XBlock):
         # 1) Assign real IDs and build id_map
         id_map = {}
         staged = []
+        score_errors = []
         for raw in raw_nodes:
             old_id = raw.get('id', '')
             # new ID if temp or missing
@@ -469,13 +523,23 @@ class BranchingXBlock(XBlock):
             for raw in node['choices']:
                 text = raw.get('text', '').strip()
                 targ = raw.get('target_node_id', '').strip()
+                has_choice_values = bool(text or targ)
+                if not has_choice_values:
+                    continue
+
+                score = self._coerce_choice_score(raw.get('score', 0))
+                if score is None:
+                    score_errors.append(
+                        f"Choice score must be an integer between 0 and 100 in node {node['id']}."
+                    )
+                    continue
                 # map through id_map if it was a temp ID
                 real_target = id_map.get(targ, targ)
-                if text or real_target:
-                    cleaned.append({
-                        'text': text,
-                        'target_node_id': real_target
-                    })
+                cleaned.append({
+                    'text': text,
+                    'target_node_id': real_target,
+                    'score': score,
+                })
 
             final.append({
                 'id':       node['id'],
@@ -489,6 +553,13 @@ class BranchingXBlock(XBlock):
                 'right_image_url': (node.get('right_image_url', '') or '').strip(),
                 'transcript_url': node.get('transcript_url', ''),
             })
+
+        if score_errors:
+            return {
+                "result": "error",
+                "message": "Validation errors",
+                "field_errors": {"nodes_json": score_errors}
+            }
 
         # 3) Persist scenario_data & settings
         nodes_dict = {node['id']: node for node in final}

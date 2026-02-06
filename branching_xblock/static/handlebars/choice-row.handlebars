@@ -1,5 +1,15 @@
 <div class="choice-row" data-choice-idx="{{i}}">
   <input class="choice-text" value="{{choice.text}}" placeholder="Choice text"/>
+  <input
+    class="choice-score"
+    type="number"
+    min="0"
+    max="100"
+    step="1"
+    value="{{choice.score}}"
+    placeholder="Score"
+    aria-label="Choice score"
+  />
   <select class="choice-target">
     {{#each options}}
       <option value="{{this.id}}" {{#if (eq this.id ../choice.target_node_id)}}selected{{/if}}>{{this.label}}</option>
