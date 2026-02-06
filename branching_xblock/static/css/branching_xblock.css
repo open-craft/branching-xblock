@@ -197,6 +197,16 @@
     margin-left: 1em;
 }
 
+.reset-button {
+    border: 1px solid #4a5568;
+    border-radius: 4px;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    cursor: pointer;
+    background: transparent;
+    color: #1f2a37;
+}
+
 .score-display {
     padding: 1em 1em;
     font-size: small;
