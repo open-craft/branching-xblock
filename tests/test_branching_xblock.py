@@ -118,6 +118,29 @@ def test_studio_submit_creates_scenario(rf, block):
     assert block.max_score == 77
 
 
+def test_studio_submit_persists_enable_reset_activity(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "Start node",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+                "transcript_url": "",
+            },
+        ],
+        "enable_undo": False,
+        "enable_scoring": False,
+        "enable_reset_activity": True,
+        "max_score": 0,
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+    assert result["result"] == "success"
+    assert block.enable_reset_activity is True
+
+
 def test_studio_submit_persists_display_name(rf, block):
     payload = {
         "nodes": [
@@ -256,6 +279,52 @@ def test_undo_choice_honors_enable_undo(rf, block):
     assert resp_fail["success"] is False
 
 
+def test_reset_activity_requires_enable_reset_activity(rf, block):
+    block.scenario_data = {
+        "nodes": {"start": {"id": "start", "type": "start", "choices": []}},
+        "start_node_id": "start",
+    }
+    block.enable_reset_activity = False
+    req = rf.post("/", data=json.dumps({}), content_type="application/json")
+    resp = block.reset_activity(req)
+    result = json.loads(resp.body.decode("utf-8"))
+    assert result["success"] is False
+    assert result["error"] == "Reset not allowed"
+
+
+def test_reset_activity_clears_progress_and_score(rf, block):
+    block.scenario_data = {
+        "nodes": {
+            "start": {
+                "id": "start",
+                "type": "start",
+                "choices": [{"text": "Next", "target_node_id": "end"}],
+            },
+            "end": {"id": "end", "type": "end", "choices": []},
+        },
+        "start_node_id": "start",
+    }
+    block.enable_reset_activity = True
+    block.enable_scoring = True
+    block.current_node_id = "end"
+    block.history = ["start"]
+    block.has_completed = True
+    block.score = 42.0
+    req = rf.post("/", data=json.dumps({}), content_type="application/json")
+
+    resp = block.reset_activity(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is True
+    assert block.current_node_id == "start"
+    assert block.history == []
+    assert block.has_completed is False
+    assert block.score == 0.0
+    assert result["current_node"]["id"] == "start"
+    assert result["has_completed"] is False
+    assert result["score"] == 0.0
+
+
 def test_get_current_state_includes_expected_fields(rf, block):
     """
     get_current_state should return a dict containing:
@@ -273,7 +342,14 @@ def test_get_current_state_includes_expected_fields(rf, block):
     resp = block.get_current_state(req)
     state = json.loads(resp.body.decode('utf-8'))
     assert isinstance(state["nodes"], dict)
-    for key in ("current_node", "history", "has_completed", "score"):
+    for key in (
+        "current_node",
+        "history",
+        "has_completed",
+        "score",
+        "start_node_id",
+        "enable_reset_activity",
+    ):
         assert key in state
 
 
@@ -303,3 +379,27 @@ def test_studio_view_passes_authoring_help_html_in_init_data(block):
 
     assert calls["name"] == "BranchingStudioEditor"
     assert calls["init_data"]["authoring_help_html"] == "<p>Help</p>"
+
+
+def test_studio_view_includes_enable_reset_activity_in_init_data(block):
+    calls = {}
+
+    def fake_initialize_js(_self, name, init_data):
+        calls["name"] = name
+        calls["init_data"] = init_data
+
+    block.enable_reset_activity = True
+
+    with mock.patch(
+        "branching_xblock.branching_xblock.Fragment.initialize_js",
+        autospec=True,
+        side_effect=fake_initialize_js,
+    ), mock.patch.object(
+        block.runtime,
+        "local_resource_url",
+        return_value="http://example.com/handlebars.js",
+    ):
+        block.studio_view({})
+
+    assert calls["name"] == "BranchingStudioEditor"
+    assert calls["init_data"]["enable_reset_activity"] is True
