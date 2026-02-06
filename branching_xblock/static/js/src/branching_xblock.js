@@ -232,6 +232,9 @@ function BranchingXBlock(runtime, element) {
             .prop('disabled', !canUndo)
             .toggleClass('is-disabled', !canUndo);
 
+        const showReset = Boolean(state.enable_reset_activity);
+        $el.find('[data-role="reset-activity"]').toggle(showReset);
+
         const $score = $el.find('[data-role="score"]');
         $el.find('[data-role="reset-activity"]').toggle(showReset);
         if (isLeaf && state.enable_scoring) {
