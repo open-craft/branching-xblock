@@ -160,7 +160,10 @@ function BranchingXBlock(runtime, element) {
         const canUndo = state.enable_undo && state.history.length > 0;
         $el.find('.undo-button').toggle(canUndo);
 
-        const showReset = Boolean(state.enable_reset_activity);
+        const isAtStartNode = Boolean(
+            state.current_node && state.current_node.id === state.start_node_id
+        );
+        const showReset = Boolean(state.enable_reset_activity && !isAtStartNode);
         $el.find('[data-role="reset-activity"]').toggle(showReset);
 
         const $score = $el.find('[data-role="score"]');
