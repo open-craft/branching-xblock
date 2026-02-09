@@ -1,19 +1,28 @@
 <div class="choice-row" data-choice-idx="{{i}}">
-  <input class="choice-text" value="{{choice.text}}" placeholder="Choice text"/>
-  <input
-    class="choice-score"
-    type="number"
-    min="0"
-    max="100"
-    step="1"
-    value="{{choice.score}}"
-    placeholder="Score"
-    aria-label="Choice score"
-  />
-  <select class="choice-target">
-    {{#each options}}
-      <option value="{{this.id}}" {{#if (eq this.id ../choice.target_node_id)}}selected{{/if}}>{{this.label}}</option>
-    {{/each}}
-  </select>
-  <button type="button" class="btn-delete-choice">x</button>
+  <div class="choice-col choice-col--text">
+    <label class="choice-col__label">Choice text</label>
+    <input class="choice-text" value="{{choice.text}}" placeholder="Choice text"/>
+  </div>
+  <div class="choice-col choice-col--score">
+    <label class="choice-col__label">Score</label>
+    <input
+      class="choice-score"
+      type="number"
+      min="0"
+      max="100"
+      step="1"
+      value="{{choice.score}}"
+      placeholder="0"
+      aria-label="Choice score"
+    />
+  </div>
+  <div class="choice-col choice-col--target">
+    <label class="choice-col__label">Destination*</label>
+    <select class="choice-target">
+      {{#each options}}
+        <option value="{{this.id}}" {{#if (eq this.id ../choice.target_node_id)}}selected{{/if}}>{{this.label}}</option>
+      {{/each}}
+    </select>
+  </div>
+  <button type="button" class="btn-delete-choice" aria-label="Delete choice">×</button>
 </div>
