@@ -57,6 +57,7 @@ function BranchingStudioEditor(runtime, element, data) {
         url: raw?.media?.url || '',
       },
       choices: Array.isArray(raw?.choices) ? raw.choices.map(normalizeChoice) : [],
+      no_branches: Boolean(raw?.no_branches),
       hint: raw?.hint || '',
       overlay_text: Boolean(raw?.overlay_text),
       transcript_url: raw?.transcript_url || '',
@@ -139,7 +140,7 @@ function BranchingStudioEditor(runtime, element, data) {
     const showMediaUrl = Boolean(mediaType) && !isImage;
     const showTranscript = mediaType === 'audio' || mediaType === 'video';
     const showOverlay = mediaType === 'image';
-    const noBranches = !Array.isArray(node.choices) || node.choices.length === 0;
+    const noBranches = Boolean(node.no_branches);
 
     const leftImageUrl = isImage
       ? (node.left_image_url ?? node.media?.url ?? '')
@@ -217,6 +218,7 @@ function BranchingStudioEditor(runtime, element, data) {
     }
 
     const noBranches = $e.find('[data-role="no-branches"]').is(':checked');
+    node.no_branches = noBranches;
     if (noBranches) {
       node.choices = [];
       return;
@@ -395,6 +397,7 @@ function BranchingStudioEditor(runtime, element, data) {
         return;
       }
       syncCurrentNodeFromDom();
+      node.no_branches = false;
       node.choices = Array.isArray(node.choices) ? node.choices : [];
       node.choices.push({ text: '', target_node_id: '', score: 0 });
       renderNodeEditor();
