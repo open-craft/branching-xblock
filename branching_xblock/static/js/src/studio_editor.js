@@ -14,6 +14,7 @@ function BranchingStudioEditor(runtime, element, data) {
   const $saveBtn = $root.find('[data-role="save"]');
   const $backBtn = $root.find('[data-role="back"]');
   const $cancelBtn  = $root.find('[data-role="cancel"]');
+  const $pendingDeleteSummary = $root.find('[data-role="pending-delete-summary"]');
 
   this.uniqueIdCount = 0;
 
@@ -27,6 +28,7 @@ function BranchingStudioEditor(runtime, element, data) {
     selectedNodeId: null,
     draftSettings: {},
     draftNodes: [],
+    showDeleteValidationErrors: false,
   };
 
   function loadState() {
@@ -58,6 +60,7 @@ function BranchingStudioEditor(runtime, element, data) {
       },
       choices: Array.isArray(raw?.choices) ? raw.choices.map(normalizeChoice) : [],
       no_branches: Boolean(raw?.no_branches),
+      pending_delete: false,
       hint: raw?.hint || '',
       overlay_text: Boolean(raw?.overlay_text),
       transcript_url: raw?.transcript_url || '',
@@ -92,6 +95,8 @@ function BranchingStudioEditor(runtime, element, data) {
     $continueBtn.attr('hidden', !showSettings);
     $saveBtn.attr('hidden', showSettings);
     $backBtn.attr('hidden', showSettings);
+    updateFooterUi();
+    updateClientValidationUi();
   }
 
   function nodeIndexById(nodeId) {
@@ -109,6 +114,108 @@ function BranchingStudioEditor(runtime, element, data) {
       .filter(opt => opt.id !== excludeNodeId);
   }
 
+  function activeNodes() {
+    return wizard.draftNodes.filter(node => !node.pending_delete);
+  }
+
+  function pendingDeleteNodes() {
+    return wizard.draftNodes.filter(node => node.pending_delete);
+  }
+
+  function nodeNumberById(nodeId) {
+    const idx = wizard.draftNodes.findIndex(node => node.id === nodeId);
+    return idx >= 0 ? idx + 1 : null;
+  }
+
+  function buildClientValidation() {
+    const errors = [];
+    const seenErrors = new Set();
+    const nodeErrorDetailsById = new Map();
+    const nodeErrorIds = new Set();
+    const pendingDeleteIds = new Set(pendingDeleteNodes().map(node => node.id));
+    const active = activeNodes();
+
+    if (!active.length) {
+      errors.push('At least one active node is required.');
+    }
+
+    active.forEach((sourceNode) => {
+      (sourceNode.choices || []).forEach((choice) => {
+        const targetNodeId = (choice?.target_node_id || '').trim();
+        if (!targetNodeId || !pendingDeleteIds.has(targetNodeId)) {
+          return;
+        }
+        const sourceNumber = nodeNumberById(sourceNode.id);
+        const targetNumber = nodeNumberById(targetNodeId);
+        let message;
+        if (sourceNumber && targetNumber) {
+          message = `Cannot delete Node ${targetNumber} because it is referenced by Node ${sourceNumber}.`;
+          if (!seenErrors.has(message)) {
+            seenErrors.add(message);
+            errors.push(message);
+          }
+        } else {
+          message = 'Cannot delete a node that is still referenced by another node.';
+          if (!seenErrors.has(message)) {
+            seenErrors.add(message);
+            errors.push(message);
+          }
+        }
+        nodeErrorIds.add(sourceNode.id);
+        nodeErrorIds.add(targetNodeId);
+        if (!nodeErrorDetailsById.has(targetNodeId)) {
+          if (sourceNumber && targetNumber) {
+            nodeErrorDetailsById.set(
+              targetNodeId,
+              `Node ${targetNumber} is referenced by Node ${sourceNumber}.`
+            );
+          } else {
+            nodeErrorDetailsById.set(
+              targetNodeId,
+              'This node is still referenced by another node in this scenario.'
+            );
+          }
+        }
+      });
+    });
+
+    return { errors, nodeErrorIds, nodeErrorDetailsById };
+  }
+
+  function updateFooterUi() {
+    const pendingCount = pendingDeleteNodes().length;
+    if (wizard.currentStep !== 'nodes' || pendingCount === 0) {
+      $pendingDeleteSummary.attr('hidden', true).text('');
+      return;
+    }
+    const nodeWord = pendingCount === 1 ? 'node' : 'nodes';
+    $pendingDeleteSummary
+      .attr('hidden', false)
+      .text(`${pendingCount} ${nodeWord} will be deleted when you save.`);
+  }
+
+  function updateClientValidationUi() {
+    const validation = buildClientValidation();
+    if (wizard.showDeleteValidationErrors) {
+      wizard.validationErrors = validation.errors;
+      wizard.validationNodeErrorIds = validation.nodeErrorIds;
+      wizard.validationNodeErrorDetailsById = validation.nodeErrorDetailsById;
+      const generalErrors = validation.errors.filter(msg => msg === 'At least one active node is required.');
+      if (wizard.currentStep === 'nodes' && generalErrors.length) {
+        $errors.empty();
+        generalErrors.forEach(msg => $errors.append($('<div>').text(msg)));
+      } else {
+        $errors.empty();
+      }
+    } else {
+      wizard.validationErrors = [];
+      wizard.validationNodeErrorIds = new Set();
+      wizard.validationNodeErrorDetailsById = new Map();
+      $errors.empty();
+    }
+    $saveBtn.prop('disabled', false);
+  }
+
   function renderSettings() {
     $stepSettings.html(Templates['settings-step'](wizard.draftSettings));
   }
@@ -120,10 +227,12 @@ function BranchingStudioEditor(runtime, element, data) {
         id: n.id,
         number: idx + 1,
         is_selected: n.id === wizard.selectedNodeId,
+        is_pending_delete: Boolean(n.pending_delete),
+        has_errors: wizard.validationNodeErrorIds?.has(n.id),
       }));
     });
 
-    const atLimit = wizard.draftNodes.length >= 30;
+    const atLimit = activeNodes().length >= 30;
     $stepNodes.find('[data-role="add-node"]').prop('disabled', atLimit);
   }
 
@@ -157,6 +266,8 @@ function BranchingStudioEditor(runtime, element, data) {
       show_transcript: showTranscript,
       show_overlay: showOverlay,
       no_branches: noBranches,
+      is_pending_delete: Boolean(node.pending_delete),
+      node_error_detail: wizard.validationNodeErrorDetailsById?.get(node.id) || '',
       left_image_url: leftImageUrl,
       right_image_url: rightImageUrl,
     });
@@ -179,6 +290,8 @@ function BranchingStudioEditor(runtime, element, data) {
     renderSettings();
     renderNodesStep();
     showStep(wizard.currentStep);
+    updateFooterUi();
+    updateClientValidationUi();
   }
 
   function syncSettingsFromDom() {
@@ -258,6 +371,15 @@ function BranchingStudioEditor(runtime, element, data) {
     $saveBtn.off('click').on('click', function() {
       syncSettingsFromDom();
       syncCurrentNodeFromDom();
+      const validation = buildClientValidation();
+      if (validation.errors.length) {
+        wizard.showDeleteValidationErrors = true;
+        updateClientValidationUi();
+        renderNodeList();
+        renderNodeEditor();
+        return;
+      }
+      wizard.showDeleteValidationErrors = false;
 
       const payload = {
         nodes: wizard.draftNodes.map(n => ({
@@ -282,6 +404,9 @@ function BranchingStudioEditor(runtime, element, data) {
           right_image_url: (n.right_image_url || '').trim(),
           transcript_url: (n.transcript_url || '').trim(),
         })),
+        deleted_node_ids: wizard.draftNodes
+          .filter(node => node.pending_delete)
+          .map(node => node.id),
         enable_undo: Boolean(wizard.draftSettings.enable_undo),
         enable_scoring: Boolean(wizard.draftSettings.enable_scoring),
         enable_reset_activity: Boolean(wizard.draftSettings.enable_reset_activity),
@@ -303,9 +428,11 @@ function BranchingStudioEditor(runtime, element, data) {
           runtime.notify('cancel', {});
         } else {
           showErrors(res);
+          $saveBtn.prop('disabled', false);
         }
       }).fail(function() {
         $errors.text('Error saving scenario');
+        $saveBtn.prop('disabled', false);
       });
     });
 
@@ -330,7 +457,7 @@ function BranchingStudioEditor(runtime, element, data) {
 
     $root.off('click.bx-nodes', '[data-role="add-node"]');
     $root.on('click.bx-nodes', '[data-role="add-node"]', function() {
-      if (wizard.draftNodes.length >= 30) {
+      if (activeNodes().length >= 30) {
         return;
       }
       syncCurrentNodeFromDom();
@@ -339,6 +466,8 @@ function BranchingStudioEditor(runtime, element, data) {
       wizard.selectedNodeId = node.id;
       renderNodeList();
       renderNodeEditor();
+      updateFooterUi();
+      updateClientValidationUi();
     });
 
     $root.off('click.bx-nodes', '[data-role="select-node"]');
@@ -347,47 +476,49 @@ function BranchingStudioEditor(runtime, element, data) {
       if (!nodeId || nodeId === wizard.selectedNodeId) {
         return;
       }
+      const node = wizard.draftNodes.find(n => n.id === nodeId);
+      if (!node) {
+        return;
+      }
       syncCurrentNodeFromDom();
       wizard.selectedNodeId = nodeId;
       renderNodeList();
       renderNodeEditor();
+      updateFooterUi();
+      updateClientValidationUi();
     });
 
-    $root.off('click.bx-nodes', '[data-role="delete-node"]');
-    $root.on('click.bx-nodes', '[data-role="delete-node"]', function() {
+    $root.off('click.bx-nodes', '[data-role="toggle-delete-node"]');
+    $root.on('click.bx-nodes', '[data-role="toggle-delete-node"]', function() {
       const nodeId = $(this).data('node-id');
       if (!nodeId) {
         return;
       }
       syncCurrentNodeFromDom();
-
-      wizard.draftNodes = wizard.draftNodes.filter(n => n.id !== nodeId);
-      wizard.draftNodes.forEach(n => {
-        n.choices = (n.choices || []).filter(c => c.target_node_id !== nodeId);
-      });
-
-      if (!wizard.draftNodes.length) {
-        const node = normalizeNode({});
-        wizard.draftNodes = [node];
-        wizard.selectedNodeId = node.id;
-      } else if (wizard.selectedNodeId === nodeId) {
-        wizard.selectedNodeId = wizard.draftNodes[0].id;
+      const node = wizard.draftNodes.find(n => n.id === nodeId);
+      if (!node) {
+        return;
       }
-
+      node.pending_delete = !node.pending_delete;
+      wizard.showDeleteValidationErrors = false;
+      updateClientValidationUi();
       renderNodeList();
       renderNodeEditor();
+      updateFooterUi();
     });
 
     $root.off('change.bx-node', '[data-role="media-type"]');
     $root.on('change.bx-node', '[data-role="media-type"]', function() {
       syncCurrentNodeFromDom();
       renderNodeEditor();
+      updateClientValidationUi();
     });
 
     $root.off('change.bx-node', '[data-role="no-branches"]');
     $root.on('change.bx-node', '[data-role="no-branches"]', function() {
       syncCurrentNodeFromDom();
       renderNodeEditor();
+      updateClientValidationUi();
     });
 
     $root.off('click.bx-node', '[data-role="add-choice"]');
@@ -401,6 +532,7 @@ function BranchingStudioEditor(runtime, element, data) {
       node.choices = Array.isArray(node.choices) ? node.choices : [];
       node.choices.push({ text: '', target_node_id: '', score: 0 });
       renderNodeEditor();
+      updateClientValidationUi();
     });
 
     $root.off('click.bx-node', '.btn-delete-choice');
@@ -415,6 +547,7 @@ function BranchingStudioEditor(runtime, element, data) {
         node.choices.splice(idx, 1);
       }
       renderNodeEditor();
+      updateClientValidationUi();
     });
   }
 

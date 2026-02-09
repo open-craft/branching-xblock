@@ -459,16 +459,10 @@ class BranchingXBlock(XBlock):
         """
         payload = data
         raw_nodes = payload.get('nodes', [])
+        deleted_node_ids = set(payload.get('deleted_node_ids', []))
         background_image_url = (payload.get('background_image_url') or '').strip()
         background_image_alt_text = (payload.get('background_image_alt_text') or '').strip()
         background_image_is_decorative = bool(payload.get('background_image_is_decorative', False))
-
-        if len(raw_nodes) > 30:
-            return {
-                "result": "error",
-                "message": "Validation errors",
-                "field_errors": {"nodes_json": ["Too many nodes (max 30)."]}
-            }
 
         if background_image_url and not background_image_is_decorative and not background_image_alt_text:
             return {
@@ -505,9 +499,50 @@ class BranchingXBlock(XBlock):
                 'transcript_url': raw.get('transcript_url', ''),
             })
 
+        resolved_deleted_node_ids = {
+            id_map.get(node_id, node_id)
+            for node_id in deleted_node_ids
+        }
+        node_number_by_id = {
+            node['id']: index + 1
+            for index, node in enumerate(staged)
+        }
+
+        reference_errors = []
+        seen_reference_errors = set()
+        for node in staged:
+            if node['id'] in resolved_deleted_node_ids:
+                continue
+            source_node_number = node_number_by_id.get(node['id'])
+            for raw_choice in node['choices']:
+                target_node_id = id_map.get((raw_choice.get('target_node_id') or '').strip(), (raw_choice.get('target_node_id') or '').strip())
+                if not target_node_id or target_node_id not in resolved_deleted_node_ids:
+                    continue
+                target_node_number = node_number_by_id.get(target_node_id)
+                if source_node_number and target_node_number:
+                    error_message = (
+                        f"Cannot delete Node {target_node_number} because it is referenced by Node {source_node_number}."
+                    )
+                else:
+                    error_message = (
+                        "Cannot delete a node that is still referenced by another node."
+                    )
+                if error_message not in seen_reference_errors:
+                    seen_reference_errors.add(error_message)
+                    reference_errors.append(error_message)
+
+        if reference_errors:
+            return {
+                "result": "error",
+                "message": "Validation errors",
+                "field_errors": {"nodes_json": reference_errors}
+            }
+
         # 2) Remap choice targets & clean arrays
         final = []
         for node in staged:
+            if node['id'] in resolved_deleted_node_ids:
+                continue
             # filter out completely blank nodes
             has_content = bool(node['content'].strip())
             has_media = bool(node['media']['url'].strip())
@@ -559,6 +594,13 @@ class BranchingXBlock(XBlock):
                 "result": "error",
                 "message": "Validation errors",
                 "field_errors": {"nodes_json": score_errors}
+            }
+
+        if len(final) > 30:
+            return {
+                "result": "error",
+                "message": "Validation errors",
+                "field_errors": {"nodes_json": ["Too many nodes (max 30)."]}
             }
 
         # 3) Persist scenario_data & settings

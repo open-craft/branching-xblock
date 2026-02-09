@@ -1,5 +1,20 @@
 <div class="bx-node-editor-inner" data-node-id="{{id}}">
-  <h2 class="bx-step-title">Node {{number}}</h2>
+  {{#if node_error_detail}}
+    <div class="bx-node-error-banner" role="alert">
+      <span class="fa fa-exclamation-circle bx-node-error-banner__icon" aria-hidden="true"></span>
+      <div class="bx-node-error-banner__content">
+        <div class="bx-node-error-banner__title">You can't delete this node</div>
+        <div class="bx-node-error-banner__detail">{{node_error_detail}}</div>
+      </div>
+    </div>
+  {{/if}}
+
+  <div class="bx-node-editor-header">
+    <h2 class="bx-step-title">Node {{number}}</h2>
+    {{#if is_pending_delete}}
+      <span class="bx-pending-delete-badge">Pending deletion</span>
+    {{/if}}
+  </div>
 
   <label class="bx-field">
     <div class="bx-field__label">Content</div>
