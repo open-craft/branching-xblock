@@ -65,7 +65,7 @@
   </div>
 
   <label class="bx-checkbox">
-    <input type="checkbox" data-role="no-branches" {{#if no_branches}}checked{{/if}} />
+    <input type="checkbox" data-role="no-branches" {{#if no_branches}}checked{{/if}} {{#if has_choices}}disabled{{/if}} />
     <span>This node has no branches</span>
   </label>
 

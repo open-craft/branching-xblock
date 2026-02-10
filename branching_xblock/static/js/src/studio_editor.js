@@ -298,7 +298,8 @@ function BranchingStudioEditor(runtime, element, data) {
     const showMediaUrl = Boolean(mediaType) && !isImage;
     const showTranscript = mediaType === 'audio' || mediaType === 'video';
     const showOverlay = mediaType === 'image';
-    const noBranches = Boolean(node.no_branches);
+    const hasChoices = Array.isArray(node.choices) && node.choices.length > 0;
+    const noBranches = Boolean(node.no_branches) && !hasChoices;
 
     const leftImageUrl = isImage
       ? (node.left_image_url ?? node.media?.url ?? '')
@@ -315,6 +316,7 @@ function BranchingStudioEditor(runtime, element, data) {
       show_media_url: showMediaUrl,
       show_transcript: showTranscript,
       show_overlay: showOverlay,
+      has_choices: hasChoices,
       no_branches: noBranches,
       is_pending_delete: Boolean(node.pending_delete),
       node_error_detail: wizard.validationNodeErrorDetailsById?.get(node.id) || '',
