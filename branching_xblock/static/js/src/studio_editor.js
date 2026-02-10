@@ -270,14 +270,32 @@ function BranchingStudioEditor(runtime, element, data) {
   }
 
   function renderNodeList() {
+    const incomingReferenceCounts = new Map();
+    wizard.draftNodes.forEach(node => incomingReferenceCounts.set(node.id, 0));
+
+    activeNodes().forEach((sourceNode) => {
+      (sourceNode.choices || []).forEach((choice) => {
+        const targetNodeId = (choice?.target_node_id || '').trim();
+        if (!targetNodeId || !incomingReferenceCounts.has(targetNodeId)) {
+          return;
+        }
+        incomingReferenceCounts.set(
+          targetNodeId,
+          (incomingReferenceCounts.get(targetNodeId) || 0) + 1
+        );
+      });
+    });
+
     const $list = $stepNodes.find('[data-role="node-list"]').empty();
     wizard.draftNodes.forEach((n, idx) => {
+      const isUnlinked = !n.pending_delete && idx > 0 && (incomingReferenceCounts.get(n.id) || 0) === 0;
       $list.append(Templates['node-list-item']({
         id: n.id,
         number: idx + 1,
         is_selected: n.id === wizard.selectedNodeId,
         is_pending_delete: Boolean(n.pending_delete),
         has_errors: wizard.validationNodeErrorIds?.has(n.id),
+        is_unlinked: isUnlinked,
       }));
     });
 

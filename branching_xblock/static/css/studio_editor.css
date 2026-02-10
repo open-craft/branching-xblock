@@ -190,6 +190,11 @@
     color: #1f2933;
 }
 
+.bx-node-list-item__meta {
+    font-size: 11px;
+    color: #d23228;
+}
+
 .bx-node-list-item__error {
     display: inline-flex;
     align-items: center;
