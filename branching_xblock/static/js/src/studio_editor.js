@@ -15,6 +15,7 @@ function BranchingStudioEditor(runtime, element, data) {
   const $backBtn = $root.find('[data-role="back"]');
   const $cancelBtn  = $root.find('[data-role="cancel"]');
   const $pendingDeleteSummary = $root.find('[data-role="pending-delete-summary"]');
+  const $saveValidationSummary = $root.find('[data-role="save-validation-summary"]');
 
   this.uniqueIdCount = 0;
 
@@ -29,6 +30,8 @@ function BranchingStudioEditor(runtime, element, data) {
     draftSettings: {},
     draftNodes: [],
     showDeleteValidationErrors: false,
+    showFieldValidationErrors: false,
+    validationFieldErrorsByNodeId: new Map(),
   };
 
   function loadState() {
@@ -132,6 +135,7 @@ function BranchingStudioEditor(runtime, element, data) {
     const seenErrors = new Set();
     const nodeErrorDetailsById = new Map();
     const nodeErrorIds = new Set();
+    const fieldErrorsByNodeId = new Map();
     const pendingDeleteIds = new Set(pendingDeleteNodes().map(node => node.id));
     const active = activeNodes();
 
@@ -179,12 +183,46 @@ function BranchingStudioEditor(runtime, element, data) {
       });
     });
 
-    return { errors, nodeErrorIds, nodeErrorDetailsById };
+    active.forEach((node) => {
+      const nodeFieldErrors = {};
+
+      if (node.media?.type === 'image') {
+        const leftImageUrl = (node.left_image_url || '').trim();
+        const rightImageUrl = (node.right_image_url || '').trim();
+        if (!leftImageUrl && !rightImageUrl) {
+          nodeFieldErrors.left_image_url = 'Please enter a valid URL';
+        }
+      }
+
+      const choiceDestinationByIndex = {};
+      (node.choices || []).forEach((choice, index) => {
+        const choiceText = (choice?.text || '').trim();
+        const choiceTarget = (choice?.target_node_id || '').trim();
+        if (choiceText && !choiceTarget) {
+          choiceDestinationByIndex[index] = 'Required field';
+        }
+      });
+
+      if (Object.keys(choiceDestinationByIndex).length > 0) {
+        nodeFieldErrors.choiceDestinationByIndex = choiceDestinationByIndex;
+      }
+
+      if (Object.keys(nodeFieldErrors).length > 0) {
+        fieldErrorsByNodeId.set(node.id, nodeFieldErrors);
+        nodeErrorIds.add(node.id);
+        errors.push(`Node ${nodeNumberById(node.id)} has required fields missing.`);
+      }
+    });
+
+    return { errors, nodeErrorIds, nodeErrorDetailsById, fieldErrorsByNodeId };
   }
 
   function updateFooterUi() {
+    if (!wizard.showFieldValidationErrors) {
+      $saveValidationSummary.attr('hidden', true).text('');
+    }
     const pendingCount = pendingDeleteNodes().length;
-    if (wizard.currentStep !== 'nodes' || pendingCount === 0) {
+    if (wizard.currentStep !== 'nodes' || pendingCount === 0 || wizard.showFieldValidationErrors) {
       $pendingDeleteSummary.attr('hidden', true).text('');
       return;
     }
@@ -196,10 +234,11 @@ function BranchingStudioEditor(runtime, element, data) {
 
   function updateClientValidationUi() {
     const validation = buildClientValidation();
-    if (wizard.showDeleteValidationErrors) {
+    if (wizard.showDeleteValidationErrors || wizard.showFieldValidationErrors) {
       wizard.validationErrors = validation.errors;
       wizard.validationNodeErrorIds = validation.nodeErrorIds;
       wizard.validationNodeErrorDetailsById = validation.nodeErrorDetailsById;
+      wizard.validationFieldErrorsByNodeId = validation.fieldErrorsByNodeId;
       const generalErrors = validation.errors.filter(msg => msg === 'At least one active node is required.');
       if (wizard.currentStep === 'nodes' && generalErrors.length) {
         $errors.empty();
@@ -207,13 +246,23 @@ function BranchingStudioEditor(runtime, element, data) {
       } else {
         $errors.empty();
       }
+      if (wizard.currentStep === 'nodes' && validation.errors.length > 0) {
+        $saveValidationSummary
+          .attr('hidden', false)
+          .text("We weren't able to save your selections. Please fix the errors shown and try again.");
+      } else {
+        $saveValidationSummary.attr('hidden', true).text('');
+      }
     } else {
       wizard.validationErrors = [];
       wizard.validationNodeErrorIds = new Set();
       wizard.validationNodeErrorDetailsById = new Map();
+      wizard.validationFieldErrorsByNodeId = new Map();
+      $saveValidationSummary.attr('hidden', true).text('');
       $errors.empty();
     }
     $saveBtn.prop('disabled', false);
+    updateFooterUi();
   }
 
   function renderSettings() {
@@ -257,6 +306,7 @@ function BranchingStudioEditor(runtime, element, data) {
     const rightImageUrl = isImage
       ? (node.right_image_url ?? '')
       : '';
+    const currentNodeFieldErrors = wizard.validationFieldErrorsByNodeId?.get(node.id) || {};
 
     const html = Templates['node-editor']({
       ...node,
@@ -268,14 +318,21 @@ function BranchingStudioEditor(runtime, element, data) {
       no_branches: noBranches,
       is_pending_delete: Boolean(node.pending_delete),
       node_error_detail: wizard.validationNodeErrorDetailsById?.get(node.id) || '',
+      left_image_url_error: currentNodeFieldErrors.left_image_url || '',
       left_image_url: leftImageUrl,
       right_image_url: rightImageUrl,
     });
     const $editor = $stepNodes.find('[data-role="node-editor"]').html(html);
     const $choices = $editor.find('[data-role="choices-container"]').empty();
     const options = nodeOptions(node.id);
+    const choiceDestinationErrors = currentNodeFieldErrors.choiceDestinationByIndex || {};
     (node.choices || []).forEach((choice, i) => {
-      $choices.append(Templates['choice-row']({ choice, i, options }));
+      $choices.append(Templates['choice-row']({
+        choice,
+        i,
+        options,
+        destination_error: choiceDestinationErrors[i] || '',
+      }));
     });
   }
 
@@ -374,12 +431,14 @@ function BranchingStudioEditor(runtime, element, data) {
       const validation = buildClientValidation();
       if (validation.errors.length) {
         wizard.showDeleteValidationErrors = true;
+        wizard.showFieldValidationErrors = true;
         updateClientValidationUi();
         renderNodeList();
         renderNodeEditor();
         return;
       }
       wizard.showDeleteValidationErrors = false;
+      wizard.showFieldValidationErrors = false;
 
       const payload = {
         nodes: wizard.draftNodes.map(n => ({
@@ -501,6 +560,7 @@ function BranchingStudioEditor(runtime, element, data) {
       }
       node.pending_delete = !node.pending_delete;
       wizard.showDeleteValidationErrors = false;
+      wizard.showFieldValidationErrors = false;
       updateClientValidationUi();
       renderNodeList();
       renderNodeEditor();
@@ -510,6 +570,7 @@ function BranchingStudioEditor(runtime, element, data) {
     $root.off('change.bx-node', '[data-role="media-type"]');
     $root.on('change.bx-node', '[data-role="media-type"]', function() {
       syncCurrentNodeFromDom();
+      wizard.showFieldValidationErrors = false;
       renderNodeEditor();
       updateClientValidationUi();
     });
@@ -517,6 +578,7 @@ function BranchingStudioEditor(runtime, element, data) {
     $root.off('change.bx-node', '[data-role="no-branches"]');
     $root.on('change.bx-node', '[data-role="no-branches"]', function() {
       syncCurrentNodeFromDom();
+      wizard.showFieldValidationErrors = false;
       renderNodeEditor();
       updateClientValidationUi();
     });
@@ -531,6 +593,7 @@ function BranchingStudioEditor(runtime, element, data) {
       node.no_branches = false;
       node.choices = Array.isArray(node.choices) ? node.choices : [];
       node.choices.push({ text: '', target_node_id: '', score: 0 });
+      wizard.showFieldValidationErrors = false;
       renderNodeEditor();
       updateClientValidationUi();
     });
@@ -546,6 +609,7 @@ function BranchingStudioEditor(runtime, element, data) {
       if (!Number.isNaN(idx)) {
         node.choices.splice(idx, 1);
       }
+      wizard.showFieldValidationErrors = false;
       renderNodeEditor();
       updateClientValidationUi();
     });

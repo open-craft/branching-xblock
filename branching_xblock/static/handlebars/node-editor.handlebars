@@ -34,7 +34,10 @@
   <div class="{{#unless is_image}}is-hidden{{/unless}}" data-role="image-url-fields">
     <label class="bx-field">
       <div class="bx-field__label">Left image URL</div>
-      <input type="text" class="bx-input" data-role="left-image-url" placeholder="URL" value="{{left_image_url}}" />
+      <input type="text" class="bx-input {{#if left_image_url_error}}is-error{{/if}}" data-role="left-image-url" placeholder="URL" value="{{left_image_url}}" />
+      {{#if left_image_url_error}}
+        <div class="bx-field-error">{{left_image_url_error}}</div>
+      {{/if}}
     </label>
     <label class="bx-field">
       <div class="bx-field__label">Right image URL</div>
