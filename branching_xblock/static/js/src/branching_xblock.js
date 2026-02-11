@@ -222,7 +222,10 @@ function BranchingXBlock(runtime, element) {
         });
         const hasChoices = choices.length > 0;
         const isLeaf = !hasChoices;
-        const showReset = Boolean(state.enable_reset_activity && isLeaf);
+        const isAtStartNode = Boolean(
+            state.current_node && state.current_node.id === state.start_node_id
+        );
+        const showReset = Boolean(state.enable_reset_activity && !isAtStartNode);
         $el.find('[data-role="choice-heading"]').toggle(hasChoices);
         $submitButton.toggle(hasChoices);
         $submitButton.prop('disabled', !hasChoices || selectedChoiceIndex === null);
@@ -231,15 +234,9 @@ function BranchingXBlock(runtime, element) {
         $el.find('.undo-button')
             .prop('disabled', !canUndo)
             .toggleClass('is-disabled', !canUndo);
-
-        const isAtStartNode = Boolean(
-            state.current_node && state.current_node.id === state.start_node_id
-        );
-        const showReset = Boolean(state.enable_reset_activity && !isAtStartNode);
         $el.find('[data-role="reset-activity"]').toggle(showReset);
 
         const $score = $el.find('[data-role="score"]');
-        $el.find('[data-role="reset-activity"]').toggle(showReset);
         if (isLeaf && state.enable_scoring) {
             $score.text(`Score: ${state.score}/${state.max_score}`).show();
         } else {

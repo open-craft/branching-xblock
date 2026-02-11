@@ -341,13 +341,13 @@
 }
 
 .reset-button {
-    border: 1px solid #4a5568;
+    border: 1px solid #9a3412;
     border-radius: 4px;
     padding: 0.6em 1.2em;
     font-size: 1em;
     cursor: pointer;
-    background: transparent;
-    color: #1f2a37;
+    background: #ffffff;
+    color: #9a3412;
 }
 
 .reset-button:hover,
@@ -358,7 +358,7 @@
 }
 
 .reset-button:focus-visible {
-    outline: 2px solid #ea580c;
+    outline: 2px solid #9a3412;
     outline-offset: 2px;
 }
 
