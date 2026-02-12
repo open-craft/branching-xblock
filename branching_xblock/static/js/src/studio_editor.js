@@ -32,7 +32,47 @@ function BranchingStudioEditor(runtime, element, data) {
     showDeleteValidationErrors: false,
     showFieldValidationErrors: false,
     validationFieldErrorsByNodeId: new Map(),
+    validationNodeErrorTitlesById: new Map(),
   };
+
+  function findCycleNodeIds(nodes) {
+    const state = new Map();
+    const stack = [];
+    const cycleNodeIds = new Set();
+    const nodeById = new Map(nodes.map(node => [node.id, node]));
+
+    function visit(nodeId) {
+      state.set(nodeId, 1);
+      stack.push(nodeId);
+      const node = nodeById.get(nodeId);
+      (node?.choices || []).forEach((choice) => {
+        const targetNodeId = (choice?.target_node_id || '').trim();
+        if (!targetNodeId || !nodeById.has(targetNodeId)) {
+          return;
+        }
+        const targetState = state.get(targetNodeId) || 0;
+        if (targetState === 0) {
+          visit(targetNodeId);
+          return;
+        }
+        if (targetState === 1) {
+          const cycleStartIndex = stack.indexOf(targetNodeId);
+          if (cycleStartIndex >= 0) {
+            stack.slice(cycleStartIndex).forEach(cycleId => cycleNodeIds.add(cycleId));
+          }
+        }
+      });
+      stack.pop();
+      state.set(nodeId, 2);
+    }
+
+    nodes.forEach((node) => {
+      if ((state.get(node.id) || 0) === 0) {
+        visit(node.id);
+      }
+    });
+    return cycleNodeIds;
+  }
 
   function loadState() {
       return $.ajax({
@@ -134,6 +174,7 @@ function BranchingStudioEditor(runtime, element, data) {
     const errors = [];
     const seenErrors = new Set();
     const nodeErrorDetailsById = new Map();
+    const nodeErrorTitlesById = new Map();
     const nodeErrorIds = new Set();
     const fieldErrorsByNodeId = new Map();
     const pendingDeleteIds = new Set(pendingDeleteNodes().map(node => node.id));
@@ -168,6 +209,7 @@ function BranchingStudioEditor(runtime, element, data) {
         nodeErrorIds.add(sourceNode.id);
         nodeErrorIds.add(targetNodeId);
         if (!nodeErrorDetailsById.has(targetNodeId)) {
+          nodeErrorTitlesById.set(targetNodeId, "You can't delete this node");
           if (sourceNumber && targetNumber) {
             nodeErrorDetailsById.set(
               targetNodeId,
@@ -214,7 +256,34 @@ function BranchingStudioEditor(runtime, element, data) {
       }
     });
 
-    return { errors, nodeErrorIds, nodeErrorDetailsById, fieldErrorsByNodeId };
+    const cycleNodeIds = findCycleNodeIds(active);
+    if (cycleNodeIds.size > 0) {
+      const cycleNodeNumbers = Array.from(cycleNodeIds)
+        .map(nodeId => nodeNumberById(nodeId))
+        .filter(number => number !== null)
+        .sort((a, b) => a - b);
+      const cycleNodeLabel = cycleNodeNumbers.length
+        ? cycleNodeNumbers.map(number => `Node ${number}`).join(', ')
+        : 'one or more nodes';
+
+      errors.push(
+        `Circular path detected: ${cycleNodeLabel} links back through branching choices. Remove one of the links in this loop.`
+      );
+      cycleNodeIds.forEach((nodeId) => {
+        nodeErrorIds.add(nodeId);
+        if (!nodeErrorDetailsById.has(nodeId)) {
+          const nodeNumber = nodeNumberById(nodeId);
+          const prefix = nodeNumber ? `Node ${nodeNumber}` : 'This node';
+          nodeErrorTitlesById.set(nodeId, 'Circular path detected');
+          nodeErrorDetailsById.set(
+            nodeId,
+            `${prefix} links back through branching choices. Remove one of the links in this loop.`
+          );
+        }
+      });
+    }
+
+    return { errors, nodeErrorIds, nodeErrorDetailsById, nodeErrorTitlesById, fieldErrorsByNodeId };
   }
 
   function updateFooterUi() {
@@ -238,6 +307,7 @@ function BranchingStudioEditor(runtime, element, data) {
       wizard.validationErrors = validation.errors;
       wizard.validationNodeErrorIds = validation.nodeErrorIds;
       wizard.validationNodeErrorDetailsById = validation.nodeErrorDetailsById;
+      wizard.validationNodeErrorTitlesById = validation.nodeErrorTitlesById;
       wizard.validationFieldErrorsByNodeId = validation.fieldErrorsByNodeId;
       const generalErrors = validation.errors.filter(msg => msg === 'At least one active node is required.');
       if (wizard.currentStep === 'nodes' && generalErrors.length) {
@@ -257,6 +327,7 @@ function BranchingStudioEditor(runtime, element, data) {
       wizard.validationErrors = [];
       wizard.validationNodeErrorIds = new Set();
       wizard.validationNodeErrorDetailsById = new Map();
+      wizard.validationNodeErrorTitlesById = new Map();
       wizard.validationFieldErrorsByNodeId = new Map();
       $saveValidationSummary.attr('hidden', true).text('');
       $errors.empty();
@@ -337,6 +408,7 @@ function BranchingStudioEditor(runtime, element, data) {
       has_choices: hasChoices,
       no_branches: noBranches,
       is_pending_delete: Boolean(node.pending_delete),
+      node_error_title: wizard.validationNodeErrorTitlesById?.get(node.id) || '',
       node_error_detail: wizard.validationNodeErrorDetailsById?.get(node.id) || '',
       left_image_url_error: currentNodeFieldErrors.left_image_url || '',
       left_image_url: leftImageUrl,

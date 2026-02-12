@@ -191,6 +191,39 @@ class BranchingXBlock(XBlock):
                 return None
         return score if 0 <= score <= 100 else None
 
+    @staticmethod
+    def _find_cycle_node_ids(nodes):
+        """
+        Return node IDs that participate in a directed cycle.
+        """
+        state = {}
+        stack = []
+        cycle_node_ids = set()
+
+        def visit(node_id):
+            state[node_id] = 1
+            stack.append(node_id)
+            node = nodes.get(node_id, {})
+            for choice in node.get("choices", []) or []:
+                target_node_id = choice.get("target_node_id")
+                if target_node_id not in nodes:
+                    continue
+                target_state = state.get(target_node_id, 0)
+                if target_state == 0:
+                    visit(target_node_id)
+                elif target_state == 1:
+                    if target_node_id in stack:
+                        cycle_start_index = stack.index(target_node_id)
+                        cycle_node_ids.update(stack[cycle_start_index:])
+            stack.pop()
+            state[node_id] = 2
+
+        for node_id in nodes:
+            if state.get(node_id, 0) == 0:
+                visit(node_id)
+
+        return cycle_node_ids
+
     def get_current_node(self) -> Optional[dict[str, Any]]:
         """
         Get the learner's current node.
@@ -246,6 +279,14 @@ class BranchingXBlock(XBlock):
             for choice in node.get("choices", []):
                 if not self.get_node(choice["target_node_id"]):
                     errors.append(f"Invalid target {choice['target_node_id']} in node {node['id']}")
+
+        cycle_node_ids = self._find_cycle_node_ids(nodes)
+        if cycle_node_ids:
+            sorted_cycle_ids = ", ".join(sorted(cycle_node_ids))
+            errors.append(
+                f"Circular path detected in nodes: {sorted_cycle_ids}. "
+                "Remove one of the links in this loop."
+            )
 
         return errors
 
@@ -605,6 +646,22 @@ class BranchingXBlock(XBlock):
 
         # 3) Persist scenario_data & settings
         nodes_dict = {node['id']: node for node in final}
+        cycle_node_ids = self._find_cycle_node_ids(nodes_dict)
+        if cycle_node_ids:
+            sorted_cycle_ids = ", ".join(sorted(cycle_node_ids))
+            return {
+                "result": "error",
+                "message": "Validation errors",
+                "field_errors": {
+                    "nodes_json": [
+                        (
+                            "Circular path detected in nodes: "
+                            f"{sorted_cycle_ids}. Remove one of the links in this loop."
+                        )
+                    ]
+                }
+            }
+
         self.scenario_data = {
             'nodes': nodes_dict,
             'start_node_id': final[0]['id'] if final else None

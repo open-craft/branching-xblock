@@ -3,7 +3,9 @@
     <div class="bx-node-error-banner" role="alert">
       <span class="fa fa-exclamation-circle bx-node-error-banner__icon" aria-hidden="true"></span>
       <div class="bx-node-error-banner__content">
-        <div class="bx-node-error-banner__title">You can't delete this node</div>
+        <div class="bx-node-error-banner__title">
+          {{#if node_error_title}}{{node_error_title}}{{else}}You can't delete this node{{/if}}
+        </div>
         <div class="bx-node-error-banner__detail">{{node_error_detail}}</div>
       </div>
     </div>
