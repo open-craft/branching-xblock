@@ -21,6 +21,12 @@
     <span>Include a grade report at the end of the activity</span>
   </label>
 
+  <div class="bx-grade-range {{#unless enable_scoring}}is-hidden{{/unless}}" data-role="grade-range-section">
+    <h3 class="bx-section-title bx-grade-range__title">Specify Grade Range</h3>
+    <p class="bx-help bx-grade-range__help">Adjust the scale to set percentage ranges for each grade.</p>
+    <div class="bx-grade-range__slider" data-role="grade-range-slider"></div>
+  </div>
+
   <h3 class="bx-section-title">Background image</h3>
   <p class="bx-help">
     This image will appear in the background of any nodes with “Image” as the media type.
@@ -53,4 +59,3 @@
     />
   </div>
 </div>
-

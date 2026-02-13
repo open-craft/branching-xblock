@@ -128,6 +128,117 @@
     margin: 2px 0 8px;
 }
 
+.bx-grade-range {
+    margin: 14px 0 18px;
+    max-width: 700px;
+    border: 1px solid #d8dde3;
+    background: #f8f9fa;
+    padding: 10px 12px 12px;
+    border-radius: 4px;
+}
+
+.bx-grade-range__title {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #303842;
+}
+
+.bx-settings-step .bx-grade-range__title {
+    padding-top: 0;
+    margin-top: 0;
+}
+
+.bx-grade-range__help {
+    margin: 0 0 6px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #5b6570;
+}
+
+.bx-grade-range__track-wrap {
+    width: 100%;
+}
+
+.bx-grade-range__track {
+    position: relative;
+    height: 36px;
+    border: 1px solid #a9b4bf;
+    border-radius: 2px;
+    overflow: hidden;
+    background: #fff;
+    margin-top: 6px;
+}
+
+.bx-grade-range__segment {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    padding-right: 10px;
+    gap: 2px;
+    overflow: hidden;
+}
+
+.bx-grade-range__segment--fail {
+    background: #f4c7c3;
+}
+
+.bx-grade-range__segment--pass {
+    background: #c3da8a;
+}
+
+.bx-grade-range__segment-label {
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    color: #3f4750;
+}
+
+.bx-grade-range__segment-range {
+    font-size: 9px;
+    font-weight: 500;
+    line-height: 1;
+    color: #4e5965;
+}
+
+.bx-grade-range__ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+}
+
+.bx-grade-range__tick {
+    font-size: 10px;
+    line-height: 1;
+    color: #7a8591;
+}
+
+.bx-grade-range__handle {
+    position: absolute;
+    top: 50%;
+    width: 1px;
+    height: 36px;
+    transform: translate(-50%, -50%);
+    border: 0;
+    border-radius: 0;
+    background: #5d6671;
+    cursor: ew-resize;
+    padding: 0;
+    z-index: 2;
+    box-shadow: none;
+}
+
+.bx-grade-range__handle:focus-visible {
+    outline: 2px solid #0a6fb5;
+    outline-offset: 1px;
+}
+
 .bx-nodes-step {
     display: flex;
     gap: 14px;

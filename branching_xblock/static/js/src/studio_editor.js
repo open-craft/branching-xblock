@@ -74,6 +74,124 @@ function BranchingStudioEditor(runtime, element, data) {
     return cycleNodeIds;
   }
 
+  function defaultGradeRanges() {
+    return [
+      { label: 'Fail', start: 0, end: 49 },
+      { label: 'Pass', start: 50, end: 100 },
+    ];
+  }
+
+  function normalizeGradeRanges(rawGradeRanges) {
+    if (!Array.isArray(rawGradeRanges) || rawGradeRanges.length < 2) {
+      return defaultGradeRanges();
+    }
+    const normalized = [];
+    for (let index = 0; index < rawGradeRanges.length; index += 1) {
+      const gradeRange = rawGradeRanges[index] || {};
+      const label = String(gradeRange.label || '').trim() || `Grade ${index + 1}`;
+      const start = Number.parseInt(gradeRange.start, 10);
+      const end = Number.parseInt(gradeRange.end, 10);
+      if (
+        Number.isNaN(start) || Number.isNaN(end) ||
+        start < 0 || end > 100 || end < start
+      ) {
+        return defaultGradeRanges();
+      }
+      normalized.push({ label, start, end });
+    }
+
+    let expectedStart = 0;
+    for (let index = 0; index < normalized.length; index += 1) {
+      const gradeRange = normalized[index];
+      if (gradeRange.start !== expectedStart) {
+        return defaultGradeRanges();
+      }
+      expectedStart = gradeRange.end + 1;
+    }
+    if (normalized[normalized.length - 1].end !== 100) {
+      return defaultGradeRanges();
+    }
+    return normalized;
+  }
+
+  function boundaryBounds(boundaryIndex, gradeRanges) {
+    const lower = boundaryIndex === 0 ? 0 : gradeRanges[boundaryIndex - 1].end + 1;
+    const upper = boundaryIndex === (gradeRanges.length - 2)
+      ? 99
+      : gradeRanges[boundaryIndex + 1].end - 1;
+    return { lower, upper };
+  }
+
+  function setBoundaryValue(boundaryIndex, requestedValue) {
+    const gradeRanges = wizard.draftSettings.grade_ranges || defaultGradeRanges();
+    const current = gradeRanges[boundaryIndex];
+    const next = gradeRanges[boundaryIndex + 1];
+    if (!current || !next) {
+      return;
+    }
+    const { lower, upper } = boundaryBounds(boundaryIndex, gradeRanges);
+    const clamped = Math.max(lower, Math.min(upper, requestedValue));
+    current.end = clamped;
+    next.start = clamped + 1;
+    wizard.draftSettings.grade_ranges = gradeRanges;
+  }
+
+  function renderGradeRangeSlider() {
+    const $section = $stepSettings.find('[data-role="grade-range-section"]');
+    if (!$section.length) {
+      return;
+    }
+    const show = Boolean(wizard.draftSettings.enable_scoring);
+    $section.toggleClass('is-hidden', !show);
+    if (!show) {
+      return;
+    }
+
+    wizard.draftSettings.grade_ranges = normalizeGradeRanges(wizard.draftSettings.grade_ranges);
+    const gradeRanges = wizard.draftSettings.grade_ranges;
+    const percentPerPoint = 100 / 101;
+    const $slider = $section.find('[data-role="grade-range-slider"]').empty();
+    const $trackWrap = $('<div class="bx-grade-range__track-wrap"></div>');
+    const $ticks = $('<div class="bx-grade-range__ticks"></div>');
+    for (let value = 0; value <= 100; value += 10) {
+      $ticks.append($('<span class="bx-grade-range__tick"></span>').text(String(value)));
+    }
+
+    const $track = $('<div class="bx-grade-range__track" data-role="grade-track"></div>');
+    gradeRanges.forEach((gradeRange, index) => {
+      const width = gradeRange.end - gradeRange.start + 1;
+      const isFail = index === 0;
+      const $segment = $('<div class="bx-grade-range__segment"></div>')
+        .toggleClass('bx-grade-range__segment--fail', isFail)
+        .toggleClass('bx-grade-range__segment--pass', !isFail)
+        .css({
+          left: `${gradeRange.start * percentPerPoint}%`,
+          width: `${width * percentPerPoint}%`,
+        });
+      $segment.append($('<div class="bx-grade-range__segment-label"></div>').text(gradeRange.label));
+      $segment.append(
+        $('<div class="bx-grade-range__segment-range"></div>').text(`${gradeRange.start}-${gradeRange.end}`)
+      );
+      $track.append($segment);
+    });
+
+    for (let boundaryIndex = 0; boundaryIndex < gradeRanges.length - 1; boundaryIndex += 1) {
+      const boundaryValue = gradeRanges[boundaryIndex].end;
+      const $handle = $('<button type="button" class="bx-grade-range__handle" data-role="grade-boundary-handle"></button>')
+        .attr('data-boundary-index', boundaryIndex)
+        .attr('role', 'slider')
+        .attr('aria-label', `Grade boundary ${boundaryIndex + 1}`)
+        .attr('aria-valuemin', boundaryBounds(boundaryIndex, gradeRanges).lower)
+        .attr('aria-valuemax', boundaryBounds(boundaryIndex, gradeRanges).upper)
+        .attr('aria-valuenow', boundaryValue)
+        .css('left', `${(boundaryValue + 1) * percentPerPoint}%`);
+      $track.append($handle);
+    }
+
+    $trackWrap.append($track).append($ticks);
+    $slider.append($trackWrap);
+  }
+
   function loadState() {
       return $.ajax({
         type: 'POST',
@@ -127,6 +245,7 @@ function BranchingStudioEditor(runtime, element, data) {
       background_image_url: state?.background_image_url || '',
       background_image_alt_text: state?.background_image_alt_text || '',
       background_image_is_decorative: Boolean(state?.background_image_is_decorative),
+      grade_ranges: normalizeGradeRanges(state?.grade_ranges),
     };
   }
 
@@ -338,6 +457,7 @@ function BranchingStudioEditor(runtime, element, data) {
 
   function renderSettings() {
     $stepSettings.html(Templates['settings-step'](wizard.draftSettings));
+    renderGradeRangeSlider();
   }
 
   function renderNodeList() {
@@ -452,6 +572,7 @@ function BranchingStudioEditor(runtime, element, data) {
     wizard.draftSettings.background_image_url = $s.find('[name="background_image_url"]').val()?.trim() || '';
     wizard.draftSettings.background_image_is_decorative = $s.find('[name="background_image_is_decorative"]').is(':checked');
     wizard.draftSettings.background_image_alt_text = $s.find('[name="background_image_alt_text"]').val()?.trim() || '';
+    wizard.draftSettings.grade_ranges = normalizeGradeRanges(wizard.draftSettings.grade_ranges);
   }
 
   function syncCurrentNodeFromDom() {
@@ -565,6 +686,11 @@ function BranchingStudioEditor(runtime, element, data) {
         background_image_url: wizard.draftSettings.background_image_url || '',
         background_image_alt_text: wizard.draftSettings.background_image_alt_text || '',
         background_image_is_decorative: Boolean(wizard.draftSettings.background_image_is_decorative),
+        grade_ranges: (wizard.draftSettings.grade_ranges || []).map((gradeRange) => ({
+          label: String(gradeRange.label || '').trim(),
+          start: Number.parseInt(gradeRange.start, 10),
+          end: Number.parseInt(gradeRange.end, 10),
+        })),
       };
 
       runtime.notify('save', { state: 'start' });
@@ -604,6 +730,73 @@ function BranchingStudioEditor(runtime, element, data) {
         $alt.val('');
         wizard.draftSettings.background_image_alt_text = '';
       }
+      renderGradeRangeSlider();
+    });
+
+    $root.off('mousedown.bx-grade-range', '[data-role="grade-boundary-handle"]');
+    $root.on('mousedown.bx-grade-range', '[data-role="grade-boundary-handle"]', function(event) {
+      event.preventDefault();
+      const boundaryIndex = Number($(this).attr('data-boundary-index'));
+      if (Number.isNaN(boundaryIndex)) {
+        return;
+      }
+
+      function applyDrag(clientX) {
+        const $track = $stepSettings.find('[data-role="grade-track"]');
+        if (!$track.length) {
+          return;
+        }
+        const bounds = $track[0].getBoundingClientRect();
+        if (bounds.width <= 0) {
+          return;
+        }
+        const ratio = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
+        const requestedValue = Math.round(ratio * 100);
+        setBoundaryValue(boundaryIndex, requestedValue);
+        renderGradeRangeSlider();
+      }
+
+      function stopDrag() {
+        $(document).off('mousemove.bx-grade-range-drag');
+        $(document).off('mouseup.bx-grade-range-drag');
+      }
+
+      applyDrag(event.clientX);
+      $(document).on('mousemove.bx-grade-range-drag', function(moveEvent) {
+        applyDrag(moveEvent.clientX);
+      });
+      $(document).on('mouseup.bx-grade-range-drag', function() {
+        stopDrag();
+      });
+    });
+
+    $root.off('keydown.bx-grade-range', '[data-role="grade-boundary-handle"]');
+    $root.on('keydown.bx-grade-range', '[data-role="grade-boundary-handle"]', function(event) {
+      const boundaryIndex = Number($(this).attr('data-boundary-index'));
+      if (Number.isNaN(boundaryIndex)) {
+        return;
+      }
+      const gradeRanges = wizard.draftSettings.grade_ranges || defaultGradeRanges();
+      const currentBoundary = gradeRanges[boundaryIndex]?.end;
+      if (typeof currentBoundary !== 'number') {
+        return;
+      }
+      const bounds = boundaryBounds(boundaryIndex, gradeRanges);
+      let nextValue = currentBoundary;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+        nextValue = currentBoundary - 1;
+      } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+        nextValue = currentBoundary + 1;
+      } else if (event.key === 'Home') {
+        nextValue = bounds.lower;
+      } else if (event.key === 'End') {
+        nextValue = bounds.upper;
+      } else {
+        return;
+      }
+      event.preventDefault();
+      setBoundaryValue(boundaryIndex, nextValue);
+      renderGradeRangeSlider();
     });
 
     $root.off('click.bx-nodes', '[data-role="add-node"]');

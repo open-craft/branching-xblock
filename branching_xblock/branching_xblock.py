@@ -99,6 +99,15 @@ class BranchingXBlock(XBlock):
         help="Score awarded when scenario is completed (if scoring enabled)"
     )
 
+    grade_ranges = List(
+        default=[
+            {"label": "Fail", "start": 0, "end": 49},
+            {"label": "Pass", "start": 50, "end": 100},
+        ],
+        scope=Scope.content,
+        help="Grade range segments for end-of-activity grade report"
+    )
+
     current_node_id = String(
         scope=Scope.user_state,
         default=None,
@@ -310,6 +319,86 @@ class BranchingXBlock(XBlock):
 
         return float(max(leaf_scores))
 
+    @staticmethod
+    def _default_grade_ranges():
+        return [
+            {"label": "Fail", "start": 0, "end": 49},
+            {"label": "Pass", "start": 50, "end": 100},
+        ]
+
+    @staticmethod
+    def _validate_grade_ranges(grade_ranges):
+        if not isinstance(grade_ranges, list) or len(grade_ranges) < 2:
+            return "Grade ranges must contain at least two contiguous segments."
+
+        expected_start = 0
+        for index, grade_range in enumerate(grade_ranges):
+            if not isinstance(grade_range, dict):
+                return f"Grade range {index + 1} is invalid."
+
+            start = grade_range.get("start")
+            end = grade_range.get("end")
+            label = str(grade_range.get("label", "")).strip()
+
+            if label == "":
+                return f"Grade range {index + 1} label is required."
+            if not isinstance(start, int) or not isinstance(end, int):
+                return f"Grade range {index + 1} bounds must be integers."
+            if start < 0 or end > 100:
+                return f"Grade range {index + 1} bounds must be between 0 and 100."
+            if end < start:
+                return f"Grade range {index + 1} has invalid bounds."
+            if start != expected_start:
+                return f"Grade range {index + 1} must start at {expected_start}."
+
+            expected_start = end + 1
+
+        if grade_ranges[-1]["end"] != 100:
+            return "Final grade range must end at 100."
+        return None
+
+    def _normalize_grade_ranges(self, raw_grade_ranges, strict=False):
+        defaults = self._default_grade_ranges()
+        if not isinstance(raw_grade_ranges, list):
+            if strict:
+                return None, "Grade ranges payload is invalid."
+            return defaults, None
+
+        normalized = []
+        for index, item in enumerate(raw_grade_ranges):
+            if not isinstance(item, dict):
+                if strict:
+                    return None, f"Grade range {index + 1} is invalid."
+                return defaults, None
+
+            label = str(item.get("label", "")).strip()
+            if not label:
+                if strict:
+                    return None, f"Grade range {index + 1} label is required."
+                label = defaults[index]["label"] if index < len(defaults) else f"Grade {index + 1}"
+
+            try:
+                start = int(item.get("start"))
+                end = int(item.get("end"))
+            except (TypeError, ValueError):
+                if strict:
+                    return None, f"Grade range {index + 1} bounds must be integers."
+                return defaults, None
+
+            normalized.append({
+                "label": label,
+                "start": start,
+                "end": end,
+            })
+
+        error = self._validate_grade_ranges(normalized)
+        if error:
+            if strict:
+                return None, error
+            return defaults, None
+
+        return normalized, None
+
     def get_current_node(self) -> Optional[dict[str, Any]]:
         """
         Get the learner's current node.
@@ -445,6 +534,7 @@ class BranchingXBlock(XBlock):
             "enable_scoring": bool(self.enable_scoring),
             "enable_reset_activity": bool(self.enable_reset_activity),
             "max_score":   self.max_score,
+            "grade_ranges": self._normalize_grade_ranges(self.grade_ranges)[0],
             "display_name": self.display_name,
             "authoring_help_html": authoring_help_html,
         }
@@ -486,6 +576,7 @@ class BranchingXBlock(XBlock):
             "background_image_alt_text": self.background_image_alt_text,
             "background_image_is_decorative": bool(self.background_image_is_decorative),
             "max_score":       self.max_score,
+            "grade_ranges":    self._normalize_grade_ranges(self.grade_ranges)[0],
             "display_name":    self.display_name,
             "current_node":    self.get_current_node(),
             "history":         list(self.history),
@@ -590,12 +681,22 @@ class BranchingXBlock(XBlock):
         background_image_url = (payload.get('background_image_url') or '').strip()
         background_image_alt_text = (payload.get('background_image_alt_text') or '').strip()
         background_image_is_decorative = bool(payload.get('background_image_is_decorative', False))
+        grade_ranges, grade_ranges_error = self._normalize_grade_ranges(
+            payload.get('grade_ranges', self.grade_ranges),
+            strict=True,
+        )
 
         if background_image_url and not background_image_is_decorative and not background_image_alt_text:
             return {
                 "result": "error",
                 "message": "Validation errors",
                 "field_errors": {"nodes_json": ["Background image alt text is required unless the image is marked decorative."]}
+            }
+        if grade_ranges_error:
+            return {
+                "result": "error",
+                "message": "Validation errors",
+                "field_errors": {"nodes_json": [grade_ranges_error]}
             }
 
         # 1) Assign real IDs and build id_map
@@ -763,6 +864,7 @@ class BranchingXBlock(XBlock):
         self.background_image_url = background_image_url
         self.background_image_alt_text = background_image_alt_text
         self.background_image_is_decorative = background_image_is_decorative
+        self.grade_ranges = grade_ranges
 
         # 4) Validate & respond
         errors = self.validate_scenario()
