@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import uuid
+from collections import deque
 from typing import Any, Optional
 
 from web_fragments.fragment import Fragment
@@ -223,6 +224,91 @@ class BranchingXBlock(XBlock):
                 visit(node_id)
 
         return cycle_node_ids
+
+    def _compute_max_attainable_score(self, nodes, start_node_id):
+        """
+        Compute the maximum total score over all reachable start-to-leaf paths.
+        """
+        if not start_node_id or start_node_id not in nodes:
+            return 0.0
+
+        # Phase 1: collect only nodes reachable from the start node.
+        # This intentionally ignores orphan/disconnected nodes so they do not
+        # affect the grade denominator.
+        reachable = set()
+        pending = deque([start_node_id])
+        while pending:
+            node_id = pending.popleft()
+            if node_id in reachable:
+                continue
+            reachable.add(node_id)
+            node = nodes.get(node_id, {})
+            for choice in node.get("choices", []) or []:
+                target_node_id = choice.get("target_node_id")
+                if target_node_id in nodes and target_node_id not in reachable:
+                    pending.append(target_node_id)
+
+        # Phase 2: compute indegree on the reachable subgraph only.
+        # We use indegree + queue to process nodes in topological order,
+        # which is valid because cycles are blocked by save-time validation.
+        indegree = {node_id: 0 for node_id in reachable}
+        for node_id in reachable:
+            node = nodes.get(node_id, {})
+            for choice in node.get("choices", []) or []:
+                target_node_id = choice.get("target_node_id")
+                if target_node_id in reachable:
+                    indegree[target_node_id] += 1
+
+        topo_queue = deque([node_id for node_id, degree in indegree.items() if degree == 0])
+        # best[node_id] stores the highest score found so far to reach node_id.
+        # We seed start at 0 and then relax outgoing edges.
+        best = {node_id: None for node_id in reachable}
+        best[start_node_id] = 0
+
+        while topo_queue:
+            node_id = topo_queue.popleft()
+            node_score = best[node_id]
+            node = nodes.get(node_id, {})
+
+            for choice in node.get("choices", []) or []:
+                target_node_id = choice.get("target_node_id")
+                if target_node_id not in reachable:
+                    continue
+
+                choice_score = self._coerce_choice_score(choice.get("score", 0))
+                choice_score = 0 if choice_score is None else choice_score
+                if node_score is not None:
+                    # Dynamic-programming relaxation:
+                    # if this path gives a higher total for target, keep it.
+                    candidate = node_score + choice_score
+                    prev_best = best[target_node_id]
+                    best[target_node_id] = candidate if prev_best is None else max(prev_best, candidate)
+
+                indegree[target_node_id] -= 1
+                if indegree[target_node_id] == 0:
+                    topo_queue.append(target_node_id)
+
+        # Phase 3: evaluate only leaf nodes (no outgoing reachable targets).
+        # Max attainable score is defined as best start->leaf path sum.
+        leaf_scores = []
+        for node_id in reachable:
+            node = nodes.get(node_id, {})
+            outgoing_targets = [
+                choice.get("target_node_id")
+                for choice in (node.get("choices", []) or [])
+                if choice.get("target_node_id") in reachable
+            ]
+            if not outgoing_targets and best[node_id] is not None:
+                leaf_scores.append(best[node_id])
+
+        # Defensive fallback: if no reachable leaf is detected, return the best
+        # finite score encountered (or 0). This keeps behavior predictable even
+        # for malformed graph edge-cases.
+        if not leaf_scores:
+            finite_scores = [score for score in best.values() if score is not None]
+            return float(max(finite_scores)) if finite_scores else 0.0
+
+        return float(max(leaf_scores))
 
     def get_current_node(self) -> Optional[dict[str, Any]]:
         """
@@ -669,7 +755,10 @@ class BranchingXBlock(XBlock):
         self.enable_undo = bool(payload.get('enable_undo', self.enable_undo))
         self.enable_scoring = bool(payload.get('enable_scoring', self.enable_scoring))
         self.enable_reset_activity = bool(payload.get('enable_reset_activity', self.enable_reset_activity))
-        self.max_score = float(payload.get('max_score', self.max_score))
+        self.max_score = self._compute_max_attainable_score(
+            nodes_dict,
+            final[0]['id'] if final else None,
+        )
         self.display_name = payload.get('display_name', self.display_name)
         self.background_image_url = background_image_url
         self.background_image_alt_text = background_image_alt_text
