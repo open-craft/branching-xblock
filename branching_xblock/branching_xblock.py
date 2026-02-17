@@ -132,6 +132,12 @@ class BranchingXBlock(XBlock):
         help="Awarded points per selected choice, used for undo/reset"
     )
 
+    choice_history = List(
+        scope=Scope.user_state,
+        default=[],
+        help="Selected choice records used for final report details"
+    )
+
     has_completed = Boolean(
         scope=Scope.user_state,
         default=False,
@@ -399,6 +405,49 @@ class BranchingXBlock(XBlock):
 
         return normalized, None
 
+    def _build_grade_report(self):
+        """
+        Compute learner-facing grade report data from current score state.
+        """
+        normalized_ranges, _ = self._normalize_grade_ranges(self.grade_ranges)
+        safe_ranges = normalized_ranges or self._default_grade_ranges()
+
+        max_score = float(self.max_score or 0.0)
+        current_score = max(0.0, float(self.score or 0.0))
+        percentage = 0.0
+        if max_score > 0.0:
+            percentage = (current_score / max_score) * 100.0
+        percentage = max(0.0, min(100.0, percentage))
+        rounded_percentage = int(round(percentage))
+
+        matched_index = 0
+        matched_range = safe_ranges[0]
+        for index, grade_range in enumerate(safe_ranges):
+            if grade_range["start"] <= rounded_percentage <= grade_range["end"]:
+                matched_index = index
+                matched_range = grade_range
+                break
+
+        detailed_scores = []
+        for entry in (self.choice_history or []):
+            choice_text = str(entry.get("choice_text", "")).strip()
+            if not choice_text:
+                continue
+            points = self._coerce_choice_score(entry.get("awarded_points", 0))
+            detailed_scores.append({
+                "choice_text": choice_text,
+                "awarded_points": points if points is not None else 0,
+            })
+
+        return {
+            "score": current_score,
+            "max_score": max_score,
+            "percentage": rounded_percentage,
+            "grade_label": matched_range.get("label", ""),
+            "is_pass_style": matched_index != 0,
+            "detailed_scores": detailed_scores,
+        }
+
     def get_current_node(self) -> Optional[dict[str, Any]]:
         """
         Get the learner's current node.
@@ -581,8 +630,10 @@ class BranchingXBlock(XBlock):
             "current_node":    self.get_current_node(),
             "history":         list(self.history),
             "score_history":   list(self.score_history),
+            "choice_history":  list(self.choice_history),
             "has_completed":   bool(self.has_completed),
             "score":           self.score,
+            "grade_report":    self._build_grade_report(),
         }
 
     @XBlock.json_handler
@@ -618,6 +669,11 @@ class BranchingXBlock(XBlock):
                 awarded_points = 0
             self.score += awarded_points
             self.score_history.append(float(awarded_points))
+            self.choice_history.append({
+                "source_node_id": self.current_node_id,
+                "choice_text": (choice.get("text") or "").strip(),
+                "awarded_points": awarded_points,
+            })
 
         if self.enable_undo:
             self.history.append(self.current_node_id)
@@ -644,6 +700,8 @@ class BranchingXBlock(XBlock):
         if self.enable_scoring:
             awarded_points = self.score_history.pop() if self.score_history else 0.0
             self.score = max(0.0, self.score - awarded_points)
+            if self.choice_history:
+                self.choice_history.pop()
             self.publish_grade()
 
         self.has_completed = False
@@ -663,6 +721,7 @@ class BranchingXBlock(XBlock):
 
         if self.enable_scoring:
             self.score_history = []
+            self.choice_history = []
             self.score = 0.0
             self.publish_grade()
 

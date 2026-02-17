@@ -22,6 +22,9 @@
                     <button type="button" class="reset-button action-secondary btn-secondary" data-role="reset-activity" style="display: none;">
                         Reset
                     </button>
+                    <button type="button" class="show-report-button action-primary btn-primary" data-role="show-report" style="display: none;">
+                        Show Report
+                    </button>
                     <button type="submit" class="choice-submit-button action-primary btn-primary" data-role="submit-choice" disabled>
                         Submit
                     </button>
@@ -30,5 +33,61 @@
         </div>
 
         <div class="score-display" data-role="score" style="display: none;"></div>
+        <div class="grade-report" data-role="grade-report" hidden>
+            <h3 class="grade-report__title">Activity Complete!</h3>
+            <p class="grade-report__subtitle">Let's take a look at this report below to see how you performed.</p>
+
+            <div class="grade-report__summary-card">
+                <h4 class="grade-report__section-title">
+                    <span class="grade-report__section-icon" aria-hidden="true">
+                        <span class="fa fa-graduation-cap" aria-hidden="true"></span>
+                    </span>
+                    Your Grade
+                </h4>
+                <div class="grade-report__summary">
+                    <div class="grade-report__metric grade-report__metric--score">
+                        <div class="grade-report__metric-label">
+                            <span class="grade-report__metric-label-icon" aria-hidden="true">
+                                <span class="fa fa-trophy" data-role="report-score-icon" aria-hidden="true"></span>
+                            </span>
+                            Your Score
+                        </div>
+                        <div class="grade-report__metric-value" data-role="report-score">0</div>
+                    </div>
+                    <div class="grade-report__metric grade-report__metric--max">
+                        <div class="grade-report__metric-label">Highest Possible Score</div>
+                        <div class="grade-report__metric-value" data-role="report-max-score">0</div>
+                    </div>
+                    <div class="grade-report__percent" data-role="report-percent-pill">
+                        <svg class="grade-report__percent-ring" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+                            <circle class="grade-report__percent-track" cx="60" cy="60" r="48"></circle>
+                            <circle class="grade-report__percent-progress" data-role="report-percent-circle" cx="60" cy="60" r="48"></circle>
+                        </svg>
+                        <div class="grade-report__percent-content">
+                            <div class="grade-report__percent-value" data-role="report-percent">0%</div>
+                            <div class="grade-report__percent-label" data-role="report-grade-label"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grade-report__details">
+                <h4 class="grade-report__details-title">
+                    <span class="grade-report__section-icon" aria-hidden="true">
+                        <span class="fa fa-line-chart" aria-hidden="true"></span>
+                    </span>
+                    Detailed Score
+                </h4>
+                <div class="grade-report__details-header">
+                    <span>Your Selections</span>
+                    <span>Score</span>
+                </div>
+                <div class="grade-report__details-rows" data-role="report-details"></div>
+            </div>
+
+            <button type="button" class="action-primary btn-primary" data-role="reset-activity-report" style="display: none;">
+                Reset Activity
+            </button>
+        </div>
     </div>
 </div>

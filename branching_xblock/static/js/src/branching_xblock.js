@@ -4,6 +4,7 @@ function BranchingXBlock(runtime, element) {
     let currentHintNodeId = null;
     let isHintVisible = false;
     let selectedChoiceIndex = null;
+    let isReportVisible = false;
 
     const MEDIA_FILE_REGEX = /\.(mp4|webm|ogg|mp3|wav)(\?|#|$)/i;
 
@@ -80,6 +81,61 @@ function BranchingXBlock(runtime, element) {
         if ($summary.length) {
             $summary.text(isHintVisible ? 'Hide' : 'Show hint');
         }
+    }
+
+    function renderGradeReport(reportData, showResetInReport) {
+        const $report = $el.find('[data-role="grade-report"]');
+        const score = Number(reportData?.score || 0);
+        const maxScore = Number(reportData?.max_score || 0);
+        const percentage = Number(reportData?.percentage || 0);
+        const gradeLabel = String(reportData?.grade_label || '').trim();
+        const isPassStyle = Boolean(reportData?.is_pass_style);
+        const details = Array.isArray(reportData?.detailed_scores) ? reportData.detailed_scores : [];
+
+        $report.find('[data-role="report-score"]').text(String(Math.round(score)));
+        $report.find('[data-role="report-max-score"]').text(String(Math.round(maxScore)));
+        $report.find('[data-role="report-percent"]').text(`${percentage}%`);
+        $report.find('[data-role="report-grade-label"]').text(gradeLabel);
+        const boundedPercentage = Math.max(0, Math.min(100, percentage));
+        const $percentPill = $report.find('[data-role="report-percent-pill"]');
+        $percentPill
+            .toggleClass('is-fail', !isPassStyle);
+        const $scoreMetric = $report.find('.grade-report__metric--score');
+        $scoreMetric
+            .toggleClass('is-fail', !isPassStyle);
+        const $scoreIcon = $report.find('[data-role="report-score-icon"]');
+        $scoreIcon
+            .toggleClass('fa-trophy', isPassStyle)
+            .toggleClass('fa-exclamation-triangle', !isPassStyle);
+        const $percentCircle = $report.find('[data-role="report-percent-circle"]');
+        if ($percentCircle.length) {
+            const radius = Number($percentCircle.attr('r')) || 48;
+            const circumference = 2 * Math.PI * radius;
+            const offset = circumference * (1 - (boundedPercentage / 100));
+            $percentCircle.css({
+                strokeDasharray: circumference,
+                strokeDashoffset: offset,
+            });
+        }
+        $report.find('[data-role="reset-activity-report"]').toggle(showResetInReport);
+
+        const $details = $report.find('[data-role="report-details"]').empty();
+        if (!details.length) {
+            $details.append(
+                $('<div class="grade-report__details-row grade-report__details-row--empty"></div>')
+                    .text('No scored selections were recorded for this attempt.')
+            );
+            return;
+        }
+
+        details.forEach((entry) => {
+            const text = String(entry.choice_text || '').trim();
+            const points = Number(entry.awarded_points || 0);
+            const $row = $('<div class="grade-report__details-row"></div>');
+            $row.append($('<span class="grade-report__details-text"></span>').text(text || 'Untitled choice'));
+            $row.append($('<span class="grade-report__details-score"></span>').text(String(points)));
+            $details.append($row);
+        });
     }
 
     function updateView(state) {
@@ -179,6 +235,7 @@ function BranchingXBlock(runtime, element) {
         if (nodeId !== currentHintNodeId) {
             currentHintNodeId = nodeId;
             isHintVisible = false;
+            isReportVisible = false;
         }
         const $hintContainer = $el.find('[data-role="hint-container"]');
         const $hintDetails = $hintContainer.find('[data-role="hint-collapsible"]');
@@ -226,18 +283,42 @@ function BranchingXBlock(runtime, element) {
             state.current_node && state.current_node.id === state.start_node_id
         );
         const showReset = Boolean(state.enable_reset_activity && !isAtStartNode);
+        const showReport = Boolean(isLeaf && state.enable_scoring);
+        if (!showReport) {
+            isReportVisible = false;
+        }
         $el.find('[data-role="choice-heading"]').toggle(hasChoices);
         $submitButton.toggle(hasChoices);
         $submitButton.prop('disabled', !hasChoices || selectedChoiceIndex === null);
-        $el.find('.choice-actions').toggle(hasChoices || canUndo || showReset);
+        $el.find('[data-role="show-report"]').toggle(showReport);
+        $el.find('.choice-actions').toggle(hasChoices || canUndo || showReset || showReport);
 
         $el.find('.undo-button')
             .prop('disabled', !canUndo)
             .toggleClass('is-disabled', !canUndo);
         $el.find('[data-role="reset-activity"]').toggle(showReset);
 
+        const $report = $el.find('[data-role="grade-report"]');
+        const reportMode = Boolean(showReport && isReportVisible);
+        $report.prop('hidden', !reportMode);
+        if (reportMode) {
+            renderGradeReport(state.grade_report || {}, showReset);
+            $el.find('[data-role="content"]').hide();
+            $el.find('[data-role="media"]').hide();
+            $el.find('[data-role="transcript"]').hide();
+            $el.find('[data-role="hint-container"]').hide();
+            $el.find('[data-role="choices"]').hide();
+            $el.find('[data-role="score"]').hide();
+        } else {
+            $el.find('[data-role="content"]').show();
+            $el.find('[data-role="media"]').show();
+            $el.find('[data-role="transcript"]').show();
+            $el.find('[data-role="hint-container"]').show();
+            $el.find('[data-role="choices"]').show();
+        }
+
         const $score = $el.find('[data-role="score"]');
-        if (isLeaf && state.enable_scoring) {
+        if (!reportMode && isLeaf && state.enable_scoring) {
             $score.text(`Score: ${state.score}/${state.max_score}`).show();
         } else {
             $score.hide();
@@ -260,6 +341,7 @@ function BranchingXBlock(runtime, element) {
 
     $el.on('change', 'input[name="branching-choice"]', function() {
         selectedChoiceIndex = Number(this.value);
+        isReportVisible = false;
         $el.find('[data-role="submit-choice"]').prop('disabled', false);
         $el.find('.choice-option').removeClass('is-selected');
         $(this).closest('.choice-option').addClass('is-selected');
@@ -277,11 +359,13 @@ function BranchingXBlock(runtime, element) {
             contentType: 'application/json'
         }).done(() => {
             selectedChoiceIndex = null;
+            isReportVisible = false;
             refreshView();
         });
     });
 
     $el.on('click', '.undo-button', function() {
+        isReportVisible = false;
         $.ajax({
           url: runtime.handlerUrl(element, 'undo_choice'),
           type: 'POST',
@@ -291,7 +375,13 @@ function BranchingXBlock(runtime, element) {
         }).done(refreshView);
     });
 
-    $el.on('click', '[data-role="reset-activity"]', function() {
+    $el.on('click', '[data-role="show-report"]', function() {
+        isReportVisible = true;
+        refreshView();
+    });
+
+    $el.on('click', '[data-role="reset-activity"], [data-role="reset-activity-report"]', function() {
+        isReportVisible = false;
         $.ajax({
           url: runtime.handlerUrl(element, 'reset_activity'),
           type: 'POST',
