@@ -331,6 +331,9 @@ class BranchingXBlock(XBlock):
 
     @staticmethod
     def _validate_grade_ranges(grade_ranges):
+        """
+        Validate contiguous grade range segments from 0 through 100.
+        """
         if not isinstance(grade_ranges, list) or len(grade_ranges) < 2:
             return "Grade ranges must contain at least two contiguous segments."
 
@@ -361,6 +364,9 @@ class BranchingXBlock(XBlock):
         return None
 
     def _normalize_grade_ranges(self, raw_grade_ranges, strict=False):
+        """
+        Normalize grade ranges and optionally fail on invalid payloads.
+        """
         defaults = self._default_grade_ranges()
         if not isinstance(raw_grade_ranges, list):
             if strict:
@@ -568,6 +574,9 @@ class BranchingXBlock(XBlock):
         return frag
 
     def _get_state(self):
+        """
+        Build the learner-facing runtime state payload.
+        """
         nodes = self.scenario_data.get("nodes", {})
         nodes_with_defaults = {}
         for node_id, node in nodes.items():
@@ -705,6 +714,118 @@ class BranchingXBlock(XBlock):
         self.runtime.publish(self, "completion", {"completion": 0.0})
         return {"success": True, **self._get_state()}
 
+    @staticmethod
+    def _build_staged_nodes(raw_nodes):
+        """
+        Assign stable IDs and normalize raw studio node payloads.
+        """
+        id_map = {}
+        staged = []
+        for raw in raw_nodes:
+            old_id = raw.get('id', '')
+            new_id = f"node-{uuid.uuid4().hex[:6]}" if old_id.startswith('temp-') or not old_id else old_id
+            id_map[old_id] = new_id
+            staged.append({
+                'id': new_id,
+                'content': raw.get('content', ''),
+                'media': {
+                    'type': raw.get('media', {}).get('type', ''),
+                    'url': raw.get('media', {}).get('url', ''),
+                },
+                'left_image_url': raw.get('left_image_url', ''),
+                'right_image_url': raw.get('right_image_url', ''),
+                'choices': raw.get('choices', []),
+                'hint': raw.get('hint', ''),
+                'overlay_text': bool(raw.get('overlay_text', False)),
+                'transcript_url': raw.get('transcript_url', ''),
+            })
+        return id_map, staged
+
+    @staticmethod
+    def _collect_reference_errors(staged, id_map, resolved_deleted_node_ids, node_number_by_id):
+        """
+        Collect errors for attempts to delete nodes still referenced by active choices.
+        """
+        reference_errors = []
+        seen_reference_errors = set()
+        for node in staged:
+            if node['id'] in resolved_deleted_node_ids:
+                continue
+            source_node_number = node_number_by_id.get(node['id'])
+            for raw_choice in node['choices']:
+                raw_target = (raw_choice.get('target_node_id') or '').strip()
+                target_node_id = id_map.get(raw_target, raw_target)
+                if not target_node_id or target_node_id not in resolved_deleted_node_ids:
+                    continue
+                target_node_number = node_number_by_id.get(target_node_id)
+                if source_node_number and target_node_number:
+                    error_message = (
+                        f"Cannot delete Node {target_node_number} because it is "
+                        f"referenced by Node {source_node_number}."
+                    )
+                else:
+                    error_message = "Cannot delete a node that is still referenced by another node."
+                if error_message not in seen_reference_errors:
+                    seen_reference_errors.add(error_message)
+                    reference_errors.append(error_message)
+        return reference_errors
+
+    def _build_final_nodes(self, staged, resolved_deleted_node_ids, id_map):
+        """
+        Remap targets, drop blank nodes, and validate choice scores.
+        """
+        final = []
+        score_errors = []
+        for node in staged:
+            if node['id'] in resolved_deleted_node_ids:
+                continue
+
+            has_content = bool(node['content'].strip())
+            has_media = bool(
+                (node['media']['url'] or '').strip()
+                or (node.get('left_image_url', '') or '').strip()
+                or (node.get('right_image_url', '') or '').strip()
+            )
+            has_choices = any(
+                (choice.get('text', '').strip() or choice.get('target_node_id', '').strip())
+                for choice in node['choices']
+            )
+            if not (has_content or has_media or has_choices):
+                continue
+
+            cleaned_choices = []
+            for raw_choice in node['choices']:
+                text = raw_choice.get('text', '').strip()
+                target_node_id = raw_choice.get('target_node_id', '').strip()
+                if not (text or target_node_id):
+                    continue
+
+                score = self._coerce_choice_score(raw_choice.get('score', 0))
+                if score is None:
+                    score_errors.append(
+                        f"Choice score must be an integer between 0 and 100 in node {node['id']}."
+                    )
+                    continue
+                cleaned_choices.append({
+                    'text': text,
+                    'target_node_id': id_map.get(target_node_id, target_node_id),
+                    'score': score,
+                })
+
+            final.append({
+                'id': node['id'],
+                'type': 'start' if not final else 'normal',
+                'content': node['content'],
+                'media': node['media'],
+                'choices': cleaned_choices,
+                'hint': node.get('hint', ''),
+                'overlay_text': bool(node.get('overlay_text', False)),
+                'left_image_url': (node.get('left_image_url', '') or '').strip(),
+                'right_image_url': (node.get('right_image_url', '') or '').strip(),
+                'transcript_url': node.get('transcript_url', ''),
+            })
+        return final, score_errors
+
     @XBlock.json_handler
     def studio_submit(self, data, suffix=''):
         """
@@ -725,7 +846,11 @@ class BranchingXBlock(XBlock):
             return {
                 "result": "error",
                 "message": "Validation errors",
-                "field_errors": {"nodes_json": ["Background image alt text is required unless the image is marked decorative."]}
+                "field_errors": {
+                    "nodes_json": [
+                        "Background image alt text is required unless the image is marked decorative."
+                    ]
+                }
             }
         if grade_ranges_error:
             return {
@@ -734,33 +859,7 @@ class BranchingXBlock(XBlock):
                 "field_errors": {"nodes_json": [grade_ranges_error]}
             }
 
-        # 1) Assign real IDs and build id_map
-        id_map = {}
-        staged = []
-        score_errors = []
-        for raw in raw_nodes:
-            old_id = raw.get('id', '')
-            # new ID if temp or missing
-            if old_id.startswith('temp-') or not old_id:
-                new_id = f"node-{uuid.uuid4().hex[:6]}"
-            else:
-                new_id = old_id
-            id_map[old_id] = new_id
-            # carry forward content & media, but keep raw choices for next step
-            staged.append({
-                'id': new_id,
-                'content': raw.get('content', ''),
-                'media': {
-                    'type': raw.get('media', {}).get('type', ''),
-                    'url':  raw.get('media', {}).get('url', '')
-                },
-                'left_image_url': raw.get('left_image_url', ''),
-                'right_image_url': raw.get('right_image_url', ''),
-                'choices': raw.get('choices', []),
-                'hint':     raw.get('hint', ''),
-                'overlay_text': bool(raw.get('overlay_text', False)),
-                'transcript_url': raw.get('transcript_url', ''),
-            })
+        id_map, staged = self._build_staged_nodes(raw_nodes)
 
         resolved_deleted_node_ids = {
             id_map.get(node_id, node_id)
@@ -771,29 +870,12 @@ class BranchingXBlock(XBlock):
             for index, node in enumerate(staged)
         }
 
-        reference_errors = []
-        seen_reference_errors = set()
-        for node in staged:
-            if node['id'] in resolved_deleted_node_ids:
-                continue
-            source_node_number = node_number_by_id.get(node['id'])
-            for raw_choice in node['choices']:
-                target_node_id = id_map.get((raw_choice.get('target_node_id') or '').strip(), (raw_choice.get('target_node_id') or '').strip())
-                if not target_node_id or target_node_id not in resolved_deleted_node_ids:
-                    continue
-                target_node_number = node_number_by_id.get(target_node_id)
-                if source_node_number and target_node_number:
-                    error_message = (
-                        f"Cannot delete Node {target_node_number} because it is referenced by Node {source_node_number}."
-                    )
-                else:
-                    error_message = (
-                        "Cannot delete a node that is still referenced by another node."
-                    )
-                if error_message not in seen_reference_errors:
-                    seen_reference_errors.add(error_message)
-                    reference_errors.append(error_message)
-
+        reference_errors = self._collect_reference_errors(
+            staged,
+            id_map,
+            resolved_deleted_node_ids,
+            node_number_by_id,
+        )
         if reference_errors:
             return {
                 "result": "error",
@@ -801,60 +883,7 @@ class BranchingXBlock(XBlock):
                 "field_errors": {"nodes_json": reference_errors}
             }
 
-        # 2) Remap choice targets & clean arrays
-        final = []
-        for node in staged:
-            if node['id'] in resolved_deleted_node_ids:
-                continue
-            # filter out completely blank nodes
-            has_content = bool(node['content'].strip())
-            has_media = bool(
-                (node['media']['url'] or '').strip()
-                or (node.get('left_image_url', '') or '').strip()
-                or (node.get('right_image_url', '') or '').strip()
-            )
-            has_choices = any(
-                (c.get('text', '').strip() or c.get('target_node_id', '').strip())
-                for c in node['choices']
-            )
-            if not (has_content or has_media or has_choices):
-                continue
-
-            # remap and clean
-            cleaned = []
-            for raw in node['choices']:
-                text = raw.get('text', '').strip()
-                targ = raw.get('target_node_id', '').strip()
-                has_choice_values = bool(text or targ)
-                if not has_choice_values:
-                    continue
-
-                score = self._coerce_choice_score(raw.get('score', 0))
-                if score is None:
-                    score_errors.append(
-                        f"Choice score must be an integer between 0 and 100 in node {node['id']}."
-                    )
-                    continue
-                # map through id_map if it was a temp ID
-                real_target = id_map.get(targ, targ)
-                cleaned.append({
-                    'text': text,
-                    'target_node_id': real_target,
-                    'score': score,
-                })
-
-            final.append({
-                'id':       node['id'],
-                'type':     'start' if not final else 'normal',
-                'content':  node['content'],
-                'media':    node['media'],
-                'choices':  cleaned,
-                'hint': node.get('hint', ''),
-                'overlay_text': bool(node.get('overlay_text', False)),
-                'left_image_url': (node.get('left_image_url', '') or '').strip(),
-                'right_image_url': (node.get('right_image_url', '') or '').strip(),
-                'transcript_url': node.get('transcript_url', ''),
-            })
+        final, score_errors = self._build_final_nodes(staged, resolved_deleted_node_ids, id_map)
 
         if score_errors:
             return {
