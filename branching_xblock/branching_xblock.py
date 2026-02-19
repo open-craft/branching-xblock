@@ -1,6 +1,5 @@
 """Branching Scenario XBlock."""
 import json
-import logging
 import os
 import uuid
 from collections import deque
@@ -14,8 +13,6 @@ from xblock.utils.resources import ResourceLoader
 from .compat import get_site_configuration_value, sanitize_html
 
 resource_loader = ResourceLoader(__name__)
-
-logger = logging.getLogger(__name__)
 
 
 class BranchingXBlock(XBlock):
@@ -461,27 +458,6 @@ class BranchingXBlock(XBlock):
         node = self.get_node(node_id)
         return bool(node) and not node.get("choices")
 
-    def get_choice(self, node, choice_index):
-        """
-        Validate and return a choice from a node.
-        """
-        try:
-            return node["choices"][choice_index]
-        except (IndexError, KeyError, TypeError):
-            return None
-
-    def can_undo(self):
-        """
-        Check if undo is allowed and possible.
-        """
-        return self.enable_undo and len(self.history) > 0
-
-    def get_previous_node_id(self):
-        """
-        Get last node from history.
-        """
-        return self.history[-1] if self.history else None
-
     def validate_scenario(self):
         """
         Check for common configuration errors.
@@ -719,10 +695,10 @@ class BranchingXBlock(XBlock):
         self.history = []
         self.has_completed = False
 
+        self.score_history = []
+        self.choice_history = []
+        self.score = 0.0
         if self.enable_scoring:
-            self.score_history = []
-            self.choice_history = []
-            self.score = 0.0
             self.publish_grade()
 
         self.start_node()
@@ -832,7 +808,11 @@ class BranchingXBlock(XBlock):
                 continue
             # filter out completely blank nodes
             has_content = bool(node['content'].strip())
-            has_media = bool(node['media']['url'].strip())
+            has_media = bool(
+                (node['media']['url'] or '').strip()
+                or (node.get('left_image_url', '') or '').strip()
+                or (node.get('right_image_url', '') or '').strip()
+            )
             has_choices = any(
                 (c.get('text', '').strip() or c.get('target_node_id', '').strip())
                 for c in node['choices']

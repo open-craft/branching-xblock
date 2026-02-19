@@ -149,6 +149,8 @@ function BranchingXBlock(runtime, element) {
         const contentHtml = (node && node.content) || '';
         const overlayEnabled = Boolean(node?.overlay_text && media.type === 'image');
         const backgroundImageUrl = state?.background_image_url || '';
+        const backgroundImageAltText = state?.background_image_alt_text || '';
+        const backgroundImageIsDecorative = Boolean(state?.background_image_is_decorative);
         const leftImageUrl = (node?.left_image_url !== undefined && node?.left_image_url !== null)
             ? node.left_image_url
             : (mediaUrl || '');
@@ -166,7 +168,15 @@ function BranchingXBlock(runtime, element) {
         if (media.type === 'image') {
             const $composite = $('<div>').addClass('bx-image-composite');
             if (backgroundImageUrl) {
-                $composite.css('background-image', `url("${backgroundImageUrl}")`);
+                const $backgroundImage = $('<img>')
+                    .addClass('bx-image-composite__bg')
+                    .attr('src', backgroundImageUrl);
+                if (backgroundImageIsDecorative) {
+                    $backgroundImage.attr('alt', '').attr('aria-hidden', 'true');
+                } else {
+                    $backgroundImage.attr('alt', backgroundImageAltText);
+                }
+                $composite.append($backgroundImage);
             }
 
             const hasForeground = Boolean(leftImageUrl || rightImageUrl);
@@ -279,9 +289,7 @@ function BranchingXBlock(runtime, element) {
         });
         const hasChoices = choices.length > 0;
         const isLeaf = !hasChoices;
-        const isAtStartNode = Boolean(
-            state.current_node && state.current_node.id === state.start_node_id
-        );
+        const isAtStartNode = Boolean(node && node.id === state.start_node_id);
         const showReset = Boolean(state.enable_reset_activity && !isAtStartNode);
         const showReport = Boolean(isLeaf && state.enable_scoring);
         if (!showReport) {
