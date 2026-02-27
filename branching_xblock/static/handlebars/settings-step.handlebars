@@ -25,6 +25,9 @@
     <h3 class="bx-section-title bx-grade-range__title">Specify Grade Range</h3>
     <p class="bx-help bx-grade-range__help">Adjust the scale to set percentage ranges for each grade.</p>
     <div class="bx-grade-range__slider" data-role="grade-range-slider"></div>
+    {{#if grade_ranges_error}}
+      <div class="bx-field-error">{{grade_ranges_error}}</div>
+    {{/if}}
   </div>
 
   <h3 class="bx-section-title">Background image</h3>
@@ -37,10 +40,13 @@
     <input
       type="text"
       name="background_image_url"
-      class="bx-input"
+      class="bx-input {{#if background_image_url_error}}is-error{{/if}}"
       placeholder="URL"
       value="{{background_image_url}}"
     />
+    {{#if background_image_url_error}}
+      <div class="bx-field-error">{{background_image_url_error}}</div>
+    {{/if}}
   </label>
 
   <div class="bx-field">
@@ -52,10 +58,13 @@
     <input
       type="text"
       name="background_image_alt_text"
-      class="bx-input"
+      class="bx-input {{#if background_image_alt_text_error}}is-error{{/if}}"
       placeholder="Alt text"
       value="{{background_image_alt_text}}"
       {{#if background_image_is_decorative}}disabled{{/if}}
     />
+    {{#if background_image_alt_text_error}}
+      <div class="bx-field-error">{{background_image_alt_text_error}}</div>
+    {{/if}}
   </div>
 </div>

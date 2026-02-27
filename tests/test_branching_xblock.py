@@ -82,7 +82,9 @@ def test_studio_submit_creates_scenario(rf, block):
             {
                 "id": "temp-1",
                 "content": "First node",
-                "media": {"type": "image", "url": "http://img"},
+                "media": {"type": "image", "url": ""},
+                "left_image_url": "http://img",
+                "right_image_url": "",
                 "choices": [{"text": "Go to 2", "target_node_id": "temp-2", "score": 77}],
                 "transcript_url": ""
             },
@@ -169,7 +171,120 @@ def test_studio_submit_computes_max_score_from_best_path(rf, block):
     result = json.loads(resp.body.decode("utf-8"))
 
     assert result["result"] == "success"
-    assert block.max_score == pytest.approx(40.0)
+    assert block.max_score == 40.0
+
+
+def test_studio_submit_rejects_invalid_choice_score(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "Start",
+                "media": {"type": "", "url": ""},
+                "choices": [{"text": "to B", "target_node_id": "temp-2", "score": "1.5"}],
+                "transcript_url": "",
+            },
+            {
+                "id": "temp-2",
+                "content": "End",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+                "transcript_url": "",
+            },
+        ],
+        "enable_undo": False,
+        "enable_scoring": True,
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["result"] == "error"
+    assert (
+        result["field_errors"]["node_input_errors"]["temp-1"]["choiceScoreByIndex"]["0"]
+        == "Score must be an integer between 0 and 100."
+    )
+    assert "nodes_json" not in result["field_errors"]
+
+
+def test_studio_submit_normalizes_choice_score_from_string(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "Start",
+                "media": {"type": "", "url": ""},
+                "choices": [{"text": "to B", "target_node_id": "temp-2", "score": "7"}],
+                "transcript_url": "",
+            },
+            {
+                "id": "temp-2",
+                "content": "End",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+                "transcript_url": "",
+            },
+        ],
+        "enable_undo": False,
+        "enable_scoring": True,
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["result"] == "success"
+    saved_nodes = block.scenario_data["nodes"]
+    first_node = next(node for node in saved_nodes.values() if node["choices"])
+    assert first_node["choices"][0]["score"] == 7
+    assert block.max_score == 7.0
+
+
+def test_normalize_scenario_nodes_preserves_non_empty_invalid_scores(block):
+    block.scenario_data = {
+        "nodes": {
+            "A": {
+                "id": "A",
+                "type": "start",
+                "choices": [
+                    {"text": "to B", "target_node_id": "B", "score": "1.5"},
+                    {"text": "to B", "target_node_id": "B", "score": "101"},
+                ],
+            },
+            "B": {"id": "B", "type": "end", "choices": []},
+        },
+        "start_node_id": "A",
+    }
+
+    block._normalize_scenario_nodes()
+    node_a = block.scenario_data["nodes"]["A"]
+    assert node_a["choices"][0]["score"] == "1.5"
+    assert node_a["choices"][1]["score"] == "101"
+
+
+def test_normalize_scenario_nodes_defaults_empty_scores_to_zero(block):
+    block.scenario_data = {
+        "nodes": {
+            "A": {
+                "id": "A",
+                "type": "start",
+                "choices": [
+                    {"text": "to B", "target_node_id": "B"},
+                    {"text": "to B", "target_node_id": "B", "score": ""},
+                    {"text": "to B", "target_node_id": "B", "score": "   "},
+                    {"text": "to B", "target_node_id": "B", "score": None},
+                ],
+            },
+            "B": {"id": "B", "type": "end", "choices": []},
+        },
+        "start_node_id": "A",
+    }
+
+    block._normalize_scenario_nodes()
+    node_a = block.scenario_data["nodes"]["A"]
+    assert node_a["choices"][0]["score"] == 0
+    assert node_a["choices"][1]["score"] == 0
+    assert node_a["choices"][2]["score"] == 0
+    assert node_a["choices"][3]["score"] == 0
 
 
 def test_studio_submit_persists_enable_reset_activity(rf, block):
@@ -245,7 +360,7 @@ def test_studio_submit_rejects_invalid_grade_ranges(rf, block):
     resp = block.studio_submit(req)
     result = json.loads(resp.body.decode("utf-8"))
     assert result["result"] == "error"
-    assert any("Grade range" in error for error in result["field_errors"]["nodes_json"])
+    assert "Grade range" in result["field_errors"]["settings_field_errors"]["grade_ranges"]
 
 
 def test_studio_submit_persists_display_name(rf, block):
@@ -335,7 +450,7 @@ def test_studio_submit_fails_on_invalid_target(rf, block):
     resp = block.studio_submit(req)
     result = json.loads(resp.body.decode('utf-8'))
     assert result["result"] == "error"
-    errs = result["field_errors"]["nodes_json"]
+    errs = result["field_errors"]["global_errors"]
     assert any("Invalid target does-not-exist" in e for e in errs)
 
 
@@ -363,8 +478,13 @@ def test_studio_submit_rejects_cycle(rf, block):
     result = json.loads(resp.body.decode("utf-8"))
 
     assert result["result"] == "error"
-    errs = result["field_errors"]["nodes_json"]
+    errs = result["field_errors"]["global_errors"]
     assert any("Circular path detected" in error for error in errs)
+    node_errors = result["field_errors"]["node_action_errors"]
+    assert node_errors["temp-1"]["title"] == "Circular path detected"
+    assert "links back through branching choices" in node_errors["temp-1"]["detail"]
+    assert node_errors["temp-2"]["title"] == "Circular path detected"
+    assert "links back through branching choices" in node_errors["temp-2"]["detail"]
 
 
 def test_studio_submit_rejects_self_loop(rf, block):
@@ -385,8 +505,108 @@ def test_studio_submit_rejects_self_loop(rf, block):
     result = json.loads(resp.body.decode("utf-8"))
 
     assert result["result"] == "error"
-    errs = result["field_errors"]["nodes_json"]
+    errs = result["field_errors"]["global_errors"]
     assert any("Circular path detected" in error for error in errs)
+
+
+def test_studio_submit_rejects_missing_choice_destination(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "Node A",
+                "media": {"type": "", "url": ""},
+                "choices": [{"text": "Go somewhere", "target_node_id": "", "score": 10}],
+            },
+            {
+                "id": "temp-2",
+                "content": "Node B",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+            },
+        ],
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["result"] == "error"
+    assert (
+        result["field_errors"]["node_input_errors"]["temp-1"]["choiceDestinationByIndex"]["0"]
+        == "Required field"
+    )
+
+
+def test_studio_submit_rejects_deleting_referenced_node_with_node_action_errors(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "Node A",
+                "media": {"type": "", "url": ""},
+                "choices": [{"text": "to B", "target_node_id": "temp-2", "score": 5}],
+            },
+            {
+                "id": "temp-2",
+                "content": "Node B",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+            },
+        ],
+        "deleted_node_ids": ["temp-2"],
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["result"] == "error"
+    assert any("Cannot delete Node" in error for error in result["field_errors"]["global_errors"])
+    node_errors = result["field_errors"]["node_action_errors"]
+    assert node_errors["temp-2"]["title"] == "You can't delete this node"
+    assert "referenced by Node" in node_errors["temp-2"]["detail"]
+
+
+def test_studio_submit_rejects_image_node_without_any_image_urls(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "Node A",
+                "media": {"type": "image", "url": ""},
+                "left_image_url": "",
+                "right_image_url": "",
+                "choices": [],
+            },
+        ],
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["result"] == "error"
+    assert result["field_errors"]["node_input_errors"]["temp-1"]["left_image_url"] == "Please enter a valid URL"
+
+
+def test_studio_submit_rejects_missing_background_alt_text_with_structured_field_error(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "Start",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+            },
+        ],
+        "background_image_url": "https://example.com/bg.png",
+        "background_image_alt_text": "",
+        "background_image_is_decorative": False,
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["result"] == "error"
+    assert "background_image_alt_text" in result["field_errors"]["settings_field_errors"]
 
 
 def test_studio_submit_accepts_acyclic_graph(rf, block):
@@ -419,6 +639,31 @@ def test_studio_submit_accepts_acyclic_graph(rf, block):
     result = json.loads(resp.body.decode("utf-8"))
 
     assert result["result"] == "success"
+
+
+def test_studio_submit_handles_non_string_node_id(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": 123,
+                "content": "Start",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+            },
+        ],
+        "enable_undo": False,
+        "enable_scoring": False,
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["result"] == "success"
+    saved_nodes = block.scenario_data["nodes"]
+    assert len(saved_nodes) == 1
+    node_id = next(iter(saved_nodes.keys()))
+    assert isinstance(node_id, str)
+    assert node_id.startswith("node-")
 
 
 def test_lazy_initialize_and_select_choice(rf, block):
@@ -471,6 +716,29 @@ def test_select_choice_scores_and_completes(rf, block):
             "awarded_points": 12,
         }
     ]
+
+
+def test_select_choice_rejects_boolean_score_values(rf, block):
+    block.scenario_data = {
+        "nodes": {
+            "A": {"id": "A", "type": "start", "choices": [{"text": "→ B", "target_node_id": "B", "score": True}]},
+            "B": {"id": "B", "type": "end", "choices": []},
+        },
+        "start_node_id": "A",
+    }
+    block.enable_scoring = True
+    req = rf.post(
+        "/", data=json.dumps({"choice_index": 0}), content_type="application/json"
+    )
+    resp = block.select_choice(req)
+    result = json.loads(resp.body.decode('utf-8'))
+
+    assert result["success"] is False
+    assert result["error"] == "Invalid choice score"
+    assert block.current_node_id == "A"
+    assert block.has_completed is False
+    assert block.score == pytest.approx(0.0)
+    assert block.choice_history == []
 
 
 def test_undo_choice_honors_enable_undo(rf, block):

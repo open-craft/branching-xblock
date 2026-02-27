@@ -24,96 +24,24 @@ function BranchingStudioEditor(runtime, element, data) {
     return `temp-${i}`;
   };
 
+  // Keep editor state in a draft model, then sync to/from DOM on transitions.
+  // This prevents partial DOM edits from immediately mutating persisted data.
   const wizard = {
     currentStep: 'settings',
     selectedNodeId: null,
     draftSettings: {},
     draftNodes: [],
-    showDeleteValidationErrors: false,
-    showFieldValidationErrors: false,
-    validationFieldErrorsByNodeId: new Map(),
+    settingsFieldErrors: {},
+    validationErrors: [],
+    validationNodeErrorIds: new Set(),
+    validationNodeErrorDetailsById: new Map(),
     validationNodeErrorTitlesById: new Map(),
+    validationFieldErrorsByNodeId: new Map(),
   };
 
-  function findCycleNodeIds(nodes) {
-    const state = new Map();
-    const stack = [];
-    const cycleNodeIds = new Set();
-    const nodeById = new Map(nodes.map(node => [node.id, node]));
-
-    function visit(nodeId) {
-      state.set(nodeId, 1);
-      stack.push(nodeId);
-      const node = nodeById.get(nodeId);
-      (node?.choices || []).forEach((choice) => {
-        const targetNodeId = (choice?.target_node_id || '').trim();
-        if (!targetNodeId || !nodeById.has(targetNodeId)) {
-          return;
-        }
-        const targetState = state.get(targetNodeId) || 0;
-        if (targetState === 0) {
-          visit(targetNodeId);
-          return;
-        }
-        if (targetState === 1) {
-          const cycleStartIndex = stack.indexOf(targetNodeId);
-          if (cycleStartIndex >= 0) {
-            stack.slice(cycleStartIndex).forEach(cycleId => cycleNodeIds.add(cycleId));
-          }
-        }
-      });
-      stack.pop();
-      state.set(nodeId, 2);
-    }
-
-    nodes.forEach((node) => {
-      if ((state.get(node.id) || 0) === 0) {
-        visit(node.id);
-      }
-    });
-    return cycleNodeIds;
-  }
-
-  function defaultGradeRanges() {
-    return [
-      { label: 'Fail', start: 0, end: 49 },
-      { label: 'Pass', start: 50, end: 100 },
-    ];
-  }
-
-  function normalizeGradeRanges(rawGradeRanges) {
-    if (!Array.isArray(rawGradeRanges) || rawGradeRanges.length < 2) {
-      return defaultGradeRanges();
-    }
-    const normalized = [];
-    for (let index = 0; index < rawGradeRanges.length; index += 1) {
-      const gradeRange = rawGradeRanges[index] || {};
-      const label = String(gradeRange.label || '').trim() || `Grade ${index + 1}`;
-      const start = Number.parseInt(gradeRange.start, 10);
-      const end = Number.parseInt(gradeRange.end, 10);
-      if (
-        Number.isNaN(start) || Number.isNaN(end) ||
-        start < 0 || end > 100 || end < start
-      ) {
-        return defaultGradeRanges();
-      }
-      normalized.push({ label, start, end });
-    }
-
-    let expectedStart = 0;
-    for (let index = 0; index < normalized.length; index += 1) {
-      const gradeRange = normalized[index];
-      if (gradeRange.start !== expectedStart) {
-        return defaultGradeRanges();
-      }
-      expectedStart = gradeRange.end + 1;
-    }
-    if (normalized[normalized.length - 1].end !== 100) {
-      return defaultGradeRanges();
-    }
-    return normalized;
-  }
-
+  // ---------------------------
+  // Grade range slider helpers
+  // ---------------------------
   function boundaryBounds(boundaryIndex, gradeRanges) {
     const lower = boundaryIndex === 0 ? 0 : gradeRanges[boundaryIndex - 1].end + 1;
     const upper = boundaryIndex === (gradeRanges.length - 2)
@@ -123,7 +51,10 @@ function BranchingStudioEditor(runtime, element, data) {
   }
 
   function setBoundaryValue(boundaryIndex, requestedValue) {
-    const gradeRanges = wizard.draftSettings.grade_ranges || defaultGradeRanges();
+    const gradeRanges = wizard.draftSettings.grade_ranges;
+    if (!Array.isArray(gradeRanges) || gradeRanges.length < 2) {
+      return;
+    }
     const current = gradeRanges[boundaryIndex];
     const next = gradeRanges[boundaryIndex + 1];
     if (!current || !next) {
@@ -147,8 +78,10 @@ function BranchingStudioEditor(runtime, element, data) {
       return;
     }
 
-    wizard.draftSettings.grade_ranges = normalizeGradeRanges(wizard.draftSettings.grade_ranges);
     const gradeRanges = wizard.draftSettings.grade_ranges;
+    if (!Array.isArray(gradeRanges) || gradeRanges.length < 2) {
+      return;
+    }
     const percentPerPoint = 100 / 101;
     const $slider = $section.find('[data-role="grade-range-slider"]').empty();
     const $trackWrap = $('<div class="bx-grade-range__track-wrap"></div>');
@@ -192,6 +125,9 @@ function BranchingStudioEditor(runtime, element, data) {
     $slider.append($trackWrap);
   }
 
+  // ---------------------------
+  // Initial state hydration
+  // ---------------------------
   function loadState() {
       return $.ajax({
         type: 'POST',
@@ -202,15 +138,12 @@ function BranchingStudioEditor(runtime, element, data) {
       });
   }
 
-  function normalizeNode(raw) {
-    const normalizeChoice = (choice) => {
-      const parsedScore = Number.parseInt(choice?.score, 10);
-      return {
-        text: choice?.text || '',
-        target_node_id: choice?.target_node_id || '',
-        score: Number.isNaN(parsedScore) ? 0 : parsedScore,
-      };
-    };
+  function buildDraftNode(raw) {
+    const buildDraftChoice = (choice) => ({
+      text: choice?.text || '',
+      target_node_id: choice?.target_node_id || '',
+      score: choice?.score,
+    });
 
     return {
       id: raw?.id || uniqueId(),
@@ -219,7 +152,7 @@ function BranchingStudioEditor(runtime, element, data) {
         type: raw?.media?.type || '',
         url: raw?.media?.url || '',
       },
-      choices: Array.isArray(raw?.choices) ? raw.choices.map(normalizeChoice) : [],
+      choices: Array.isArray(raw?.choices) ? raw.choices.map(buildDraftChoice) : [],
       no_branches: Boolean(raw?.no_branches),
       pending_delete: false,
       hint: raw?.hint || '',
@@ -230,10 +163,10 @@ function BranchingStudioEditor(runtime, element, data) {
     };
   }
 
-  function normalizeInitialState(state) {
-    const nodes = Object.values(state?.nodes || {}).map(normalizeNode);
+  function hydrateInitialState(state) {
+    const nodes = Object.values(state?.nodes || {}).map(buildDraftNode);
     if (!nodes.length) {
-      nodes.push(normalizeNode({}));
+      nodes.push(buildDraftNode({}));
     }
     wizard.draftNodes = nodes;
     wizard.selectedNodeId = nodes[0].id;
@@ -245,10 +178,13 @@ function BranchingStudioEditor(runtime, element, data) {
       background_image_url: state?.background_image_url || '',
       background_image_alt_text: state?.background_image_alt_text || '',
       background_image_is_decorative: Boolean(state?.background_image_is_decorative),
-      grade_ranges: normalizeGradeRanges(state?.grade_ranges),
+      grade_ranges: state?.grade_ranges,
     };
   }
 
+  // ---------------------------
+  // Step navigation + selectors
+  // ---------------------------
   function showStep(step) {
     wizard.currentStep = step;
     const showSettings = step === 'settings';
@@ -284,133 +220,19 @@ function BranchingStudioEditor(runtime, element, data) {
     return wizard.draftNodes.filter(node => node.pending_delete);
   }
 
-  function nodeNumberById(nodeId) {
-    const idx = wizard.draftNodes.findIndex(node => node.id === nodeId);
-    return idx >= 0 ? idx + 1 : null;
-  }
-
-  function buildClientValidation() {
-    const errors = [];
-    const seenErrors = new Set();
-    const nodeErrorDetailsById = new Map();
-    const nodeErrorTitlesById = new Map();
-    const nodeErrorIds = new Set();
-    const fieldErrorsByNodeId = new Map();
-    const pendingDeleteIds = new Set(pendingDeleteNodes().map(node => node.id));
-    const active = activeNodes();
-
-    if (!active.length) {
-      errors.push('At least one active node is required.');
-    }
-
-    active.forEach((sourceNode) => {
-      (sourceNode.choices || []).forEach((choice) => {
-        const targetNodeId = (choice?.target_node_id || '').trim();
-        if (!targetNodeId || !pendingDeleteIds.has(targetNodeId)) {
-          return;
-        }
-        const sourceNumber = nodeNumberById(sourceNode.id);
-        const targetNumber = nodeNumberById(targetNodeId);
-        let message;
-        if (sourceNumber && targetNumber) {
-          message = `Cannot delete Node ${targetNumber} because it is referenced by Node ${sourceNumber}.`;
-          if (!seenErrors.has(message)) {
-            seenErrors.add(message);
-            errors.push(message);
-          }
-        } else {
-          message = 'Cannot delete a node that is still referenced by another node.';
-          if (!seenErrors.has(message)) {
-            seenErrors.add(message);
-            errors.push(message);
-          }
-        }
-        nodeErrorIds.add(sourceNode.id);
-        nodeErrorIds.add(targetNodeId);
-        if (!nodeErrorDetailsById.has(targetNodeId)) {
-          nodeErrorTitlesById.set(targetNodeId, "You can't delete this node");
-          if (sourceNumber && targetNumber) {
-            nodeErrorDetailsById.set(
-              targetNodeId,
-              `Node ${targetNumber} is referenced by Node ${sourceNumber}.`
-            );
-          } else {
-            nodeErrorDetailsById.set(
-              targetNodeId,
-              'This node is still referenced by another node in this scenario.'
-            );
-          }
-        }
-      });
-    });
-
-    active.forEach((node) => {
-      const nodeFieldErrors = {};
-
-      if (node.media?.type === 'image') {
-        const leftImageUrl = (node.left_image_url || '').trim();
-        const rightImageUrl = (node.right_image_url || '').trim();
-        if (!leftImageUrl && !rightImageUrl) {
-          nodeFieldErrors.left_image_url = 'Please enter a valid URL';
-        }
-      }
-
-      const choiceDestinationByIndex = {};
-      (node.choices || []).forEach((choice, index) => {
-        const choiceText = (choice?.text || '').trim();
-        const choiceTarget = (choice?.target_node_id || '').trim();
-        if (choiceText && !choiceTarget) {
-          choiceDestinationByIndex[index] = 'Required field';
-        }
-      });
-
-      if (Object.keys(choiceDestinationByIndex).length > 0) {
-        nodeFieldErrors.choiceDestinationByIndex = choiceDestinationByIndex;
-      }
-
-      if (Object.keys(nodeFieldErrors).length > 0) {
-        fieldErrorsByNodeId.set(node.id, nodeFieldErrors);
-        nodeErrorIds.add(node.id);
-        errors.push(`Node ${nodeNumberById(node.id)} has required fields missing.`);
-      }
-    });
-
-    const cycleNodeIds = findCycleNodeIds(active);
-    if (cycleNodeIds.size > 0) {
-      const cycleNodeNumbers = Array.from(cycleNodeIds)
-        .map(nodeId => nodeNumberById(nodeId))
-        .filter(number => number !== null)
-        .sort((a, b) => a - b);
-      const cycleNodeLabel = cycleNodeNumbers.length
-        ? cycleNodeNumbers.map(number => `Node ${number}`).join(', ')
-        : 'one or more nodes';
-
-      errors.push(
-        `Circular path detected: ${cycleNodeLabel} links back through branching choices. Remove one of the links in this loop.`
-      );
-      cycleNodeIds.forEach((nodeId) => {
-        nodeErrorIds.add(nodeId);
-        if (!nodeErrorDetailsById.has(nodeId)) {
-          const nodeNumber = nodeNumberById(nodeId);
-          const prefix = nodeNumber ? `Node ${nodeNumber}` : 'This node';
-          nodeErrorTitlesById.set(nodeId, 'Circular path detected');
-          nodeErrorDetailsById.set(
-            nodeId,
-            `${prefix} links back through branching choices. Remove one of the links in this loop.`
-          );
-        }
-      });
-    }
-
-    return { errors, nodeErrorIds, nodeErrorDetailsById, nodeErrorTitlesById, fieldErrorsByNodeId };
+  // Reset all rendered validation state before a fresh server response is applied.
+  function clearValidationState() {
+    wizard.settingsFieldErrors = {};
+    wizard.validationErrors = [];
+    wizard.validationNodeErrorIds = new Set();
+    wizard.validationNodeErrorDetailsById = new Map();
+    wizard.validationNodeErrorTitlesById = new Map();
+    wizard.validationFieldErrorsByNodeId = new Map();
   }
 
   function updateFooterUi() {
-    if (!wizard.showFieldValidationErrors) {
-      $saveValidationSummary.attr('hidden', true).text('');
-    }
     const pendingCount = pendingDeleteNodes().length;
-    if (wizard.currentStep !== 'nodes' || pendingCount === 0 || wizard.showFieldValidationErrors) {
+    if (wizard.currentStep !== 'nodes' || pendingCount === 0 || wizard.validationErrors.length > 0) {
       $pendingDeleteSummary.attr('hidden', true).text('');
       return;
     }
@@ -420,34 +242,56 @@ function BranchingStudioEditor(runtime, element, data) {
       .text(`${pendingCount} ${nodeWord} will be deleted when you save.`);
   }
 
+  // Map backend structured errors into the editor's view model. This is the
+  // canonical validation bridge from API contract -> per-field/per-node UI state.
+  function applyServerValidation(res) {
+    clearValidationState();
+
+    const fieldErrors = (res && res.field_errors) || {};
+    const nodeFieldErrors = fieldErrors.node_input_errors || fieldErrors.node_field_errors || {};
+    const nodeErrors = fieldErrors.node_action_errors || fieldErrors.node_errors || {};
+    const settingsFieldErrors = fieldErrors.settings_field_errors || {};
+    const globalErrors = Array.isArray(fieldErrors.global_errors) ? fieldErrors.global_errors : [];
+
+    Object.entries(nodeFieldErrors).forEach(([nodeId, nodeFieldError]) => {
+      if (!nodeFieldError || typeof nodeFieldError !== 'object') {
+        return;
+      }
+      wizard.validationFieldErrorsByNodeId.set(nodeId, nodeFieldError);
+      wizard.validationNodeErrorIds.add(nodeId);
+    });
+
+    Object.entries(nodeErrors).forEach(([nodeId, nodeError]) => {
+      if (!nodeError || typeof nodeError !== 'object') {
+        return;
+      }
+      if (nodeError.title) {
+        wizard.validationNodeErrorTitlesById.set(nodeId, nodeError.title);
+      }
+      if (nodeError.detail) {
+        wizard.validationNodeErrorDetailsById.set(nodeId, nodeError.detail);
+      }
+      wizard.validationNodeErrorIds.add(nodeId);
+    });
+
+    wizard.settingsFieldErrors = settingsFieldErrors;
+    wizard.validationErrors = globalErrors.slice();
+  }
+
+  // Render top-level summary area when any backend validation errors exist.
   function updateClientValidationUi() {
-    const validation = buildClientValidation();
-    if (wizard.showDeleteValidationErrors || wizard.showFieldValidationErrors) {
-      wizard.validationErrors = validation.errors;
-      wizard.validationNodeErrorIds = validation.nodeErrorIds;
-      wizard.validationNodeErrorDetailsById = validation.nodeErrorDetailsById;
-      wizard.validationNodeErrorTitlesById = validation.nodeErrorTitlesById;
-      wizard.validationFieldErrorsByNodeId = validation.fieldErrorsByNodeId;
-      const generalErrors = validation.errors.filter(msg => msg === 'At least one active node is required.');
-      if (wizard.currentStep === 'nodes' && generalErrors.length) {
-        $errors.empty();
-        generalErrors.forEach(msg => $errors.append($('<div>').text(msg)));
-      } else {
-        $errors.empty();
-      }
-      if (wizard.currentStep === 'nodes' && validation.errors.length > 0) {
-        $saveValidationSummary
-          .attr('hidden', false)
-          .text("We weren't able to save your selections. Please fix the errors shown and try again.");
-      } else {
-        $saveValidationSummary.attr('hidden', true).text('');
-      }
+    const hasInlineFieldErrors =
+      Object.keys(wizard.settingsFieldErrors || {}).length > 0
+      || (wizard.validationFieldErrorsByNodeId && wizard.validationFieldErrorsByNodeId.size > 0)
+      || (wizard.validationNodeErrorIds && wizard.validationNodeErrorIds.size > 0);
+
+    if (wizard.validationErrors.length > 0 || hasInlineFieldErrors) {
+      $errors.empty();
+      wizard.validationErrors.forEach(msg => $errors.append($('<div>').text(msg)));
+      $saveValidationSummary
+        .attr('hidden', false)
+        .text("We weren't able to save your selections. Please fix the errors shown and try again.");
     } else {
-      wizard.validationErrors = [];
-      wizard.validationNodeErrorIds = new Set();
-      wizard.validationNodeErrorDetailsById = new Map();
-      wizard.validationNodeErrorTitlesById = new Map();
-      wizard.validationFieldErrorsByNodeId = new Map();
       $saveValidationSummary.attr('hidden', true).text('');
       $errors.empty();
     }
@@ -455,8 +299,16 @@ function BranchingStudioEditor(runtime, element, data) {
     updateFooterUi();
   }
 
+  // ---------------------------
+  // Render functions
+  // ---------------------------
   function renderSettings() {
-    $stepSettings.html(Templates['settings-step'](wizard.draftSettings));
+    $stepSettings.html(Templates['settings-step']({
+      ...wizard.draftSettings,
+      background_image_url_error: wizard.settingsFieldErrors.background_image_url || '',
+      background_image_alt_text_error: wizard.settingsFieldErrors.background_image_alt_text || '',
+      grade_ranges_error: wizard.settingsFieldErrors.grade_ranges || '',
+    }));
     renderGradeRangeSlider();
   }
 
@@ -538,12 +390,14 @@ function BranchingStudioEditor(runtime, element, data) {
     const $choices = $editor.find('[data-role="choices-container"]').empty();
     const options = nodeOptions(node.id);
     const choiceDestinationErrors = currentNodeFieldErrors.choiceDestinationByIndex || {};
+    const choiceScoreErrors = currentNodeFieldErrors.choiceScoreByIndex || {};
     (node.choices || []).forEach((choice, i) => {
       $choices.append(Templates['choice-row']({
         choice,
         i,
         options,
         destination_error: choiceDestinationErrors[i] || '',
+        score_error: choiceScoreErrors[i] || '',
       }));
     });
   }
@@ -554,6 +408,7 @@ function BranchingStudioEditor(runtime, element, data) {
     renderNodeEditor();
   }
 
+  // Full rerender used on initial load and after major state transitions.
   function renderAll() {
     $errors.empty();
     renderSettings();
@@ -563,7 +418,11 @@ function BranchingStudioEditor(runtime, element, data) {
     updateClientValidationUi();
   }
 
+  // ---------------------------
+  // DOM -> draft synchronization
+  // ---------------------------
   function syncSettingsFromDom() {
+    // Pull settings fields into draft state before navigation/save.
     const $s = $stepSettings;
     wizard.draftSettings.display_name = $s.find('[name="display_name"]').val()?.trim() || '';
     wizard.draftSettings.enable_undo = $s.find('[name="enable_undo"]').is(':checked');
@@ -572,10 +431,10 @@ function BranchingStudioEditor(runtime, element, data) {
     wizard.draftSettings.background_image_url = $s.find('[name="background_image_url"]').val()?.trim() || '';
     wizard.draftSettings.background_image_is_decorative = $s.find('[name="background_image_is_decorative"]').is(':checked');
     wizard.draftSettings.background_image_alt_text = $s.find('[name="background_image_alt_text"]').val()?.trim() || '';
-    wizard.draftSettings.grade_ranges = normalizeGradeRanges(wizard.draftSettings.grade_ranges);
   }
 
   function syncCurrentNodeFromDom() {
+    // Pull the currently open node editor inputs into draft state.
     const node = currentNode();
     if (!node) {
       return;
@@ -612,8 +471,8 @@ function BranchingStudioEditor(runtime, element, data) {
       const $row = $(this);
       const text = $row.find('.choice-text').val()?.trim() || '';
       const target = $row.find('.choice-target').val()?.trim() || '';
-      const parsedScore = Number.parseInt($row.find('.choice-score').val(), 10);
-      const score = Number.isNaN(parsedScore) ? 0 : parsedScore;
+      const rawScore = $row.find('.choice-score').val();
+      const score = rawScore;
       if (text || target) {
         choices.push({ text, target_node_id: target, score });
       }
@@ -621,12 +480,22 @@ function BranchingStudioEditor(runtime, element, data) {
     node.choices = choices;
   }
 
+  // Apply backend validation and move user to the most relevant step.
   function showErrors(res) {
-    const errs = (res.field_errors || {}).nodes_json || [res.message];
-    $errors.empty();
-    errs.forEach(msg => $errors.append($('<div>').text(msg)));
+    applyServerValidation(res);
+    renderSettings();
+    renderNodeList();
+    renderNodeEditor();
+    if (Object.keys(wizard.settingsFieldErrors).length > 0) {
+      showStep('settings');
+    } else {
+      showStep('nodes');
+    }
   }
 
+  // ---------------------------
+  // Button actions
+  // ---------------------------
   function bindActions() {
     $continueBtn.off('click').on('click', function() {
       syncSettingsFromDom();
@@ -639,19 +508,12 @@ function BranchingStudioEditor(runtime, element, data) {
     });
 
     $saveBtn.off('click').on('click', function() {
+      // Save pipeline: sync draft state and submit full payload for backend-
+      // only validation. Frontend renders structured field errors from server.
       syncSettingsFromDom();
       syncCurrentNodeFromDom();
-      const validation = buildClientValidation();
-      if (validation.errors.length) {
-        wizard.showDeleteValidationErrors = true;
-        wizard.showFieldValidationErrors = true;
-        updateClientValidationUi();
-        renderNodeList();
-        renderNodeEditor();
-        return;
-      }
-      wizard.showDeleteValidationErrors = false;
-      wizard.showFieldValidationErrors = false;
+      clearValidationState();
+      updateClientValidationUi();
 
       const payload = {
         nodes: wizard.draftNodes.map(n => ({
@@ -662,14 +524,15 @@ function BranchingStudioEditor(runtime, element, data) {
             url: (n.media?.type === 'image') ? '' : (n.media?.url || '').trim(),
           },
           choices: Array.isArray(n.choices)
-            ? n.choices
-              .filter(c => c?.text && c?.target_node_id)
-              .map(c => ({
-                text: c.text,
-                target_node_id: c.target_node_id,
-                score: Number.isNaN(Number.parseInt(c.score, 10)) ? 0 : Number.parseInt(c.score, 10),
-              }))
-            : [],
+                ? n.choices
+                  // Keep partially filled choices so backend can return field-level validation.
+                  .filter(c => (c?.text || '').trim() || (c?.target_node_id || '').trim())
+                  .map(c => ({
+                    text: c.text,
+                    target_node_id: c.target_node_id,
+                    score: c.score,
+                  }))
+                : [],
           hint: (n.hint || '').trim(),
           overlay_text: Boolean(n.overlay_text),
           left_image_url: (n.left_image_url || '').trim(),
@@ -687,13 +550,13 @@ function BranchingStudioEditor(runtime, element, data) {
         background_image_alt_text: wizard.draftSettings.background_image_alt_text || '',
         background_image_is_decorative: Boolean(wizard.draftSettings.background_image_is_decorative),
         grade_ranges: (wizard.draftSettings.grade_ranges || []).map((gradeRange) => ({
-          label: String(gradeRange.label || '').trim(),
-          start: Number.parseInt(gradeRange.start, 10),
-          end: Number.parseInt(gradeRange.end, 10),
+          label: gradeRange.label,
+          start: gradeRange.start,
+          end: gradeRange.end,
         })),
       };
 
-      runtime.notify('save', { state: 'start' });
+      $saveBtn.prop('disabled', true);
       $.ajax({
         type: 'POST',
         url: runtime.handlerUrl(element, 'studio_submit'),
@@ -701,14 +564,23 @@ function BranchingStudioEditor(runtime, element, data) {
         contentType: 'application/json; charset=utf-8'
       }).done(function(res) {
         if (res.result === 'success') {
-          runtime.notify('save',  { state: 'end' });
+          // Trigger Studio's global saving animation only for successful saves.
+          runtime.notify('save', { state: 'start' });
+          runtime.notify('save', { state: 'end' });
           runtime.notify('cancel', {});
         } else {
+          // Keep Studio editor open for backend validation errors so
+          // structured field errors can be shown inline.
           showErrors(res);
           $saveBtn.prop('disabled', false);
         }
       }).fail(function() {
+        // Keep editor open on transport/server failures and surface a
+        // top-level message for retry.
         $errors.text('Error saving scenario');
+        $saveValidationSummary
+          .attr('hidden', false)
+          .text("We weren't able to save your selections. Please try again.");
         $saveBtn.prop('disabled', false);
       });
     });
@@ -719,10 +591,16 @@ function BranchingStudioEditor(runtime, element, data) {
     });
   }
 
+  // ---------------------------
+  // Fine-grained interactions
+  // ---------------------------
   function bindInteractions() {
+    // Settings inputs update draft settings live and clear stale server errors.
     $root.off('change.bx-settings input.bx-settings', '[data-role="step-settings"] input, [data-role="step-settings"] textarea');
     $root.on('change.bx-settings input.bx-settings', '[data-role="step-settings"] input, [data-role="step-settings"] textarea', function() {
       syncSettingsFromDom();
+      clearValidationState();
+      updateClientValidationUi();
       const decorative = wizard.draftSettings.background_image_is_decorative;
       const $alt = $stepSettings.find('[name="background_image_alt_text"]');
       $alt.prop('disabled', decorative);
@@ -776,7 +654,10 @@ function BranchingStudioEditor(runtime, element, data) {
       if (Number.isNaN(boundaryIndex)) {
         return;
       }
-      const gradeRanges = wizard.draftSettings.grade_ranges || defaultGradeRanges();
+      const gradeRanges = wizard.draftSettings.grade_ranges;
+      if (!Array.isArray(gradeRanges) || gradeRanges.length < 2) {
+        return;
+      }
       const currentBoundary = gradeRanges[boundaryIndex]?.end;
       if (typeof currentBoundary !== 'number') {
         return;
@@ -799,15 +680,17 @@ function BranchingStudioEditor(runtime, element, data) {
       renderGradeRangeSlider();
     });
 
+    // Node list actions.
     $root.off('click.bx-nodes', '[data-role="add-node"]');
     $root.on('click.bx-nodes', '[data-role="add-node"]', function() {
       if (activeNodes().length >= 30) {
         return;
       }
       syncCurrentNodeFromDom();
-      const node = normalizeNode({});
+      const node = buildDraftNode({});
       wizard.draftNodes.push(node);
       wizard.selectedNodeId = node.id;
+      clearValidationState();
       renderNodeList();
       renderNodeEditor();
       updateFooterUi();
@@ -826,6 +709,7 @@ function BranchingStudioEditor(runtime, element, data) {
       }
       syncCurrentNodeFromDom();
       wizard.selectedNodeId = nodeId;
+      clearValidationState();
       renderNodeList();
       renderNodeEditor();
       updateFooterUi();
@@ -844,18 +728,18 @@ function BranchingStudioEditor(runtime, element, data) {
         return;
       }
       node.pending_delete = !node.pending_delete;
-      wizard.showDeleteValidationErrors = false;
-      wizard.showFieldValidationErrors = false;
+      clearValidationState();
       updateClientValidationUi();
       renderNodeList();
       renderNodeEditor();
       updateFooterUi();
     });
 
+    // Node editor actions.
     $root.off('change.bx-node', '[data-role="media-type"]');
     $root.on('change.bx-node', '[data-role="media-type"]', function() {
       syncCurrentNodeFromDom();
-      wizard.showFieldValidationErrors = false;
+      clearValidationState();
       renderNodeEditor();
       updateClientValidationUi();
     });
@@ -863,7 +747,7 @@ function BranchingStudioEditor(runtime, element, data) {
     $root.off('change.bx-node', '[data-role="no-branches"]');
     $root.on('change.bx-node', '[data-role="no-branches"]', function() {
       syncCurrentNodeFromDom();
-      wizard.showFieldValidationErrors = false;
+      clearValidationState();
       renderNodeEditor();
       updateClientValidationUi();
     });
@@ -878,7 +762,7 @@ function BranchingStudioEditor(runtime, element, data) {
       node.no_branches = false;
       node.choices = Array.isArray(node.choices) ? node.choices : [];
       node.choices.push({ text: '', target_node_id: '', score: 0 });
-      wizard.showFieldValidationErrors = false;
+      clearValidationState();
       renderNodeEditor();
       updateClientValidationUi();
     });
@@ -894,17 +778,18 @@ function BranchingStudioEditor(runtime, element, data) {
       if (!Number.isNaN(idx)) {
         node.choices.splice(idx, 1);
       }
-      wizard.showFieldValidationErrors = false;
+      clearValidationState();
       renderNodeEditor();
       updateClientValidationUi();
     });
   }
 
+  // Bootstrap flow: wire handlers first, then hydrate + render.
   function init() {
     bindActions();
     bindInteractions();
     loadState().then(function(state) {
-      normalizeInitialState(state || {});
+      hydrateInitialState(state || {});
       renderAll();
     });
   }
