@@ -26,7 +26,7 @@ function BranchingStudioEditor(runtime, element, data) {
 
   // Keep editor state in a draft model, then sync to/from DOM on transitions.
   // This prevents partial DOM edits from immediately mutating persisted data.
-  const wizard = {
+  const editorState = {
     currentStep: 'settings',
     selectedNodeId: null,
     draftSettings: {},
@@ -51,7 +51,7 @@ function BranchingStudioEditor(runtime, element, data) {
   }
 
   function setBoundaryValue(boundaryIndex, requestedValue) {
-    const gradeRanges = wizard.draftSettings.grade_ranges;
+    const gradeRanges = editorState.draftSettings.grade_ranges;
     if (!Array.isArray(gradeRanges) || gradeRanges.length < 2) {
       return;
     }
@@ -64,7 +64,7 @@ function BranchingStudioEditor(runtime, element, data) {
     const clamped = Math.max(lower, Math.min(upper, requestedValue));
     current.end = clamped;
     next.start = clamped + 1;
-    wizard.draftSettings.grade_ranges = gradeRanges;
+    editorState.draftSettings.grade_ranges = gradeRanges;
   }
 
   function renderGradeRangeSlider() {
@@ -72,13 +72,13 @@ function BranchingStudioEditor(runtime, element, data) {
     if (!$section.length) {
       return;
     }
-    const show = Boolean(wizard.draftSettings.enable_scoring);
+    const show = Boolean(editorState.draftSettings.enable_scoring);
     $section.toggleClass('is-hidden', !show);
     if (!show) {
       return;
     }
 
-    const gradeRanges = wizard.draftSettings.grade_ranges;
+    const gradeRanges = editorState.draftSettings.grade_ranges;
     if (!Array.isArray(gradeRanges) || gradeRanges.length < 2) {
       return;
     }
@@ -168,9 +168,9 @@ function BranchingStudioEditor(runtime, element, data) {
     if (!nodes.length) {
       nodes.push(buildDraftNode({}));
     }
-    wizard.draftNodes = nodes;
-    wizard.selectedNodeId = nodes[0].id;
-    wizard.draftSettings = {
+    editorState.draftNodes = nodes;
+    editorState.selectedNodeId = nodes[0].id;
+    editorState.draftSettings = {
       display_name: state?.display_name || '',
       enable_undo: Boolean(state?.enable_undo),
       enable_scoring: Boolean(state?.enable_scoring),
@@ -186,7 +186,7 @@ function BranchingStudioEditor(runtime, element, data) {
   // Step navigation + selectors
   // ---------------------------
   function showStep(step) {
-    wizard.currentStep = step;
+    editorState.currentStep = step;
     const showSettings = step === 'settings';
     $stepSettings.attr('hidden', !showSettings);
     $stepNodes.attr('hidden', showSettings);
@@ -198,41 +198,41 @@ function BranchingStudioEditor(runtime, element, data) {
   }
 
   function nodeIndexById(nodeId) {
-    return wizard.draftNodes.findIndex(n => n.id === nodeId);
+    return editorState.draftNodes.findIndex(n => n.id === nodeId);
   }
 
   function currentNode() {
-    const idx = nodeIndexById(wizard.selectedNodeId);
-    return idx >= 0 ? wizard.draftNodes[idx] : null;
+    const idx = nodeIndexById(editorState.selectedNodeId);
+    return idx >= 0 ? editorState.draftNodes[idx] : null;
   }
 
   function nodeOptions(excludeNodeId) {
-    return wizard.draftNodes
+    return editorState.draftNodes
       .map((n, idx) => ({ id: n.id, label: `Node ${idx + 1}` }))
       .filter(opt => opt.id !== excludeNodeId);
   }
 
   function activeNodes() {
-    return wizard.draftNodes.filter(node => !node.pending_delete);
+    return editorState.draftNodes.filter(node => !node.pending_delete);
   }
 
   function pendingDeleteNodes() {
-    return wizard.draftNodes.filter(node => node.pending_delete);
+    return editorState.draftNodes.filter(node => node.pending_delete);
   }
 
   // Reset all rendered validation state before a fresh server response is applied.
   function clearValidationState() {
-    wizard.settingsFieldErrors = {};
-    wizard.validationErrors = [];
-    wizard.validationNodeErrorIds = new Set();
-    wizard.validationNodeErrorDetailsById = new Map();
-    wizard.validationNodeErrorTitlesById = new Map();
-    wizard.validationFieldErrorsByNodeId = new Map();
+    editorState.settingsFieldErrors = {};
+    editorState.validationErrors = [];
+    editorState.validationNodeErrorIds = new Set();
+    editorState.validationNodeErrorDetailsById = new Map();
+    editorState.validationNodeErrorTitlesById = new Map();
+    editorState.validationFieldErrorsByNodeId = new Map();
   }
 
   function updateFooterUi() {
     const pendingCount = pendingDeleteNodes().length;
-    if (wizard.currentStep !== 'nodes' || pendingCount === 0 || wizard.validationErrors.length > 0) {
+    if (editorState.currentStep !== 'nodes' || pendingCount === 0 || editorState.validationErrors.length > 0) {
       $pendingDeleteSummary.attr('hidden', true).text('');
       return;
     }
@@ -257,8 +257,8 @@ function BranchingStudioEditor(runtime, element, data) {
       if (!nodeFieldError || typeof nodeFieldError !== 'object') {
         return;
       }
-      wizard.validationFieldErrorsByNodeId.set(nodeId, nodeFieldError);
-      wizard.validationNodeErrorIds.add(nodeId);
+      editorState.validationFieldErrorsByNodeId.set(nodeId, nodeFieldError);
+      editorState.validationNodeErrorIds.add(nodeId);
     });
 
     Object.entries(nodeErrors).forEach(([nodeId, nodeError]) => {
@@ -266,28 +266,28 @@ function BranchingStudioEditor(runtime, element, data) {
         return;
       }
       if (nodeError.title) {
-        wizard.validationNodeErrorTitlesById.set(nodeId, nodeError.title);
+        editorState.validationNodeErrorTitlesById.set(nodeId, nodeError.title);
       }
       if (nodeError.detail) {
-        wizard.validationNodeErrorDetailsById.set(nodeId, nodeError.detail);
+        editorState.validationNodeErrorDetailsById.set(nodeId, nodeError.detail);
       }
-      wizard.validationNodeErrorIds.add(nodeId);
+      editorState.validationNodeErrorIds.add(nodeId);
     });
 
-    wizard.settingsFieldErrors = settingsFieldErrors;
-    wizard.validationErrors = globalErrors.slice();
+    editorState.settingsFieldErrors = settingsFieldErrors;
+    editorState.validationErrors = globalErrors.slice();
   }
 
   // Render top-level summary area when any backend validation errors exist.
   function updateClientValidationUi() {
     const hasInlineFieldErrors =
-      Object.keys(wizard.settingsFieldErrors || {}).length > 0
-      || (wizard.validationFieldErrorsByNodeId && wizard.validationFieldErrorsByNodeId.size > 0)
-      || (wizard.validationNodeErrorIds && wizard.validationNodeErrorIds.size > 0);
+      Object.keys(editorState.settingsFieldErrors || {}).length > 0
+      || (editorState.validationFieldErrorsByNodeId && editorState.validationFieldErrorsByNodeId.size > 0)
+      || (editorState.validationNodeErrorIds && editorState.validationNodeErrorIds.size > 0);
 
-    if (wizard.validationErrors.length > 0 || hasInlineFieldErrors) {
+    if (editorState.validationErrors.length > 0 || hasInlineFieldErrors) {
       $errors.empty();
-      wizard.validationErrors.forEach(msg => $errors.append($('<div>').text(msg)));
+      editorState.validationErrors.forEach(msg => $errors.append($('<div>').text(msg)));
       $saveValidationSummary
         .attr('hidden', false)
         .text("We weren't able to save your selections. Please fix the errors shown and try again.");
@@ -304,17 +304,17 @@ function BranchingStudioEditor(runtime, element, data) {
   // ---------------------------
   function renderSettings() {
     $stepSettings.html(Templates['settings-step']({
-      ...wizard.draftSettings,
-      background_image_url_error: wizard.settingsFieldErrors.background_image_url || '',
-      background_image_alt_text_error: wizard.settingsFieldErrors.background_image_alt_text || '',
-      grade_ranges_error: wizard.settingsFieldErrors.grade_ranges || '',
+      ...editorState.draftSettings,
+      background_image_url_error: editorState.settingsFieldErrors.background_image_url || '',
+      background_image_alt_text_error: editorState.settingsFieldErrors.background_image_alt_text || '',
+      grade_ranges_error: editorState.settingsFieldErrors.grade_ranges || '',
     }));
     renderGradeRangeSlider();
   }
 
   function renderNodeList() {
     const incomingReferenceCounts = new Map();
-    wizard.draftNodes.forEach(node => incomingReferenceCounts.set(node.id, 0));
+    editorState.draftNodes.forEach(node => incomingReferenceCounts.set(node.id, 0));
 
     activeNodes().forEach((sourceNode) => {
       (sourceNode.choices || []).forEach((choice) => {
@@ -330,14 +330,14 @@ function BranchingStudioEditor(runtime, element, data) {
     });
 
     const $list = $stepNodes.find('[data-role="node-list"]').empty();
-    wizard.draftNodes.forEach((n, idx) => {
+    editorState.draftNodes.forEach((n, idx) => {
       const isUnlinked = !n.pending_delete && idx > 0 && (incomingReferenceCounts.get(n.id) || 0) === 0;
       $list.append(Templates['node-list-item']({
         id: n.id,
         number: idx + 1,
-        is_selected: n.id === wizard.selectedNodeId,
+        is_selected: n.id === editorState.selectedNodeId,
         is_pending_delete: Boolean(n.pending_delete),
-        has_errors: wizard.validationNodeErrorIds?.has(n.id),
+        has_errors: editorState.validationNodeErrorIds?.has(n.id),
         is_unlinked: isUnlinked,
       }));
     });
@@ -348,7 +348,7 @@ function BranchingStudioEditor(runtime, element, data) {
 
   function renderNodeEditor() {
     const node = currentNode();
-    const idx = nodeIndexById(wizard.selectedNodeId);
+    const idx = nodeIndexById(editorState.selectedNodeId);
     if (!node || idx < 0) {
       $stepNodes.find('[data-role="node-editor"]').empty();
       return;
@@ -368,7 +368,7 @@ function BranchingStudioEditor(runtime, element, data) {
     const rightImageUrl = isImage
       ? (node.right_image_url ?? '')
       : '';
-    const currentNodeFieldErrors = wizard.validationFieldErrorsByNodeId?.get(node.id) || {};
+    const currentNodeFieldErrors = editorState.validationFieldErrorsByNodeId?.get(node.id) || {};
 
     const html = Templates['node-editor']({
       ...node,
@@ -380,8 +380,8 @@ function BranchingStudioEditor(runtime, element, data) {
       has_choices: hasChoices,
       no_branches: noBranches,
       is_pending_delete: Boolean(node.pending_delete),
-      node_error_title: wizard.validationNodeErrorTitlesById?.get(node.id) || '',
-      node_error_detail: wizard.validationNodeErrorDetailsById?.get(node.id) || '',
+      node_error_title: editorState.validationNodeErrorTitlesById?.get(node.id) || '',
+      node_error_detail: editorState.validationNodeErrorDetailsById?.get(node.id) || '',
       left_image_url_error: currentNodeFieldErrors.left_image_url || '',
       left_image_url: leftImageUrl,
       right_image_url: rightImageUrl,
@@ -413,7 +413,7 @@ function BranchingStudioEditor(runtime, element, data) {
     $errors.empty();
     renderSettings();
     renderNodesStep();
-    showStep(wizard.currentStep);
+    showStep(editorState.currentStep);
     updateFooterUi();
     updateClientValidationUi();
   }
@@ -424,13 +424,13 @@ function BranchingStudioEditor(runtime, element, data) {
   function syncSettingsFromDom() {
     // Pull settings fields into draft state before navigation/save.
     const $s = $stepSettings;
-    wizard.draftSettings.display_name = $s.find('[name="display_name"]').val()?.trim() || '';
-    wizard.draftSettings.enable_undo = $s.find('[name="enable_undo"]').is(':checked');
-    wizard.draftSettings.enable_reset_activity = $s.find('[name="enable_reset_activity"]').is(':checked');
-    wizard.draftSettings.enable_scoring = $s.find('[name="enable_scoring"]').is(':checked');
-    wizard.draftSettings.background_image_url = $s.find('[name="background_image_url"]').val()?.trim() || '';
-    wizard.draftSettings.background_image_is_decorative = $s.find('[name="background_image_is_decorative"]').is(':checked');
-    wizard.draftSettings.background_image_alt_text = $s.find('[name="background_image_alt_text"]').val()?.trim() || '';
+    editorState.draftSettings.display_name = $s.find('[name="display_name"]').val()?.trim() || '';
+    editorState.draftSettings.enable_undo = $s.find('[name="enable_undo"]').is(':checked');
+    editorState.draftSettings.enable_reset_activity = $s.find('[name="enable_reset_activity"]').is(':checked');
+    editorState.draftSettings.enable_scoring = $s.find('[name="enable_scoring"]').is(':checked');
+    editorState.draftSettings.background_image_url = $s.find('[name="background_image_url"]').val()?.trim() || '';
+    editorState.draftSettings.background_image_is_decorative = $s.find('[name="background_image_is_decorative"]').is(':checked');
+    editorState.draftSettings.background_image_alt_text = $s.find('[name="background_image_alt_text"]').val()?.trim() || '';
   }
 
   function syncCurrentNodeFromDom() {
@@ -486,7 +486,7 @@ function BranchingStudioEditor(runtime, element, data) {
     renderSettings();
     renderNodeList();
     renderNodeEditor();
-    if (Object.keys(wizard.settingsFieldErrors).length > 0) {
+    if (Object.keys(editorState.settingsFieldErrors).length > 0) {
       showStep('settings');
     } else {
       showStep('nodes');
@@ -516,7 +516,7 @@ function BranchingStudioEditor(runtime, element, data) {
       updateClientValidationUi();
 
       const payload = {
-        nodes: wizard.draftNodes.map(n => ({
+        nodes: editorState.draftNodes.map(n => ({
           id: n.id,
           content: (n.content || '').trim(),
           media: {
@@ -539,17 +539,17 @@ function BranchingStudioEditor(runtime, element, data) {
           right_image_url: (n.right_image_url || '').trim(),
           transcript_url: (n.transcript_url || '').trim(),
         })),
-        deleted_node_ids: wizard.draftNodes
+        deleted_node_ids: editorState.draftNodes
           .filter(node => node.pending_delete)
           .map(node => node.id),
-        enable_undo: Boolean(wizard.draftSettings.enable_undo),
-        enable_scoring: Boolean(wizard.draftSettings.enable_scoring),
-        enable_reset_activity: Boolean(wizard.draftSettings.enable_reset_activity),
-        display_name: wizard.draftSettings.display_name || '',
-        background_image_url: wizard.draftSettings.background_image_url || '',
-        background_image_alt_text: wizard.draftSettings.background_image_alt_text || '',
-        background_image_is_decorative: Boolean(wizard.draftSettings.background_image_is_decorative),
-        grade_ranges: (wizard.draftSettings.grade_ranges || []).map((gradeRange) => ({
+        enable_undo: Boolean(editorState.draftSettings.enable_undo),
+        enable_scoring: Boolean(editorState.draftSettings.enable_scoring),
+        enable_reset_activity: Boolean(editorState.draftSettings.enable_reset_activity),
+        display_name: editorState.draftSettings.display_name || '',
+        background_image_url: editorState.draftSettings.background_image_url || '',
+        background_image_alt_text: editorState.draftSettings.background_image_alt_text || '',
+        background_image_is_decorative: Boolean(editorState.draftSettings.background_image_is_decorative),
+        grade_ranges: (editorState.draftSettings.grade_ranges || []).map((gradeRange) => ({
           label: gradeRange.label,
           start: gradeRange.start,
           end: gradeRange.end,
@@ -601,12 +601,12 @@ function BranchingStudioEditor(runtime, element, data) {
       syncSettingsFromDom();
       clearValidationState();
       updateClientValidationUi();
-      const decorative = wizard.draftSettings.background_image_is_decorative;
+      const decorative = editorState.draftSettings.background_image_is_decorative;
       const $alt = $stepSettings.find('[name="background_image_alt_text"]');
       $alt.prop('disabled', decorative);
       if (decorative) {
         $alt.val('');
-        wizard.draftSettings.background_image_alt_text = '';
+        editorState.draftSettings.background_image_alt_text = '';
       }
       renderGradeRangeSlider();
     });
@@ -654,7 +654,7 @@ function BranchingStudioEditor(runtime, element, data) {
       if (Number.isNaN(boundaryIndex)) {
         return;
       }
-      const gradeRanges = wizard.draftSettings.grade_ranges;
+      const gradeRanges = editorState.draftSettings.grade_ranges;
       if (!Array.isArray(gradeRanges) || gradeRanges.length < 2) {
         return;
       }
@@ -688,8 +688,8 @@ function BranchingStudioEditor(runtime, element, data) {
       }
       syncCurrentNodeFromDom();
       const node = buildDraftNode({});
-      wizard.draftNodes.push(node);
-      wizard.selectedNodeId = node.id;
+      editorState.draftNodes.push(node);
+      editorState.selectedNodeId = node.id;
       clearValidationState();
       renderNodeList();
       renderNodeEditor();
@@ -700,15 +700,15 @@ function BranchingStudioEditor(runtime, element, data) {
     $root.off('click.bx-nodes', '[data-role="select-node"]');
     $root.on('click.bx-nodes', '[data-role="select-node"]', function() {
       const nodeId = $(this).data('node-id');
-      if (!nodeId || nodeId === wizard.selectedNodeId) {
+      if (!nodeId || nodeId === editorState.selectedNodeId) {
         return;
       }
-      const node = wizard.draftNodes.find(n => n.id === nodeId);
+      const node = editorState.draftNodes.find(n => n.id === nodeId);
       if (!node) {
         return;
       }
       syncCurrentNodeFromDom();
-      wizard.selectedNodeId = nodeId;
+      editorState.selectedNodeId = nodeId;
       clearValidationState();
       renderNodeList();
       renderNodeEditor();
@@ -723,7 +723,7 @@ function BranchingStudioEditor(runtime, element, data) {
         return;
       }
       syncCurrentNodeFromDom();
-      const node = wizard.draftNodes.find(n => n.id === nodeId);
+      const node = editorState.draftNodes.find(n => n.id === nodeId);
       if (!node) {
         return;
       }

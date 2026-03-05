@@ -171,7 +171,24 @@ class BranchingXBlock(XBlock):
 
     def _normalize_scenario_nodes(self) -> None:
         """
-        Normalize stored scenario node payloads once per nodes object.
+        Normalize authoring payload shape for already-persisted scenario nodes.
+
+        Studio can load node data that was saved before newer authoring fields
+        (e.g. `overlay_text`, `left_image_url`, `right_image_url`, normalized
+        `choices[*].score`) existed. Without this pass, the editor can receive
+        inconsistent node objects and fail to render/update reliably.
+
+        What this does:
+        - Ensures `scenario_data["nodes"]` is a dict.
+        - Drops malformed non-dict nodes/choices.
+        - Fills missing node keys required by the current editor schema.
+        - Normalizes choice score shape for editor reads.
+        - Writes back only when changes are needed.
+        - Runs once per `nodes` object via `_normalized_nodes_ref`.
+
+        Removal plan:
+        Once all persisted scenario data is guaranteed to follow the current
+        schema, this can be deleted.
         """
         nodes = self.scenario_data.get("nodes", {})
         if nodes is self._normalized_nodes_ref:
