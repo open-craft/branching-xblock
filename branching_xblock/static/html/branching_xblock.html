@@ -16,18 +16,22 @@
             <form class="choices-form" data-role="choice-form">
                 <div class="choices-list" data-role="choice-list"></div>
                 <div class="choice-actions">
-                    <button type="button" class="undo-button action-secondary btn-secondary" data-role="undo">
-                        Go Back
-                    </button>
-                    <button type="button" class="reset-button action-secondary btn-secondary" data-role="reset-activity" style="display: none;">
-                        Reset
-                    </button>
-                    <button type="button" class="show-report-button action-primary btn-primary" data-role="show-report" style="display: none;">
-                        Show Report
-                    </button>
-                    <button type="submit" class="choice-submit-button action-primary btn-primary" data-role="submit-choice" disabled>
-                        Submit
-                    </button>
+                    <div class="choice-actions__secondary">
+                        <button type="button" class="undo-button action-secondary btn-secondary" data-role="undo">
+                            Go Back
+                        </button>
+                        <button type="button" class="reset-button action-secondary btn-secondary" data-role="reset-activity" style="display: none;">
+                            Reset
+                        </button>
+                    </div>
+                    <div class="choice-actions__primary">
+                        <button type="button" class="show-report-button action-primary btn-primary" data-role="show-report" style="display: none;">
+                            Show Report
+                        </button>
+                        <button type="submit" class="choice-submit-button action-primary btn-primary" data-role="submit-choice" disabled>
+                            Submit
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

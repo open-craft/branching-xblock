@@ -314,6 +314,19 @@
     flex-wrap: wrap;
 }
 
+.branching-scenario .choice-actions__secondary,
+.branching-scenario .choice-actions__primary {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.branching-scenario .choice-actions__primary {
+    margin-left: auto;
+    justify-content: flex-end;
+}
+
 .choice-submit-button {
     border: none;
     background-color: #0f62a1;
@@ -667,6 +680,12 @@
     .branching-scenario .choice-actions {
         flex-direction: column-reverse;
         align-items: stretch;
+    }
+
+    .branching-scenario .choice-actions__secondary,
+    .branching-scenario .choice-actions__primary {
+        width: 100%;
+        margin-left: 0;
     }
 
     .undo-button,
