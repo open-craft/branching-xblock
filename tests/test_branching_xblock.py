@@ -563,7 +563,7 @@ def test_studio_submit_rejects_deleting_referenced_node_with_node_action_errors(
     assert result["result"] == "error"
     assert (
         result["field_errors"]["node_input_errors"]["temp-1"]["choiceDestinationByIndex"]["0"]
-        == "Selected destination is invalid."
+        == "Selected destination is pending deletion."
     )
     node_errors = result["field_errors"]["node_action_errors"]
     assert node_errors["temp-2"]["title"] == "You can't delete this node"

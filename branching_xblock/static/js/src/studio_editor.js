@@ -242,6 +242,12 @@ function BranchingStudioEditor(runtime, element, data) {
       .text(`${pendingCount} ${nodeWord} will be deleted when you save.`);
   }
 
+  function firstErroredNodeId() {
+    return editorState.draftNodes.find(
+      (node) => editorState.validationNodeErrorIds?.has(node.id)
+    )?.id || null;
+  }
+
   // Map backend structured errors into the editor's view model. This is the
   // canonical validation bridge from API contract -> per-field/per-node UI state.
   function applyServerValidation(res) {
@@ -483,6 +489,10 @@ function BranchingStudioEditor(runtime, element, data) {
   // Apply backend validation and move user to the most relevant step.
   function showErrors(res) {
     applyServerValidation(res);
+    const erroredNodeId = firstErroredNodeId();
+    if (erroredNodeId && !editorState.validationNodeErrorIds?.has(editorState.selectedNodeId)) {
+      editorState.selectedNodeId = erroredNodeId;
+    }
     renderSettings();
     renderNodeList();
     renderNodeEditor();
@@ -709,7 +719,6 @@ function BranchingStudioEditor(runtime, element, data) {
       }
       syncCurrentNodeFromDom();
       editorState.selectedNodeId = nodeId;
-      clearValidationState();
       renderNodeList();
       renderNodeEditor();
       updateFooterUi();

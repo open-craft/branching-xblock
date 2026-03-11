@@ -992,7 +992,7 @@ class BranchingXBlock(XBlock):
                     node_client_id=node_client_id,
                     field_name="choiceDestinationByIndex",
                     index=choice_index,
-                    message="Selected destination is invalid.",
+                    message="Selected destination is pending deletion.",
                 )
                 self._add_node_error(
                     validation_errors,

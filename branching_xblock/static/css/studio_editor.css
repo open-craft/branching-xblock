@@ -576,7 +576,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.2;
     color: #7c5e00;
     padding: 0;
@@ -595,7 +595,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.2;
     color: #d23228;
 }
