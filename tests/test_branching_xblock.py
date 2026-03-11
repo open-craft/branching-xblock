@@ -69,7 +69,7 @@ def test_get_current_state_empty(rf, block):
     assert state["nodes"] == {}
     assert state["current_node"] is None
     assert state["has_completed"] is False
-    assert state["score"] == 0.0
+    assert state["score"] == 0
 
 
 def test_studio_submit_creates_scenario(rf, block):
@@ -171,7 +171,7 @@ def test_studio_submit_computes_max_score_from_best_path(rf, block):
     result = json.loads(resp.body.decode("utf-8"))
 
     assert result["result"] == "success"
-    assert block.max_score == 40.0
+    assert block.max_score == 40
 
 
 def test_studio_submit_rejects_invalid_choice_score(rf, block):
@@ -236,7 +236,7 @@ def test_studio_submit_normalizes_choice_score_from_string(rf, block):
     saved_nodes = block.scenario_data["nodes"]
     first_node = next(node for node in saved_nodes.values() if node["choices"])
     assert first_node["choices"][0]["score"] == 7
-    assert block.max_score == 7.0
+    assert block.max_score == 7
 
 
 def test_normalize_scenario_nodes_preserves_non_empty_invalid_scores(block):
@@ -450,8 +450,10 @@ def test_studio_submit_fails_on_invalid_target(rf, block):
     resp = block.studio_submit(req)
     result = json.loads(resp.body.decode('utf-8'))
     assert result["result"] == "error"
-    errs = result["field_errors"]["global_errors"]
-    assert any("Invalid target does-not-exist" in e for e in errs)
+    assert (
+        result["field_errors"]["node_input_errors"]["temp-1"]["choiceDestinationByIndex"]["0"]
+        == "Selected destination is invalid."
+    )
 
 
 def test_studio_submit_rejects_cycle(rf, block):
@@ -478,8 +480,6 @@ def test_studio_submit_rejects_cycle(rf, block):
     result = json.loads(resp.body.decode("utf-8"))
 
     assert result["result"] == "error"
-    errs = result["field_errors"]["global_errors"]
-    assert any("Circular path detected" in error for error in errs)
     node_errors = result["field_errors"]["node_action_errors"]
     assert node_errors["temp-1"]["title"] == "Circular path detected"
     assert "links back through branching choices" in node_errors["temp-1"]["detail"]
@@ -505,8 +505,9 @@ def test_studio_submit_rejects_self_loop(rf, block):
     result = json.loads(resp.body.decode("utf-8"))
 
     assert result["result"] == "error"
-    errs = result["field_errors"]["global_errors"]
-    assert any("Circular path detected" in error for error in errs)
+    node_errors = result["field_errors"]["node_action_errors"]
+    assert node_errors["temp-1"]["title"] == "Circular path detected"
+    assert "links back through branching choices" in node_errors["temp-1"]["detail"]
 
 
 def test_studio_submit_rejects_missing_choice_destination(rf, block):
@@ -560,7 +561,10 @@ def test_studio_submit_rejects_deleting_referenced_node_with_node_action_errors(
     result = json.loads(resp.body.decode("utf-8"))
 
     assert result["result"] == "error"
-    assert any("Cannot delete Node" in error for error in result["field_errors"]["global_errors"])
+    assert (
+        result["field_errors"]["node_input_errors"]["temp-1"]["choiceDestinationByIndex"]["0"]
+        == "Selected destination is invalid."
+    )
     node_errors = result["field_errors"]["node_action_errors"]
     assert node_errors["temp-2"]["title"] == "You can't delete this node"
     assert "referenced by Node" in node_errors["temp-2"]["detail"]
@@ -708,7 +712,8 @@ def test_select_choice_scores_and_completes(rf, block):
     assert result["success"] is True
     assert block.current_node_id == "B"
     assert block.has_completed is True
-    assert block.score == pytest.approx(12.0)
+    assert block.score_history == [12]
+    assert result["score"] == 12
     assert block.choice_history == [
         {
             "source_node_id": "A",
@@ -737,7 +742,8 @@ def test_select_choice_rejects_boolean_score_values(rf, block):
     assert result["error"] == "Invalid choice score"
     assert block.current_node_id == "A"
     assert block.has_completed is False
-    assert block.score == pytest.approx(0.0)
+    assert block.score_history == []
+    assert result.get("score", 0) == 0
     assert block.choice_history == []
 
 
@@ -825,7 +831,7 @@ def test_reset_activity_clears_progress_and_score(rf, block):
     block.current_node_id = "end"
     block.history = ["start"]
     block.has_completed = True
-    block.score = 42.0
+    block.score_history = [42]
     block.choice_history = [{"source_node_id": "start", "choice_text": "Next", "awarded_points": 42}]
     req = rf.post("/", data=json.dumps({}), content_type="application/json")
 
@@ -836,11 +842,11 @@ def test_reset_activity_clears_progress_and_score(rf, block):
     assert block.current_node_id == "start"
     assert block.history == []
     assert block.has_completed is False
-    assert block.score == 0.0
+    assert block.score_history == []
     assert block.choice_history == []
     assert result["current_node"]["id"] == "start"
     assert result["has_completed"] is False
-    assert result["score"] == 0.0
+    assert result["score"] == 0
 
 
 def test_reset_activity_clears_scoring_state_when_scoring_disabled(rf, block):
@@ -855,8 +861,7 @@ def test_reset_activity_clears_scoring_state_when_scoring_disabled(rf, block):
     block.current_node_id = "start"
     block.history = ["start"]
     block.has_completed = True
-    block.score = 12.0
-    block.score_history = [12.0]
+    block.score_history = [12]
     block.choice_history = [{"source_node_id": "start", "choice_text": "A", "awarded_points": 12}]
 
     req = rf.post("/", data=json.dumps({}), content_type="application/json")
@@ -864,7 +869,6 @@ def test_reset_activity_clears_scoring_state_when_scoring_disabled(rf, block):
     result = json.loads(resp.body.decode("utf-8"))
 
     assert result["success"] is True
-    assert block.score == 0.0
     assert block.score_history == []
     assert block.choice_history == []
 
@@ -875,7 +879,7 @@ def test_get_current_state_includes_grade_report_data(rf, block):
         {"label": "Pass", "start": 50, "end": 100},
     ]
     block.max_score = 200
-    block.score = 160
+    block.score_history = [80, 80]
     block.choice_history = [
         {"source_node_id": "n1", "choice_text": "Choice 1", "awarded_points": 80},
         {"source_node_id": "n2", "choice_text": "Choice 2", "awarded_points": 80},

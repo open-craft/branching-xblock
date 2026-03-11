@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
-from xblock.fields import Boolean, Dict, Float, List, Scope, String
+from xblock.fields import Boolean, Dict, Integer, List, Scope, String
 from xblock.utils.resources import ResourceLoader
 
 from .compat import get_site_configuration_value, sanitize_html
@@ -94,8 +94,8 @@ class BranchingXBlock(XBlock):
         help="Whether the background image is decorative"
     )
 
-    max_score = Float(
-        default=100.0,
+    max_score = Integer(
+        default=100,
         scope=Scope.content,
         help="Score awarded when scenario is completed (if scoring enabled)"
     )
@@ -119,12 +119,6 @@ class BranchingXBlock(XBlock):
         scope=Scope.user_state,
         default=[],
         help="Path history for undo functionality"
-    )
-
-    score = Float(
-        scope=Scope.user_state,
-        default=0.0,
-        help="Accumulated score (if scoring enabled)"
     )
 
     score_history = List(
@@ -358,12 +352,12 @@ class BranchingXBlock(XBlock):
         self,
         nodes: dict[str, dict[str, Any]],
         start_node_id: Optional[str],
-    ) -> float:
+    ) -> int:
         """
         Compute the maximum total score over all reachable start-to-leaf paths.
         """
         if not start_node_id or start_node_id not in nodes:
-            return 0.0
+            return 0
 
         # Phase 1: collect only nodes reachable from the start node.
         # This intentionally ignores orphan/disconnected nodes so they do not
@@ -438,9 +432,9 @@ class BranchingXBlock(XBlock):
         # for malformed graph edge-cases.
         if not leaf_scores:
             finite_scores = [score for score in best.values() if score is not None]
-            return float(max(finite_scores)) if finite_scores else 0.0
+            return max(finite_scores) if finite_scores else 0
 
-        return float(max(leaf_scores))
+        return max(leaf_scores)
 
     def _validate_grade_ranges(self, grade_ranges: Any) -> Optional[str]:
         """
@@ -481,8 +475,8 @@ class BranchingXBlock(XBlock):
         """
         safe_ranges = self.grade_ranges
 
-        max_score = float(self.max_score or 0.0)
-        current_score = max(0.0, float(self.score or 0.0))
+        max_score = int(self.max_score or 0)
+        current_score = self._current_score()
         percentage = 0.0
         if max_score > 0.0:
             percentage = (current_score / max_score) * 100.0
@@ -518,6 +512,16 @@ class BranchingXBlock(XBlock):
             "is_pass_style": matched_index != 0,
             "detailed_scores": detailed_scores,
         }
+
+    def _current_score(self) -> int:
+        """
+        Compute the learner's accumulated score from score history.
+        """
+        total = 0
+        for awarded_points in (self.score_history or []):
+            if isinstance(awarded_points, int):
+                total += awarded_points
+        return max(0, total)
 
     def get_current_node(self) -> Optional[dict[str, Any]]:
         """
@@ -603,14 +607,6 @@ class BranchingXBlock(XBlock):
         cycle_node_ids = self._find_cycle_node_ids(nodes_dict)
         if cycle_node_ids:
             sorted_cycle_ids = sorted(cycle_node_ids)
-            sorted_cycle_labels = ", ".join(sorted_cycle_ids)
-            self._add_global_error(
-                validation_errors,
-                (
-                    "Circular path detected in nodes: "
-                    f"{sorted_cycle_labels}. Remove one of the links in this loop."
-                ),
-            )
             for node_id in sorted_cycle_ids:
                 client_node_id = client_id_by_node_id.get(node_id, node_id)
                 self._add_node_error(
@@ -638,7 +634,7 @@ class BranchingXBlock(XBlock):
             self.runtime.publish(
                 self,
                 "grade",
-                {"value": self.score, "max_value": self.max_score}
+                {"value": self._current_score(), "max_value": self.max_score}
             )
 
     def resource_string(self, path: str) -> str:
@@ -731,7 +727,7 @@ class BranchingXBlock(XBlock):
             "score_history":   list(self.score_history),
             "choice_history":  list(self.choice_history),
             "has_completed":   bool(self.has_completed),
-            "score":           self.score,
+            "score":           self._current_score(),
             "grade_report":    self._build_grade_report(),
         }
 
@@ -770,8 +766,7 @@ class BranchingXBlock(XBlock):
                 awarded_points = self._parse_choice_score(raw_score)
                 if awarded_points is None:
                     return {"success": False, "error": "Invalid choice score"}
-            self.score += awarded_points
-            self.score_history.append(float(awarded_points))
+            self.score_history.append(awarded_points)
             self.choice_history.append({
                 "source_node_id": self.current_node_id,
                 "choice_text": (choice.get("text") or "").strip(),
@@ -801,8 +796,8 @@ class BranchingXBlock(XBlock):
         self.current_node_id = prev_node_id
 
         if self.enable_scoring:
-            awarded_points = self.score_history.pop() if self.score_history else 0.0
-            self.score = max(0.0, self.score - awarded_points)
+            if self.score_history:
+                self.score_history.pop()
             if self.choice_history:
                 self.choice_history.pop()
             self.publish_grade()
@@ -824,7 +819,6 @@ class BranchingXBlock(XBlock):
 
         self.score_history = []
         self.choice_history = []
-        self.score = 0.0
         if self.enable_scoring:
             self.publish_grade()
 
@@ -973,15 +967,6 @@ class BranchingXBlock(XBlock):
                 target_node_client_id = client_id_by_id.get(target_node_id, target_node_id)
 
                 if target_node_id not in staged_node_ids:
-                    source_label = (
-                        f"Node {source_node_number}"
-                        if source_node_number
-                        else node_client_id
-                    )
-                    invalid_target_msg = (
-                        f"Invalid target {raw_target} in {source_label}"
-                    )
-                    self._add_global_error(validation_errors, invalid_target_msg)
                     self._add_node_indexed_error(
                         validation_errors,
                         node_client_id=node_client_id,
@@ -996,24 +981,18 @@ class BranchingXBlock(XBlock):
 
                 target_node_number = node_number_by_id.get(target_node_id)
                 if source_node_number and target_node_number:
-                    error_message = (
-                        f"Cannot delete Node {target_node_number} because it is "
-                        f"referenced by Node {source_node_number}."
-                    )
                     detail_message = (
                         f"Node {target_node_number} is referenced by Node {source_node_number}."
                     )
                 else:
-                    error_message = "Cannot delete a node that is still referenced by another node."
                     detail_message = "This node is still referenced by another node in this scenario."
 
-                self._add_global_error(validation_errors, error_message)
                 self._add_node_indexed_error(
                     validation_errors,
                     node_client_id=node_client_id,
                     field_name="choiceDestinationByIndex",
                     index=choice_index,
-                    message=error_message,
+                    message="Selected destination is invalid.",
                 )
                 self._add_node_error(
                     validation_errors,

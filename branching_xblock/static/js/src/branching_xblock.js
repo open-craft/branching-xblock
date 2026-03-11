@@ -5,6 +5,7 @@ function BranchingXBlock(runtime, element) {
     let isHintVisible = false;
     let selectedChoiceIndex = null;
     let isReportVisible = false;
+    let currentState = null;
 
     const MEDIA_FILE_REGEX = /\.(mp4|webm|ogg|mp3|wav)(\?|#|$)/i;
 
@@ -139,6 +140,7 @@ function BranchingXBlock(runtime, element) {
     }
 
     function updateView(state) {
+        currentState = state;
         const node = state.current_node || state.nodes[state.start_node_id] || {};
 
         // Active node
@@ -364,11 +366,12 @@ function BranchingXBlock(runtime, element) {
             url: runtime.handlerUrl(element, 'select_choice'),
             type: 'POST',
             data: JSON.stringify({ choice_index: selectedChoiceIndex }),
-            contentType: 'application/json'
-        }).done(() => {
+            contentType: 'application/json',
+            dataType: 'json'
+        }).done((state) => {
             selectedChoiceIndex = null;
             isReportVisible = false;
-            refreshView();
+            updateView(state);
         });
     });
 
@@ -380,12 +383,14 @@ function BranchingXBlock(runtime, element) {
           data: JSON.stringify({}),
           contentType: 'application/json',
           dataType: 'json'
-        }).done(refreshView);
+        }).done(updateView);
     });
 
     $el.on('click', '[data-role="show-report"]', function() {
         isReportVisible = true;
-        refreshView();
+        if (currentState) {
+            updateView(currentState);
+        }
     });
 
     $el.on('click', '[data-role="reset-activity"], [data-role="reset-activity-report"]', function() {
@@ -396,7 +401,7 @@ function BranchingXBlock(runtime, element) {
           data: JSON.stringify({}),
           contentType: 'application/json',
           dataType: 'json'
-        }).done(refreshView);
+        }).done(updateView);
     });
 
     // Initial load
