@@ -390,6 +390,8 @@ function BranchingXBlock(runtime, element) {
         isReportVisible = true;
         if (currentState) {
             updateView(currentState);
+        } else {
+            refreshView();
         }
     });
 

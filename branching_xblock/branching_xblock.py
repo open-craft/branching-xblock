@@ -517,11 +517,7 @@ class BranchingXBlock(XBlock):
         """
         Compute the learner's accumulated score from score history.
         """
-        total = 0
-        for awarded_points in (self.score_history or []):
-            if isinstance(awarded_points, int):
-                total += awarded_points
-        return max(0, total)
+        return sum(self.score_history)
 
     def get_current_node(self) -> Optional[dict[str, Any]]:
         """
