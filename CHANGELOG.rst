@@ -16,6 +16,16 @@ Unreleased
 
 *
 
+0.1.3 – 2026-03-12
+******************
+
+Changed
+=======
+
+* Refactor the Branching XBlock to support Ren'Py-like flow features.
+* Replace hint settings with a reset option.
+* Update styling and related tests.
+
 0.1.0 – 2025-04-15
 **********************************************
 
