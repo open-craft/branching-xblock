@@ -610,14 +610,26 @@
 
 .xblock-actions .action-primary {
     min-height: 36px;
-    border: 1px solid #006fb9;
+    border: none;
     border-radius: 6px;
-    background: #006fb9;
+    background: #0f62a1;
     color: #fff;
-    padding: 6px 12px;
-    font-size: 14px;
-    font-weight: 500;
+    padding: 0.7rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
     line-height: 1.2;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.xblock-actions .action-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.xblock-actions .action-primary:not(:disabled):hover,
+.xblock-actions .action-primary:not(:disabled):focus {
+    background-color: #0c4f83;
 }
 
 .xblock-actions .action-secondary {
