@@ -18,6 +18,8 @@ DFS_STATE_UNVISITED = 0
 DFS_STATE_VISITING = 1
 DFS_STATE_VISITED = 2
 
+MAX_NODES = 30
+
 
 class BranchingXBlock(XBlock):
     """
@@ -144,9 +146,16 @@ class BranchingXBlock(XBlock):
 
     def start_node(self) -> None:
         """
-        Set initial current_node_id if not set.
+        Set initial current_node_id if not set, or reset if stale.
         """
-        if not self.current_node_id and self.scenario_data["start_node_id"]:
+        if self.current_node_id and not self.get_node(self.current_node_id):
+            # Node no longer exists (scenario was re-imported). Reset learner state.
+            self.current_node_id = None
+            self.history = []
+            self.score_history = []
+            self.choice_history = []
+            self.has_completed = False
+        if not self.current_node_id and self.scenario_data.get("start_node_id"):
             self.current_node_id = self.scenario_data["start_node_id"]
 
     def get_node(self, node_id: str) -> Optional[dict[str, Any]]:
@@ -580,8 +589,8 @@ class BranchingXBlock(XBlock):
         )
         final = self._build_final_nodes(staged, resolved_deleted_node_ids, id_map, validation_errors)
 
-        if len(final) > 30:
-            self._add_global_error(validation_errors, "Too many nodes (max 30).")
+        if len(final) > MAX_NODES:
+            self._add_global_error(validation_errors, f"Too many nodes (max {MAX_NODES}).")
 
         if not final:
             self._add_global_error(validation_errors, "At least one node is required")
@@ -669,6 +678,7 @@ class BranchingXBlock(XBlock):
             'node-list-item',
             'node-editor',
             'choice-row',
+            'import-modal',
         ]:
             html = resource_loader.load_unicode(f'static/handlebars/{tpl}.handlebars')
             frag.add_javascript(f"""
@@ -1124,6 +1134,221 @@ class BranchingXBlock(XBlock):
         self.grade_ranges = validation_result["grade_ranges"]
 
         return {"result": "success"}
+
+    @XBlock.json_handler
+    def export_nodes(self, data, suffix=''):
+        """Return current scenario nodes as a JSON-serializable list for download."""
+        nodes = self.scenario_data.get("nodes", {})
+        start_node_id = self.scenario_data.get("start_node_id")
+
+        if not nodes:
+            return {"success": False, "error": "No nodes to export."}
+
+        # Build ordered list: start node first, then remaining nodes in dict order.
+        ordered = []
+        if start_node_id and start_node_id in nodes:
+            ordered.append(start_node_id)
+        for node_id in nodes:
+            if node_id not in ordered:
+                ordered.append(node_id)
+
+        nodes_list = []
+        for node_id in ordered:
+            node = nodes[node_id]
+            nodes_list.append({
+                "id": node.get("id", node_id),
+                "content": node.get("content", ""),
+                "media": node.get("media", {"type": "", "url": ""}),
+                "left_image_url": node.get("left_image_url", ""),
+                "right_image_url": node.get("right_image_url", ""),
+                "overlay_text": bool(node.get("overlay_text", False)),
+                "choices": [
+                    {
+                        "text": c.get("text", ""),
+                        "target_node_id": c.get("target_node_id", ""),
+                        "score": c.get("score", 0),
+                    }
+                    for c in node.get("choices", [])
+                    if isinstance(c, dict)
+                ],
+                "hint": node.get("hint", ""),
+                "transcript_url": node.get("transcript_url", ""),
+            })
+
+        return {"success": True, "nodes": nodes_list}
+
+    @XBlock.json_handler
+    def import_nodes(self, data, suffix=''):
+        """
+        Import nodes from uploaded JSON, replacing the current scenario.
+        """
+        result = self._validate_import(data)
+        if not result["success"]:
+            return result
+
+        nodes_dict = result["nodes_dict"]
+        start_node_id = result["start_node_id"]
+
+        self.scenario_data = {
+            "nodes": nodes_dict,
+            "start_node_id": start_node_id,
+        }
+        self._normalized_nodes_ref = nodes_dict
+        self.max_score = self._compute_max_attainable_score(nodes_dict, start_node_id)
+
+        return {"success": True}
+
+    def _validate_import(self, parsed):
+        """
+        Validate parsed import JSON and return built nodes dict or error.
+        """
+        if not isinstance(parsed, dict):
+            return {"success": False, "error": "Invalid format. Expected a JSON object with a \"nodes\" array."}
+
+        raw_nodes = parsed.get("nodes")
+        if not isinstance(raw_nodes, list) or not raw_nodes:
+            return {"success": False, "error": "File must contain a \"nodes\" array with at least one node."}
+
+        if len(raw_nodes) > MAX_NODES:
+            return {"success": False, "error": f"File exceeds maximum of {MAX_NODES} nodes. Please try again."}
+
+        id_map = {}  # original_id -> new_id
+        validated_nodes = []
+
+        for index, raw_node in enumerate(raw_nodes):
+            if not isinstance(raw_node, dict):
+                return {
+                    "success": False,
+                    "error": f"Node {index + 1} is not a valid object.",
+                }
+
+            original_id = str(raw_node.get("id", "")).strip()
+            if not original_id:
+                return {
+                    "success": False,
+                    "error": f"Node {index + 1} is missing an \"id\" field.",
+                }
+            if original_id in id_map:
+                return {
+                    "success": False,
+                    "error": f"Duplicate node id \"{original_id}\" found.",
+                }
+
+            new_id = f"node-{uuid.uuid4().hex[:6]}"
+            id_map[original_id] = new_id
+
+            content = raw_node.get("content", "")
+            if not isinstance(content, str):
+                content = str(content)
+            content = sanitize_html(content)
+
+            media = raw_node.get("media", {})
+            if not isinstance(media, dict):
+                media = {}
+            media_type = str(media.get("type", "")).strip()
+            media_url = str(media.get("url", "")).strip()
+
+            left_image_url = str(raw_node.get("left_image_url", "") or "").strip()
+            right_image_url = str(raw_node.get("right_image_url", "") or "").strip()
+            overlay_text = bool(raw_node.get("overlay_text", False))
+            hint = str(raw_node.get("hint", "") or "").strip()
+            transcript_url = str(raw_node.get("transcript_url", "") or "").strip()
+
+            raw_choices = raw_node.get("choices", [])
+            if not isinstance(raw_choices, list):
+                return {
+                    "success": False,
+                    "error": f"Node \"{original_id}\": \"choices\" must be an array.",
+                }
+
+            choices = []
+            for ci, raw_choice in enumerate(raw_choices):
+                if not isinstance(raw_choice, dict):
+                    return {
+                        "success": False,
+                        "error": f"Node \"{original_id}\", choice {ci + 1}: must be an object.",
+                    }
+                choice_text = str(raw_choice.get("text", "")).strip()
+                choice_target = str(raw_choice.get("target_node_id", "")).strip()
+
+                if not choice_text and not choice_target:
+                    continue
+
+                raw_score = raw_choice.get("score", 0)
+                score = self._parse_choice_score(raw_score)
+                if score is None:
+                    return {
+                        "success": False,
+                        "error": f"Node \"{original_id}\", choice {ci + 1}: score must be an integer between 0 and 100.",
+                    }
+
+                choices.append({
+                    "text": choice_text,
+                    "target_node_id": choice_target,
+                    "score": score,
+                })
+
+            has_content = bool(content.strip())
+            has_media = bool(media_url or left_image_url or right_image_url)
+            has_choices = bool(choices)
+            if not (has_content or has_media or has_choices):
+                return {
+                    "success": False,
+                    "error": f"Node \"{original_id}\" is empty. Each node must have content, media, or choices.",
+                }
+
+            validated_nodes.append({
+                "id": new_id,
+                "content": content,
+                "media": {"type": media_type, "url": media_url},
+                "left_image_url": left_image_url,
+                "right_image_url": right_image_url,
+                "overlay_text": overlay_text,
+                "choices": choices,
+                "hint": hint,
+                "transcript_url": transcript_url,
+            })
+
+        # Remap target_node_id references.
+        # id_map maps original -> new IDs; reverse lookup for error messages.
+        new_id_to_original = {v: k for k, v in id_map.items()}
+        for node in validated_nodes:
+            for choice in node["choices"]:
+                target = choice["target_node_id"]
+                if target not in id_map:
+                    node_original = new_id_to_original[node["id"]]
+                    return {
+                        "success": False,
+                        "error": f"Node \"{node_original}\": choice references non-existent node \"{target}\".",
+                    }
+                choice["target_node_id"] = id_map[target]
+
+        # Build final dict — assign node types based on position and connectivity
+        nodes_dict = {}
+        for index, node in enumerate(validated_nodes):
+            node_id = node["id"]
+            if index == 0:
+                node["type"] = "start"
+            elif not node["choices"]:
+                node["type"] = "end"
+            else:
+                node["type"] = "normal"
+            nodes_dict[node_id] = node
+
+        start_node_id = validated_nodes[0]["id"] if validated_nodes else None
+
+        cycle_ids = self._find_cycle_node_ids(nodes_dict)
+        if cycle_ids:
+            return {
+                "success": False,
+                "error": "Import contains circular paths between nodes. Please remove loops and try again.",
+            }
+
+        return {
+            "success": True,
+            "nodes_dict": nodes_dict,
+            "start_node_id": start_node_id,
+        }
 
     # TO-DO: change this to create the scenarios you'd like to see in the
     # workbench while developing your XBlock.

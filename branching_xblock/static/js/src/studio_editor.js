@@ -1,11 +1,41 @@
 function BranchingStudioEditor(runtime, element, data) {
   const Templates = {};
-  ['settings-step', 'nodes-step', 'node-list-item', 'node-editor', 'choice-row'].forEach(name => {
+  ['settings-step', 'nodes-step', 'node-list-item', 'node-editor', 'choice-row', 'import-modal'].forEach(name => {
     const src = document.getElementById(name+'-tpl').innerHTML;
     Templates[name] = Handlebars.compile(src);
   });
   Handlebars.registerHelper('inc', value => parseInt(value,10) + 1);
   Handlebars.registerHelper('eq', (a,b) => a === b);
+
+  const IMPORT_TEMPLATE = {
+    nodes: [
+      {
+        id: "start",
+        content: "<p>This is the first node. The first node in the array is always the start node.</p>",
+        media: { type: "", url: "" },
+        left_image_url: "",
+        right_image_url: "",
+        overlay_text: false,
+        choices: [
+          { text: "Go to ending", target_node_id: "ending", score: 50 }
+        ],
+        hint: "",
+        transcript_url: ""
+      },
+      {
+        id: "ending",
+        content: "<p>This is the end node. Nodes with no choices are end nodes.</p>",
+        media: { type: "", url: "" },
+        left_image_url: "",
+        right_image_url: "",
+        overlay_text: false,
+        choices: [],
+        hint: "",
+        transcript_url: ""
+      }
+    ]
+  };
+
   const $root       = $(element);
   const $stepSettings = $root.find('[data-role="step-settings"]');
   const $stepNodes = $root.find('[data-role="step-nodes"]');
@@ -16,6 +46,8 @@ function BranchingStudioEditor(runtime, element, data) {
   const $cancelBtn  = $root.find('[data-role="cancel"]');
   const $pendingDeleteSummary = $root.find('[data-role="pending-delete-summary"]');
   const $saveValidationSummary = $root.find('[data-role="save-validation-summary"]');
+  const $importOverlay = $root.find('[data-role="import-modal-overlay"]');
+  const $importModal = $root.find('[data-role="import-modal"]');
 
   this.uniqueIdCount = 0;
 
@@ -37,7 +69,16 @@ function BranchingStudioEditor(runtime, element, data) {
     validationNodeErrorDetailsById: new Map(),
     validationNodeErrorTitlesById: new Map(),
     validationFieldErrorsByNodeId: new Map(),
+    importModal: {
+      isOpen: false,
+      isLoading: false,
+      isSuccess: false,
+      error: '',
+      fileContent: null,
+    },
   };
+
+  let savedNodesExist = Object.keys(data.nodes || {}).length > 0;
 
   // ---------------------------
   // Grade range slider helpers
@@ -123,6 +164,35 @@ function BranchingStudioEditor(runtime, element, data) {
 
     $trackWrap.append($track).append($ticks);
     $slider.append($trackWrap);
+  }
+
+  // ---------------------------
+  // Import/Export helpers
+  // ---------------------------
+  function downloadJsonFile(jsonData, filename) {
+    const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 100);
+  }
+
+  function renderImportModal() {
+    if (!editorState.importModal.isOpen) {
+      $importOverlay.attr('hidden', true);
+      return;
+    }
+
+    $importOverlay.attr('hidden', false);
+    $importModal.html(Templates['import-modal']({
+      is_success: editorState.importModal.isSuccess,
+      is_loading: editorState.importModal.isLoading,
+      error: editorState.importModal.error,
+    }));
   }
 
   // ---------------------------
@@ -410,6 +480,7 @@ function BranchingStudioEditor(runtime, element, data) {
 
   function renderNodesStep() {
     $stepNodes.html(Templates['nodes-step']({}));
+    $stepNodes.find('[data-role="export-nodes"]').prop('disabled', !savedNodesExist);
     renderNodeList();
     renderNodeEditor();
   }
@@ -790,6 +861,126 @@ function BranchingStudioEditor(runtime, element, data) {
       clearValidationState();
       renderNodeEditor();
       updateClientValidationUi();
+    });
+
+    // --- Import/Export ---
+
+    // Download JSON template
+    $root.off('click.bx-ie', '[data-role="download-template"]');
+    $root.on('click.bx-ie', '[data-role="download-template"]', function(e) {
+      e.preventDefault();
+      downloadJsonFile(IMPORT_TEMPLATE, 'branching-scenario-template.json');
+    });
+
+    // Open import modal
+    $root.off('click.bx-ie', '[data-role="import-nodes"]');
+    $root.on('click.bx-ie', '[data-role="import-nodes"]', function() {
+      editorState.importModal = {
+        isOpen: true,
+        isLoading: false,
+        isSuccess: false,
+        error: '',
+        fileContent: null,
+      };
+      renderImportModal();
+    });
+
+    // Cancel import modal
+    $root.off('click.bx-ie', '[data-role="import-cancel"]');
+    $root.on('click.bx-ie', '[data-role="import-cancel"]', function() {
+      editorState.importModal.isOpen = false;
+      renderImportModal();
+    });
+
+    // Close modal on overlay click
+    $root.off('click.bx-ie', '[data-role="import-modal-overlay"]');
+    $root.on('click.bx-ie', '[data-role="import-modal-overlay"]', function(e) {
+      if ($(e.target).is('[data-role="import-modal-overlay"]')) {
+        editorState.importModal.isOpen = false;
+        renderImportModal();
+      }
+    });
+
+    // File selected — read and parse JSON client-side
+    $root.off('change.bx-ie', '[data-role="import-file-input"]');
+    $root.on('change.bx-ie', '[data-role="import-file-input"]', function() {
+      const file = this.files[0];
+      editorState.importModal.error = '';
+      editorState.importModal.fileContent = null;
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            editorState.importModal.fileContent = JSON.parse(e.target.result);
+          } catch (_err) {
+            editorState.importModal.error = 'Invalid JSON file. Please check the file format and try again.';
+            renderImportModal();
+          }
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    // Confirm import — send parsed JSON object directly (no JSON-in-JSON)
+    $root.off('click.bx-ie', '[data-role="import-confirm"]');
+    $root.on('click.bx-ie', '[data-role="import-confirm"]', function() {
+      if (editorState.importModal.isLoading) {
+        return;
+      }
+      if (!editorState.importModal.fileContent) {
+        editorState.importModal.error = 'Please select a JSON file.';
+        renderImportModal();
+        return;
+      }
+
+      editorState.importModal.isLoading = true;
+      editorState.importModal.error = '';
+      renderImportModal();
+
+      $.ajax({
+        type: 'POST',
+        url: runtime.handlerUrl(element, 'import_nodes'),
+        data: JSON.stringify(editorState.importModal.fileContent),
+        contentType: 'application/json; charset=utf-8',
+      }).done(function(res) {
+        if (res.success) {
+          editorState.importModal.isLoading = false;
+          editorState.importModal.isSuccess = true;
+          renderImportModal();
+        } else {
+          editorState.importModal.isLoading = false;
+          editorState.importModal.error = res.error || 'Import failed. Please try again.';
+          editorState.importModal.fileContent = null;
+          renderImportModal();
+        }
+      }).fail(function() {
+        editorState.importModal.isLoading = false;
+        editorState.importModal.error = 'An unexpected error occurred. Please try again.';
+        editorState.importModal.fileContent = null;
+        renderImportModal();
+      });
+    });
+
+    // Refresh page after successful import
+    $root.off('click.bx-ie', '[data-role="refresh-page"]');
+    $root.on('click.bx-ie', '[data-role="refresh-page"]', function() {
+      window.location.reload();
+    });
+
+    // Export nodes
+    $root.off('click.bx-ie', '[data-role="export-nodes"]');
+    $root.on('click.bx-ie', '[data-role="export-nodes"]', function() {
+      $.ajax({
+        type: 'POST',
+        url: runtime.handlerUrl(element, 'export_nodes'),
+        data: '{}',
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json',
+      }).done(function(res) {
+        if (res.success) {
+          downloadJsonFile({ nodes: res.nodes }, 'branching-scenario-export.json');
+        }
+      });
     });
   }
 

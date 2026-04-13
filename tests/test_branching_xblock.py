@@ -1001,3 +1001,251 @@ def test_studio_view_includes_grade_ranges_in_init_data(block):
 
     assert calls["name"] == "BranchingStudioEditor"
     assert calls["init_data"]["grade_ranges"] == block.grade_ranges
+
+
+# ------------------------------------------------------------------
+# Import / Export tests
+# ------------------------------------------------------------------
+
+
+def test_export_nodes_returns_ordered_list(rf, block):
+    """export_nodes should return nodes as an ordered array, start node first."""
+    block.scenario_data = {
+        "nodes": {
+            "node-b": {"id": "node-b", "type": "end", "content": "End", "choices": [], "media": {"type": "", "url": ""}},
+            "node-a": {"id": "node-a", "type": "start", "content": "Start",
+                       "choices": [{"text": "Go", "target_node_id": "node-b", "score": 10}],
+                       "media": {"type": "", "url": ""}},
+        },
+        "start_node_id": "node-a",
+    }
+    req = rf.post("/", data=json.dumps({}), content_type="application/json")
+    resp = block.export_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is True
+    assert len(result["nodes"]) == 2
+    assert result["nodes"][0]["id"] == "node-a"
+    assert result["nodes"][1]["id"] == "node-b"
+
+
+def test_export_nodes_empty_scenario(rf, block):
+    """export_nodes should return an error when no nodes exist."""
+    req = rf.post("/", data=json.dumps({}), content_type="application/json")
+    resp = block.export_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is False
+    assert "No nodes" in result["error"]
+
+
+def test_import_nodes_success(rf, block):
+    """import_nodes should accept valid JSON, remap IDs, and persist."""
+    payload = {
+        "nodes": [
+            {
+                "id": "start",
+                "content": "Hello",
+                "media": {"type": "", "url": ""},
+                "choices": [{"text": "Next", "target_node_id": "end", "score": 42}],
+            },
+            {
+                "id": "end",
+                "content": "Goodbye",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+            },
+        ]
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is True
+    nodes = block.scenario_data["nodes"]
+    assert len(nodes) == 2
+    for node_id in nodes:
+        assert node_id.startswith("node-")
+    start = block.scenario_data["start_node_id"]
+    assert start in nodes
+    assert nodes[start]["content"] == "Hello"
+    target = nodes[start]["choices"][0]["target_node_id"]
+    assert target in nodes
+    assert nodes[target]["content"] == "Goodbye"
+
+
+def test_import_nodes_rejects_missing_nodes_key(rf, block):
+    """import_nodes should reject payloads without a nodes array."""
+    payload = {"not_nodes": []}
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is False
+    assert "nodes" in result["error"].lower()
+
+
+def test_import_nodes_rejects_too_many_nodes(rf, block):
+    payload = {
+        "nodes": [
+            {"id": f"n{i}", "content": f"Node {i}", "media": {"type": "", "url": ""}, "choices": []}
+            for i in range(31)
+        ]
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is False
+    assert "maximum of 30" in result["error"]
+
+
+def test_import_nodes_rejects_missing_target(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "start",
+                "content": "Hello",
+                "media": {"type": "", "url": ""},
+                "choices": [{"text": "Go", "target_node_id": "nonexistent"}],
+            },
+        ]
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is False
+    assert "non-existent node" in result["error"]
+
+
+def test_import_nodes_rejects_cycle(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "a",
+                "content": "Node A",
+                "media": {"type": "", "url": ""},
+                "choices": [{"text": "to B", "target_node_id": "b"}],
+            },
+            {
+                "id": "b",
+                "content": "Node B",
+                "media": {"type": "", "url": ""},
+                "choices": [{"text": "to A", "target_node_id": "a"}],
+            },
+        ]
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is False
+    assert "circular" in result["error"].lower()
+
+
+def test_import_nodes_rejects_duplicate_ids(rf, block):
+    payload = {
+        "nodes": [
+            {"id": "a", "content": "First", "media": {"type": "", "url": ""}, "choices": []},
+            {"id": "a", "content": "Duplicate", "media": {"type": "", "url": ""}, "choices": []},
+        ]
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is False
+    assert "Duplicate" in result["error"]
+
+
+def test_import_nodes_rejects_invalid_score(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "a",
+                "content": "Start",
+                "media": {"type": "", "url": ""},
+                "choices": [{"text": "Go", "target_node_id": "b", "score": 150}],
+            },
+            {
+                "id": "b",
+                "content": "End",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+            },
+        ]
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is False
+    assert "score" in result["error"].lower()
+
+
+def test_import_nodes_sanitizes_html_content(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "start",
+                "content": '<p>Hello</p><script>alert("xss")</script>',
+                "media": {"type": "", "url": ""},
+                "choices": [],
+            },
+        ]
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is True
+    node = list(block.scenario_data["nodes"].values())[0]
+    assert "<script>" not in node["content"]
+
+
+def test_import_nodes_recomputes_max_score(rf, block):
+    block.enable_scoring = True
+    payload = {
+        "nodes": [
+            {
+                "id": "s",
+                "content": "Start",
+                "media": {"type": "", "url": ""},
+                "choices": [{"text": "Go", "target_node_id": "e", "score": 75}],
+            },
+            {
+                "id": "e",
+                "content": "End",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+            },
+        ]
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is True
+    assert block.max_score == 75
+
+
+def test_start_node_resets_stale_learner_state(block):
+    """If current_node_id references a node that no longer exists, reset learner."""
+    block.scenario_data = {
+        "nodes": {"new-start": {"id": "new-start", "type": "start", "choices": []}},
+        "start_node_id": "new-start",
+    }
+    block.current_node_id = "deleted-node-id"
+    block.history = ["some-old-node"]
+    block.score_history = [10]
+    block.choice_history = [{"source_node_id": "x", "choice_text": "y", "awarded_points": 10}]
+    block.has_completed = True
+
+    block.start_node()
+
+    assert block.current_node_id == "new-start"
+    assert block.history == []
+    assert block.score_history == []
+    assert block.choice_history == []
+    assert block.has_completed is False
