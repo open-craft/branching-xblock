@@ -15,6 +15,8 @@ function BranchingStudioEditor(runtime, element, data) {
         media: { type: "", url: "" },
         left_image_url: "",
         right_image_url: "",
+        left_image_alt_text: "",
+        right_image_alt_text: "",
         overlay_text: false,
         choices: [
           { text: "Go to ending", target_node_id: "ending", score: 50 }
@@ -28,6 +30,8 @@ function BranchingStudioEditor(runtime, element, data) {
         media: { type: "", url: "" },
         left_image_url: "",
         right_image_url: "",
+        left_image_alt_text: "",
+        right_image_alt_text: "",
         overlay_text: false,
         choices: [],
         hint: "",
@@ -230,6 +234,8 @@ function BranchingStudioEditor(runtime, element, data) {
       transcript_url: raw?.transcript_url || '',
       left_image_url: raw?.left_image_url ?? null,
       right_image_url: raw?.right_image_url ?? null,
+      left_image_alt_text: raw?.left_image_alt_text || '',
+      right_image_alt_text: raw?.right_image_alt_text || '',
     };
   }
 
@@ -461,6 +467,8 @@ function BranchingStudioEditor(runtime, element, data) {
       left_image_url_error: currentNodeFieldErrors.left_image_url || '',
       left_image_url: leftImageUrl,
       right_image_url: rightImageUrl,
+      left_image_alt_text: node.left_image_alt_text || '',
+      right_image_alt_text: node.right_image_alt_text || '',
     });
     const $editor = $stepNodes.find('[data-role="node-editor"]').html(html);
     const $choices = $editor.find('[data-role="choices-container"]').empty();
@@ -531,9 +539,13 @@ function BranchingStudioEditor(runtime, element, data) {
     if (mediaType === 'image') {
       node.left_image_url = $e.find('[data-role="left-image-url"]').val()?.trim() || '';
       node.right_image_url = $e.find('[data-role="right-image-url"]').val()?.trim() || '';
+      node.left_image_alt_text = $e.find('[data-role="left-image-alt"]').val()?.trim() || '';
+      node.right_image_alt_text = $e.find('[data-role="right-image-alt"]').val()?.trim() || '';
     } else {
       node.left_image_url = '';
       node.right_image_url = '';
+      node.left_image_alt_text = '';
+      node.right_image_alt_text = '';
     }
 
     const noBranches = $e.find('[data-role="no-branches"]').is(':checked');
@@ -618,6 +630,8 @@ function BranchingStudioEditor(runtime, element, data) {
           overlay_text: Boolean(n.overlay_text),
           left_image_url: (n.left_image_url || '').trim(),
           right_image_url: (n.right_image_url || '').trim(),
+          left_image_alt_text: (n.left_image_alt_text || '').trim(),
+          right_image_alt_text: (n.right_image_alt_text || '').trim(),
           transcript_url: (n.transcript_url || '').trim(),
         })),
         deleted_node_ids: editorState.draftNodes

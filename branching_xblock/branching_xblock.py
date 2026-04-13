@@ -243,6 +243,14 @@ class BranchingXBlock(XBlock):
             normalized_node["right_image_url"] = ""
             changed = True
 
+        if "left_image_alt_text" not in normalized_node:
+            normalized_node["left_image_alt_text"] = ""
+            changed = True
+
+        if "right_image_alt_text" not in normalized_node:
+            normalized_node["right_image_alt_text"] = ""
+            changed = True
+
         raw_choices = normalized_node.get("choices", [])
         choices_were_invalid = not isinstance(raw_choices, list)
         if choices_were_invalid:
@@ -1096,6 +1104,8 @@ class BranchingXBlock(XBlock):
                 'overlay_text': bool(node.get('overlay_text', False)),
                 'left_image_url': left_image_url,
                 'right_image_url': right_image_url,
+                'left_image_alt_text': str(node.get('left_image_alt_text', '') or '').strip(),
+                'right_image_alt_text': str(node.get('right_image_alt_text', '') or '').strip(),
                 'transcript_url': node.get('transcript_url', ''),
             })
         return final
@@ -1161,6 +1171,8 @@ class BranchingXBlock(XBlock):
                 "media": node.get("media", {"type": "", "url": ""}),
                 "left_image_url": node.get("left_image_url", ""),
                 "right_image_url": node.get("right_image_url", ""),
+                "left_image_alt_text": node.get("left_image_alt_text", ""),
+                "right_image_alt_text": node.get("right_image_alt_text", ""),
                 "overlay_text": bool(node.get("overlay_text", False)),
                 "choices": [
                     {
@@ -1250,6 +1262,8 @@ class BranchingXBlock(XBlock):
 
             left_image_url = str(raw_node.get("left_image_url", "") or "").strip()
             right_image_url = str(raw_node.get("right_image_url", "") or "").strip()
+            left_image_alt_text = str(raw_node.get("left_image_alt_text", "") or "").strip()
+            right_image_alt_text = str(raw_node.get("right_image_alt_text", "") or "").strip()
             overlay_text = bool(raw_node.get("overlay_text", False))
             hint = str(raw_node.get("hint", "") or "").strip()
             transcript_url = str(raw_node.get("transcript_url", "") or "").strip()
@@ -1303,6 +1317,8 @@ class BranchingXBlock(XBlock):
                 "media": {"type": media_type, "url": media_url},
                 "left_image_url": left_image_url,
                 "right_image_url": right_image_url,
+                "left_image_alt_text": left_image_alt_text,
+                "right_image_alt_text": right_image_alt_text,
                 "overlay_text": overlay_text,
                 "choices": choices,
                 "hint": hint,

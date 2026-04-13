@@ -157,6 +157,8 @@ function BranchingXBlock(runtime, element) {
             ? node.left_image_url
             : (mediaUrl || '');
         const rightImageUrl = node?.right_image_url || '';
+        const leftImageAltText = node?.left_image_alt_text || '';
+        const rightImageAltText = node?.right_image_alt_text || '';
 
         const $media = $el.find('[data-role="media"]');
         const $transcript = $el.find('[data-role="transcript"]');
@@ -191,7 +193,7 @@ function BranchingXBlock(runtime, element) {
                         $('<img>')
                             .addClass('bx-image-composite__img bx-image-composite__img--left')
                             .attr('src', leftImageUrl)
-                            .attr('alt', '')
+                            .attr('alt', leftImageAltText)
                     );
                 }
                 if (rightImageUrl) {
@@ -199,7 +201,7 @@ function BranchingXBlock(runtime, element) {
                         $('<img>')
                             .addClass('bx-image-composite__img bx-image-composite__img--right')
                             .attr('src', rightImageUrl)
-                            .attr('alt', '')
+                            .attr('alt', rightImageAltText)
                     );
                 }
                 $composite.append($fg);
