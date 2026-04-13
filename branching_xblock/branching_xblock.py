@@ -1210,6 +1210,98 @@ class BranchingXBlock(XBlock):
 
         return {"success": True}
 
+    def _validate_import_node(self, index, raw_node, id_map):
+        """
+        Validate a single node from an import payload.
+
+        Returns a dict with "error" key on failure, or a validated node
+        dict (plus updated id_map) on success.
+        """
+        if not isinstance(raw_node, dict):
+            return {"error": f"Node {index + 1} is not a valid object."}
+
+        original_id = str(raw_node.get("id", "")).strip()
+        if not original_id:
+            return {"error": f"Node {index + 1} is missing an \"id\" field."}
+        if original_id in id_map:
+            return {"error": f"Duplicate node id \"{original_id}\" found."}
+
+        new_id = f"node-{uuid.uuid4().hex[:6]}"
+        id_map[original_id] = new_id
+
+        content = raw_node.get("content", "")
+        if not isinstance(content, str):
+            content = str(content)
+        content = sanitize_html(content)
+
+        media = raw_node.get("media", {})
+        if not isinstance(media, dict):
+            media = {}
+        media_type = str(media.get("type", "")).strip()
+        media_url = str(media.get("url", "")).strip()
+
+        left_image_url = str(raw_node.get("left_image_url", "") or "").strip()
+        right_image_url = str(raw_node.get("right_image_url", "") or "").strip()
+        left_image_alt_text = str(raw_node.get("left_image_alt_text", "") or "").strip()
+        right_image_alt_text = str(raw_node.get("right_image_alt_text", "") or "").strip()
+        overlay_text = bool(raw_node.get("overlay_text", False))
+        hint = str(raw_node.get("hint", "") or "").strip()
+        transcript_url = str(raw_node.get("transcript_url", "") or "").strip()
+
+        raw_choices = raw_node.get("choices", [])
+        if not isinstance(raw_choices, list):
+            return {"error": f"Node \"{original_id}\": \"choices\" must be an array."}
+
+        choices = []
+        for ci, raw_choice in enumerate(raw_choices):
+            if not isinstance(raw_choice, dict):
+                return {
+                    "error": f"Node \"{original_id}\", choice {ci + 1}: must be an object.",
+                }
+            choice_text = str(raw_choice.get("text", "")).strip()
+            choice_target = str(raw_choice.get("target_node_id", "")).strip()
+
+            if not choice_text and not choice_target:
+                continue
+
+            raw_score = raw_choice.get("score", 0)
+            score = self._parse_choice_score(raw_score)
+            if score is None:
+                return {
+                    "error": (
+                        f"Node \"{original_id}\", choice {ci + 1}:"
+                        " score must be an integer between 0 and 100."
+                    ),
+                }
+
+            choices.append({
+                "text": choice_text,
+                "target_node_id": choice_target,
+                "score": score,
+            })
+
+        has_content = bool(content.strip())
+        has_media = bool(media_url or left_image_url or right_image_url)
+        has_choices = bool(choices)
+        if not (has_content or has_media or has_choices):
+            return {
+                "error": f"Node \"{original_id}\" is empty. Each node must have content, media, or choices.",
+            }
+
+        return {
+            "id": new_id,
+            "content": content,
+            "media": {"type": media_type, "url": media_url},
+            "left_image_url": left_image_url,
+            "right_image_url": right_image_url,
+            "left_image_alt_text": left_image_alt_text,
+            "right_image_alt_text": right_image_alt_text,
+            "overlay_text": overlay_text,
+            "choices": choices,
+            "hint": hint,
+            "transcript_url": transcript_url,
+        }
+
     def _validate_import(self, parsed):
         """
         Validate parsed import JSON and return built nodes dict or error.
@@ -1228,102 +1320,10 @@ class BranchingXBlock(XBlock):
         validated_nodes = []
 
         for index, raw_node in enumerate(raw_nodes):
-            if not isinstance(raw_node, dict):
-                return {
-                    "success": False,
-                    "error": f"Node {index + 1} is not a valid object.",
-                }
-
-            original_id = str(raw_node.get("id", "")).strip()
-            if not original_id:
-                return {
-                    "success": False,
-                    "error": f"Node {index + 1} is missing an \"id\" field.",
-                }
-            if original_id in id_map:
-                return {
-                    "success": False,
-                    "error": f"Duplicate node id \"{original_id}\" found.",
-                }
-
-            new_id = f"node-{uuid.uuid4().hex[:6]}"
-            id_map[original_id] = new_id
-
-            content = raw_node.get("content", "")
-            if not isinstance(content, str):
-                content = str(content)
-            content = sanitize_html(content)
-
-            media = raw_node.get("media", {})
-            if not isinstance(media, dict):
-                media = {}
-            media_type = str(media.get("type", "")).strip()
-            media_url = str(media.get("url", "")).strip()
-
-            left_image_url = str(raw_node.get("left_image_url", "") or "").strip()
-            right_image_url = str(raw_node.get("right_image_url", "") or "").strip()
-            left_image_alt_text = str(raw_node.get("left_image_alt_text", "") or "").strip()
-            right_image_alt_text = str(raw_node.get("right_image_alt_text", "") or "").strip()
-            overlay_text = bool(raw_node.get("overlay_text", False))
-            hint = str(raw_node.get("hint", "") or "").strip()
-            transcript_url = str(raw_node.get("transcript_url", "") or "").strip()
-
-            raw_choices = raw_node.get("choices", [])
-            if not isinstance(raw_choices, list):
-                return {
-                    "success": False,
-                    "error": f"Node \"{original_id}\": \"choices\" must be an array.",
-                }
-
-            choices = []
-            for ci, raw_choice in enumerate(raw_choices):
-                if not isinstance(raw_choice, dict):
-                    return {
-                        "success": False,
-                        "error": f"Node \"{original_id}\", choice {ci + 1}: must be an object.",
-                    }
-                choice_text = str(raw_choice.get("text", "")).strip()
-                choice_target = str(raw_choice.get("target_node_id", "")).strip()
-
-                if not choice_text and not choice_target:
-                    continue
-
-                raw_score = raw_choice.get("score", 0)
-                score = self._parse_choice_score(raw_score)
-                if score is None:
-                    return {
-                        "success": False,
-                        "error": f"Node \"{original_id}\", choice {ci + 1}: score must be an integer between 0 and 100.",
-                    }
-
-                choices.append({
-                    "text": choice_text,
-                    "target_node_id": choice_target,
-                    "score": score,
-                })
-
-            has_content = bool(content.strip())
-            has_media = bool(media_url or left_image_url or right_image_url)
-            has_choices = bool(choices)
-            if not (has_content or has_media or has_choices):
-                return {
-                    "success": False,
-                    "error": f"Node \"{original_id}\" is empty. Each node must have content, media, or choices.",
-                }
-
-            validated_nodes.append({
-                "id": new_id,
-                "content": content,
-                "media": {"type": media_type, "url": media_url},
-                "left_image_url": left_image_url,
-                "right_image_url": right_image_url,
-                "left_image_alt_text": left_image_alt_text,
-                "right_image_alt_text": right_image_alt_text,
-                "overlay_text": overlay_text,
-                "choices": choices,
-                "hint": hint,
-                "transcript_url": transcript_url,
-            })
+            result = self._validate_import_node(index, raw_node, id_map)
+            if "error" in result:
+                return {"success": False, "error": result["error"]}
+            validated_nodes.append(result)
 
         # Remap target_node_id references.
         # id_map maps original -> new IDs; reverse lookup for error messages.
