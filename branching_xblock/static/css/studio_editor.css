@@ -409,6 +409,7 @@
 .bx-nodes-main {
     flex: 1;
     padding-left: 0;
+    padding-right: 72px;
 }
 
 .bx-node-editor-inner .bx-help {
@@ -659,13 +660,13 @@
     border-bottom: 1px solid #e5e7eb;
 }
 
-.bx-import-export-bar__actions {
+.bx-import-export-bar-actions {
     display: flex;
     gap: 8px;
 }
 
 .bx-btn--outlined {
-    background: #fff;
+    background: #f3f4f6;
     border: 1px solid #c8cdd3;
     border-radius: 6px;
     padding: 7px 14px;
@@ -680,16 +681,18 @@
 }
 
 .bx-btn--outlined:hover:not(:disabled) {
-    background: #f3f4f6;
+    background: #e5e7eb;
     border-color: #9ca3af;
 }
 
 .bx-btn--outlined:disabled {
-    opacity: 0.5;
+    background: #f9fafb;
+    color: #9ca3af;
+    border-color: #e5e7eb;
     cursor: not-allowed;
 }
 
-.bx-import-export-bar__template-link {
+.bx-import-export-bar-template-link {
     font-size: 14px;
     font-weight: 500;
     color: #0a6fb5;
@@ -699,7 +702,7 @@
     gap: 6px;
 }
 
-.bx-import-export-bar__template-link:hover {
+.bx-import-export-bar-template-link:hover {
     text-decoration: underline;
 }
 
@@ -731,30 +734,30 @@
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
 }
 
-.bx-modal__title {
+.bx-modal-title {
     margin: 0 0 8px;
     font-size: 18px;
     font-weight: 700;
     color: #1f2933;
 }
 
-.bx-modal__title--success {
+.bx-modal-title--success {
     color: #1f2933;
     margin: 0;
 }
 
-.bx-modal__body {
+.bx-modal-body {
     margin: 0 0 16px;
     font-size: 14px;
     line-height: 1.5;
     color: #5b6570;
 }
 
-.bx-modal__field {
+.bx-modal-field {
     margin-bottom: 16px;
 }
 
-.bx-modal__label {
+.bx-modal-label {
     display: block;
     margin-bottom: 6px;
     font-size: 14px;
@@ -762,14 +765,14 @@
     color: #303842;
 }
 
-.bx-modal__error {
+.bx-modal-error {
     margin-bottom: 12px;
     font-size: 13px;
     line-height: 1.4;
     color: #9b1c1c;
 }
 
-.bx-modal__actions {
+.bx-modal-actions {
     display: flex;
     justify-content: flex-end;
     gap: 12px;
@@ -806,23 +809,28 @@
 }
 
 /* Success state */
-.bx-modal__success {
-    background: #f0fdf4;
-    border-radius: 12px;
-    margin: -24px -28px;
-    padding: 20px 24px;
+.bx-modal-success {
+    background: none;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
 }
 
-.bx-modal__success-header {
+.bx-modal-success-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 8px;
+    background: #f0fdf4;
+    border-radius: 12px 12px 0 0;
+    padding: 16px 20px;
+    margin: -24px -28px 16px -28px;
 }
 
-.bx-modal__success-icon {
+.bx-modal-success-icon {
     font-size: 20px;
     line-height: 1;
+    clip-path: circle(46%);
+    display: inline-block;
 }
 
 /* Loading spinner */
