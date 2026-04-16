@@ -21,6 +21,43 @@ DFS_STATE_VISITED = 2
 MAX_NODES = 30
 
 
+def _default_node(**overrides):
+    """
+    Return a node dict with all canonical fields set to defaults.
+
+    This is the single source of truth for the node field structure.
+    Pass keyword arguments to override specific fields.
+    """
+    node = {
+        "id": "",
+        "content": "",
+        "media": {"type": "", "url": ""},
+        "left_image_url": "",
+        "right_image_url": "",
+        "left_image_alt_text": "",
+        "right_image_alt_text": "",
+        "overlay_text": False,
+        "choices": [],
+        "hint": "",
+        "transcript_url": "",
+    }
+    node.update(overrides)
+    return node
+
+
+IMPORT_TEMPLATE_NODES = (
+    _default_node(
+        id="start",
+        content="<p>This is the first node. The first node in the array is always the start node.</p>",
+        choices=[{"text": "Go to ending", "target_node_id": "ending", "score": 50}],
+    ),
+    _default_node(
+        id="ending",
+        content="<p>This is the end node. Nodes with no choices are end nodes.</p>",
+    ),
+)
+
+
 class BranchingXBlock(XBlock):
     """
     Branching Scenario XBlock.
@@ -228,10 +265,7 @@ class BranchingXBlock(XBlock):
         normalized_node = dict(node)
         changed = False
 
-        if "overlay_text" not in normalized_node:
-            normalized_node["overlay_text"] = False
-            changed = True
-
+        # Special migration: old image nodes stored the URL in media.url.
         if "left_image_url" not in normalized_node:
             media = normalized_node.get("media") or {}
             normalized_node["left_image_url"] = (
@@ -239,17 +273,14 @@ class BranchingXBlock(XBlock):
             )
             changed = True
 
-        if "right_image_url" not in normalized_node:
-            normalized_node["right_image_url"] = ""
-            changed = True
-
-        if "left_image_alt_text" not in normalized_node:
-            normalized_node["left_image_alt_text"] = ""
-            changed = True
-
-        if "right_image_alt_text" not in normalized_node:
-            normalized_node["right_image_alt_text"] = ""
-            changed = True
+        # Back-fill any remaining missing fields using canonical defaults.
+        defaults = _default_node()
+        for key, default_value in defaults.items():
+            if key in ("id", "media", "choices"):
+                continue  # These have their own normalization logic below.
+            if key not in normalized_node:
+                normalized_node[key] = default_value
+                changed = True
 
         raw_choices = normalized_node.get("choices", [])
         choices_were_invalid = not isinstance(raw_choices, list)
@@ -741,6 +772,7 @@ class BranchingXBlock(XBlock):
             "grade_ranges": self.grade_ranges,
             "display_name": self.display_name,
             "authoring_help_html": authoring_help_html,
+            "import_template": {"nodes": list(IMPORT_TEMPLATE_NODES)},
         }
         # Initialize JS
         frag.initialize_js('BranchingStudioEditor', init_data)
@@ -881,21 +913,24 @@ class BranchingXBlock(XBlock):
             new_id = f"node-{uuid.uuid4().hex[:6]}" if old_id.startswith('temp-') or not old_id else old_id
             if old_id:
                 id_map[old_id] = new_id
-            staged.append({
-                'id': new_id,
-                'client_id': old_id or new_id,
-                'content': raw.get('content', ''),
-                'media': {
+            node = _default_node(
+                id=new_id,
+                content=raw.get('content', ''),
+                media={
                     'type': raw.get('media', {}).get('type', ''),
                     'url': raw.get('media', {}).get('url', ''),
                 },
-                'left_image_url': raw.get('left_image_url', ''),
-                'right_image_url': raw.get('right_image_url', ''),
-                'choices': raw.get('choices', []) if isinstance(raw.get('choices'), list) else [],
-                'hint': raw.get('hint', ''),
-                'overlay_text': bool(raw.get('overlay_text', False)),
-                'transcript_url': raw.get('transcript_url', ''),
-            })
+                left_image_url=raw.get('left_image_url', ''),
+                right_image_url=raw.get('right_image_url', ''),
+                left_image_alt_text=raw.get('left_image_alt_text', ''),
+                right_image_alt_text=raw.get('right_image_alt_text', ''),
+                choices=raw.get('choices', []) if isinstance(raw.get('choices'), list) else [],
+                hint=raw.get('hint', ''),
+                overlay_text=bool(raw.get('overlay_text', False)),
+                transcript_url=raw.get('transcript_url', ''),
+            )
+            node['client_id'] = old_id or new_id
+            staged.append(node)
         return id_map, staged
 
     def _has_validation_errors(self, validation_errors: dict[str, Any]) -> bool:
@@ -1101,21 +1136,22 @@ class BranchingXBlock(XBlock):
                     'score': score,
                 })
 
-            final.append({
-                'id': node['id'],
-                'client_id': node_client_id,
-                'type': 'start' if not final else 'normal',
-                'content': node['content'],
-                'media': node['media'],
-                'choices': cleaned_choices,
-                'hint': node.get('hint', ''),
-                'overlay_text': bool(node.get('overlay_text', False)),
-                'left_image_url': left_image_url,
-                'right_image_url': right_image_url,
-                'left_image_alt_text': str(node.get('left_image_alt_text', '') or '').strip(),
-                'right_image_alt_text': str(node.get('right_image_alt_text', '') or '').strip(),
-                'transcript_url': node.get('transcript_url', ''),
-            })
+            final_node = _default_node(
+                id=node['id'],
+                content=node['content'],
+                media=node['media'],
+                choices=cleaned_choices,
+                hint=node.get('hint', ''),
+                overlay_text=bool(node.get('overlay_text', False)),
+                left_image_url=left_image_url,
+                right_image_url=right_image_url,
+                left_image_alt_text=str(node.get('left_image_alt_text', '') or '').strip(),
+                right_image_alt_text=str(node.get('right_image_alt_text', '') or '').strip(),
+                transcript_url=node.get('transcript_url', ''),
+            )
+            final_node['client_id'] = node_client_id
+            final_node['type'] = 'start' if not final else 'normal'
+            final.append(final_node)
         return final
 
     @XBlock.json_handler
@@ -1270,19 +1306,19 @@ class BranchingXBlock(XBlock):
                 "score": score,
             })
 
-        validated = {
-            "id": new_id,
-            "content": content,
-            "media": {"type": media_type, "url": media_url},
-            "left_image_url": left_image_url,
-            "right_image_url": right_image_url,
-            "left_image_alt_text": left_image_alt_text,
-            "right_image_alt_text": right_image_alt_text,
-            "overlay_text": overlay_text,
-            "choices": choices,
-            "hint": hint,
-            "transcript_url": transcript_url,
-        }
+        validated = _default_node(
+            id=new_id,
+            content=content,
+            media={"type": media_type, "url": media_url},
+            left_image_url=left_image_url,
+            right_image_url=right_image_url,
+            left_image_alt_text=left_image_alt_text,
+            right_image_alt_text=right_image_alt_text,
+            overlay_text=overlay_text,
+            choices=choices,
+            hint=hint,
+            transcript_url=transcript_url,
+        )
 
         if not self._node_has_content(validated):
             return {

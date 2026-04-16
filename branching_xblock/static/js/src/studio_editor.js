@@ -7,39 +7,6 @@ function BranchingStudioEditor(runtime, element, data) {
   Handlebars.registerHelper('inc', value => parseInt(value,10) + 1);
   Handlebars.registerHelper('eq', (a,b) => a === b);
 
-  const IMPORT_TEMPLATE = {
-    nodes: [
-      {
-        id: "start",
-        content: "<p>This is the first node. The first node in the array is always the start node.</p>",
-        media: { type: "", url: "" },
-        left_image_url: "",
-        right_image_url: "",
-        left_image_alt_text: "",
-        right_image_alt_text: "",
-        overlay_text: false,
-        choices: [
-          { text: "Go to ending", target_node_id: "ending", score: 50 }
-        ],
-        hint: "",
-        transcript_url: ""
-      },
-      {
-        id: "ending",
-        content: "<p>This is the end node. Nodes with no choices are end nodes.</p>",
-        media: { type: "", url: "" },
-        left_image_url: "",
-        right_image_url: "",
-        left_image_alt_text: "",
-        right_image_alt_text: "",
-        overlay_text: false,
-        choices: [],
-        hint: "",
-        transcript_url: ""
-      }
-    ]
-  };
-
   const $root       = $(element);
   const $stepSettings = $root.find('[data-role="step-settings"]');
   const $stepNodes = $root.find('[data-role="step-nodes"]');
@@ -883,7 +850,7 @@ function BranchingStudioEditor(runtime, element, data) {
     $root.off('click.bx-ie', '[data-role="download-template"]');
     $root.on('click.bx-ie', '[data-role="download-template"]', function(e) {
       e.preventDefault();
-      downloadJsonFile(IMPORT_TEMPLATE, 'branching-scenario-template.json');
+      downloadJsonFile(data.import_template, 'branching-scenario-template.json');
     });
 
     // Open import modal
