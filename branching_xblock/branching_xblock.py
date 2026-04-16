@@ -1145,6 +1145,9 @@ class BranchingXBlock(XBlock):
 
         return {"result": "success"}
 
+    # Keys that are internal to the backend and should not appear in exports.
+    _EXPORT_EXCLUDE_KEYS = {"type"}
+
     @XBlock.json_handler
     def export_nodes(self, data, suffix=''):
         """Return current scenario nodes as a JSON-serializable list for download."""
@@ -1162,30 +1165,10 @@ class BranchingXBlock(XBlock):
             if node_id not in ordered:
                 ordered.append(node_id)
 
-        nodes_list = []
-        for node_id in ordered:
-            node = nodes[node_id]
-            nodes_list.append({
-                "id": node.get("id", node_id),
-                "content": node.get("content", ""),
-                "media": node.get("media", {"type": "", "url": ""}),
-                "left_image_url": node.get("left_image_url", ""),
-                "right_image_url": node.get("right_image_url", ""),
-                "left_image_alt_text": node.get("left_image_alt_text", ""),
-                "right_image_alt_text": node.get("right_image_alt_text", ""),
-                "overlay_text": bool(node.get("overlay_text", False)),
-                "choices": [
-                    {
-                        "text": c.get("text", ""),
-                        "target_node_id": c.get("target_node_id", ""),
-                        "score": c.get("score", 0),
-                    }
-                    for c in node.get("choices", [])
-                    if isinstance(c, dict)
-                ],
-                "hint": node.get("hint", ""),
-                "transcript_url": node.get("transcript_url", ""),
-            })
+        nodes_list = [
+            {k: v for k, v in nodes[node_id].items() if k not in self._EXPORT_EXCLUDE_KEYS}
+            for node_id in ordered
+        ]
 
         return {"success": True, "nodes": nodes_list}
 
