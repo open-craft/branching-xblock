@@ -928,8 +928,8 @@ function BranchingStudioEditor(runtime, element, data) {
             editorState.importModal.fileContent = JSON.parse(e.target.result);
           } catch (_err) {
             editorState.importModal.error = 'Invalid JSON file. Please check the file format and try again.';
-            renderImportModal();
           }
+          renderImportModal();
         };
         reader.readAsText(file);
       }
