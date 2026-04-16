@@ -333,6 +333,34 @@ class BranchingXBlock(XBlock):
                 return None
         return score if 0 <= score <= 100 else None
 
+    def _clean_choice_score(self, raw_score: Any) -> Optional[int]:
+        """
+        Normalise a raw choice score to an int, defaulting None/blank to 0.
+
+        Returns an int (0-100) on success, or None if the value is invalid.
+        """
+        if raw_score is None or (isinstance(raw_score, str) and raw_score.strip() == ''):
+            return 0
+        return self._parse_choice_score(raw_score)
+
+    @staticmethod
+    def _node_has_content(node: dict[str, Any]) -> bool:
+        """
+        Return True if the node has any meaningful content, media, or choices.
+        """
+        has_content = bool((node.get('content') or '').strip())
+        has_media = bool(
+            (node.get('media', {}).get('url') or '').strip()
+            or (node.get('left_image_url') or '').strip()
+            or (node.get('right_image_url') or '').strip()
+        )
+        has_choices = any(
+            isinstance(c, dict)
+            and ((c.get('text') or '').strip() or (c.get('target_node_id') or '').strip())
+            for c in (node.get('choices') or [])
+        )
+        return has_content or has_media or has_choices
+
     def _find_cycle_node_ids(self, nodes: dict[str, dict[str, Any]]) -> set[str]:
         """
         Return node IDs that participate in a directed cycle.
@@ -773,13 +801,9 @@ class BranchingXBlock(XBlock):
 
         awarded_points = 0
         if self.enable_scoring:
-            raw_score = choice.get("score", 0)
-            if raw_score is None or (isinstance(raw_score, str) and not raw_score.strip()):
-                awarded_points = 0
-            else:
-                awarded_points = self._parse_choice_score(raw_score)
-                if awarded_points is None:
-                    return {"success": False, "error": "Invalid choice score"}
+            awarded_points = self._clean_choice_score(choice.get("score", 0))
+            if awarded_points is None:
+                return {"success": False, "error": "Invalid choice score"}
             self.score_history.append(awarded_points)
             self.choice_history.append({
                 "source_node_id": self.current_node_id,
@@ -1031,20 +1055,7 @@ class BranchingXBlock(XBlock):
                 continue
 
             node_client_id = node.get("client_id", node["id"])
-            has_content = bool(node['content'].strip())
-            has_media = bool(
-                (node['media']['url'] or '').strip()
-                or (node.get('left_image_url', '') or '').strip()
-                or (node.get('right_image_url', '') or '').strip()
-            )
-            has_choices = any(
-                (
-                    isinstance(choice, dict)
-                    and (choice.get('text', '').strip() or choice.get('target_node_id', '').strip())
-                )
-                for choice in node['choices']
-            )
-            if not (has_content or has_media or has_choices):
+            if not self._node_has_content(node):
                 continue
 
             left_image_url = (node.get('left_image_url', '') or '').strip()
@@ -1074,10 +1085,7 @@ class BranchingXBlock(XBlock):
                     continue
 
                 raw_score = raw_choice.get('score', 0)
-                if raw_score is None or (isinstance(raw_score, str) and raw_score.strip() == ''):
-                    score = 0
-                else:
-                    score = self._parse_choice_score(raw_score)
+                score = self._clean_choice_score(raw_score)
                 if score is None:
                     self._add_node_indexed_error(
                         validation_errors,
@@ -1210,7 +1218,6 @@ class BranchingXBlock(XBlock):
             return {"error": f"Duplicate node id \"{original_id}\" found."}
 
         new_id = f"node-{uuid.uuid4().hex[:6]}"
-        id_map[original_id] = new_id
 
         content = raw_node.get("content", "")
         if not isinstance(content, str):
@@ -1248,7 +1255,7 @@ class BranchingXBlock(XBlock):
                 continue
 
             raw_score = raw_choice.get("score", 0)
-            score = self._parse_choice_score(raw_score)
+            score = self._clean_choice_score(raw_score)
             if score is None:
                 return {
                     "error": (
@@ -1263,15 +1270,7 @@ class BranchingXBlock(XBlock):
                 "score": score,
             })
 
-        has_content = bool(content.strip())
-        has_media = bool(media_url or left_image_url or right_image_url)
-        has_choices = bool(choices)
-        if not (has_content or has_media or has_choices):
-            return {
-                "error": f"Node \"{original_id}\" is empty. Each node must have content, media, or choices.",
-            }
-
-        return {
+        validated = {
             "id": new_id,
             "content": content,
             "media": {"type": media_type, "url": media_url},
@@ -1284,6 +1283,14 @@ class BranchingXBlock(XBlock):
             "hint": hint,
             "transcript_url": transcript_url,
         }
+
+        if not self._node_has_content(validated):
+            return {
+                "error": f"Node \"{original_id}\" is empty. Each node must have content, media, or choices.",
+            }
+
+        id_map[original_id] = new_id
+        return validated
 
     def _validate_import(self, parsed):
         """
