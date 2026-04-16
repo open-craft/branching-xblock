@@ -21,7 +21,7 @@
   {{/if}}
   <div class="bx-modal-actions">
     <button type="button" class="bx-btn bx-btn--text" data-role="import-cancel">Cancel</button>
-    <button type="button" class="bx-btn bx-btn--primary" data-role="import-confirm">
+    <button type="button" class="bx-btn bx-btn--primary" data-role="import-confirm" {{#unless has_file}}disabled{{/unless}}>
       {{#if is_loading}}Import Nodes <span class="bx-spinner"></span>{{else}}Import Nodes{{/if}}
     </button>
   </div>

@@ -163,6 +163,7 @@ function BranchingStudioEditor(runtime, element, data) {
       is_success: editorState.importModal.isSuccess,
       is_loading: editorState.importModal.isLoading,
       error: editorState.importModal.error,
+      has_file: Boolean(editorState.importModal.fileContent),
     }));
   }
 
@@ -893,10 +894,14 @@ function BranchingStudioEditor(runtime, element, data) {
         reader.onload = function(e) {
           try {
             editorState.importModal.fileContent = JSON.parse(e.target.result);
+            // Update UI without full re-render (preserves filename display).
+            editorState.importModal.error = '';
+            $importModal.find('.bx-modal-error').remove();
+            $importModal.find('[data-role="import-confirm"]').prop('disabled', false);
           } catch (_err) {
             editorState.importModal.error = 'Invalid JSON file. Please check the file format and try again.';
+            renderImportModal();
           }
-          renderImportModal();
         };
         reader.readAsText(file);
       }
