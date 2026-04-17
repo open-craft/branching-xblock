@@ -612,12 +612,7 @@ class BranchingXBlock(XBlock):
         """
         Validate studio payload and return structured validation results.
         """
-        validation_errors = {
-            "node_input_errors": {},
-            "settings_field_errors": {},
-            "global_errors": [],
-            "node_action_errors": {},
-        }
+        validation_errors = self._empty_validation_errors()
 
         raw_nodes = payload.get('nodes', [])
         deleted_node_ids = set(payload.get('deleted_node_ids', []))
@@ -933,6 +928,16 @@ class BranchingXBlock(XBlock):
             staged.append(node)
         return id_map, staged
 
+    @staticmethod
+    def _empty_validation_errors():
+        """Return a fresh structured validation errors dict."""
+        return {
+            "node_input_errors": {},
+            "settings_field_errors": {},
+            "global_errors": [],
+            "node_action_errors": {},
+        }
+
     def _has_validation_errors(self, validation_errors: dict[str, Any]) -> bool:
         """Return True when any validation bucket contains an error."""
         return any(bool(value) for value in validation_errors.values())
@@ -1237,97 +1242,6 @@ class BranchingXBlock(XBlock):
 
         return {"success": True}
 
-    def _validate_import_node(self, index, raw_node, id_map):
-        """
-        Validate a single node from an import payload.
-
-        Returns a dict with "error" key on failure, or a validated node
-        dict (plus updated id_map) on success.
-        """
-        if not isinstance(raw_node, dict):
-            return {"error": f"Node {index + 1} is not a valid object."}
-
-        original_id = str(raw_node.get("id", "")).strip()
-        if not original_id:
-            return {"error": f"Node {index + 1} is missing an \"id\" field."}
-        if original_id in id_map:
-            return {"error": f"Duplicate node id \"{original_id}\" found."}
-
-        new_id = f"node-{uuid.uuid4().hex[:6]}"
-
-        content = raw_node.get("content", "")
-        if not isinstance(content, str):
-            content = str(content)
-        content = sanitize_html(content)
-
-        media = raw_node.get("media", {})
-        if not isinstance(media, dict):
-            media = {}
-        media_type = str(media.get("type", "")).strip()
-        media_url = str(media.get("url", "")).strip()
-
-        left_image_url = str(raw_node.get("left_image_url", "") or "").strip()
-        right_image_url = str(raw_node.get("right_image_url", "") or "").strip()
-        left_image_alt_text = str(raw_node.get("left_image_alt_text", "") or "").strip()
-        right_image_alt_text = str(raw_node.get("right_image_alt_text", "") or "").strip()
-        overlay_text = bool(raw_node.get("overlay_text", False))
-        hint = str(raw_node.get("hint", "") or "").strip()
-        transcript_url = str(raw_node.get("transcript_url", "") or "").strip()
-
-        raw_choices = raw_node.get("choices", [])
-        if not isinstance(raw_choices, list):
-            return {"error": f"Node \"{original_id}\": \"choices\" must be an array."}
-
-        choices = []
-        for ci, raw_choice in enumerate(raw_choices):
-            if not isinstance(raw_choice, dict):
-                return {
-                    "error": f"Node \"{original_id}\", choice {ci + 1}: must be an object.",
-                }
-            choice_text = str(raw_choice.get("text", "")).strip()
-            choice_target = str(raw_choice.get("target_node_id", "")).strip()
-
-            if not choice_text and not choice_target:
-                continue
-
-            raw_score = raw_choice.get("score", 0)
-            score = self._clean_choice_score(raw_score)
-            if score is None:
-                return {
-                    "error": (
-                        f"Node \"{original_id}\", choice {ci + 1}:"
-                        " score must be an integer between 0 and 100."
-                    ),
-                }
-
-            choices.append({
-                "text": choice_text,
-                "target_node_id": choice_target,
-                "score": score,
-            })
-
-        validated = _default_node(
-            id=new_id,
-            content=content,
-            media={"type": media_type, "url": media_url},
-            left_image_url=left_image_url,
-            right_image_url=right_image_url,
-            left_image_alt_text=left_image_alt_text,
-            right_image_alt_text=right_image_alt_text,
-            overlay_text=overlay_text,
-            choices=choices,
-            hint=hint,
-            transcript_url=transcript_url,
-        )
-
-        if not self._node_has_content(validated):
-            return {
-                "error": f"Node \"{original_id}\" is empty. Each node must have content, media, or choices.",
-            }
-
-        id_map[original_id] = new_id
-        return validated
-
     def _validate_import(self, parsed):
         """
         Validate parsed import JSON and return built nodes dict or error.
@@ -1342,33 +1256,55 @@ class BranchingXBlock(XBlock):
         if len(raw_nodes) > MAX_NODES:
             return {"success": False, "error": f"File exceeds maximum of {MAX_NODES} nodes. Please try again."}
 
-        id_map = {}  # original_id -> new_id
-        validated_nodes = []
-
+        # --- Validate IDs, collect targets, and pre-process for _build_staged_nodes ---
+        seen_ids = {}
+        pending_targets = []
         for index, raw_node in enumerate(raw_nodes):
-            result = self._validate_import_node(index, raw_node, id_map)
-            if "error" in result:
-                return {"success": False, "error": result["error"]}
-            validated_nodes.append(result)
+            if not isinstance(raw_node, dict):
+                return {"success": False, "error": f"Node {index + 1} is not a valid object."}
+            original_id = str(raw_node.get("id", "")).strip()
+            if not original_id:
+                return {"success": False, "error": f"Node {index + 1} is missing an \"id\" field."}
+            if original_id in seen_ids:
+                return {"success": False, "error": f"Duplicate node id \"{original_id}\" found."}
+            seen_ids[original_id] = index
 
-        # Remap target_node_id references.
-        # id_map maps original -> new IDs; reverse lookup for error messages.
-        new_id_to_original = {v: k for k, v in id_map.items()}
-        for node in validated_nodes:
-            for choice in node["choices"]:
-                target = choice["target_node_id"]
-                if target not in id_map:
-                    node_original = new_id_to_original[node["id"]]
-                    return {
-                        "success": False,
-                        "error": f"Node \"{node_original}\": choice references non-existent node \"{target}\".",
-                    }
-                choice["target_node_id"] = id_map[target]
+            content = raw_node.get("content", "")
+            if not isinstance(content, str):
+                raw_node["content"] = str(content)
 
-        # Build final dict — assign node types based on position and connectivity
+            raw_node["id"] = f"temp-{original_id}"
+            for choice in (raw_node.get("choices") or []):
+                if isinstance(choice, dict):
+                    target = str(choice.get("target_node_id", "")).strip()
+                    if target:
+                        pending_targets.append((original_id, target))
+                        choice["target_node_id"] = f"temp-{target}"
+
+        for original_id, target in pending_targets:
+            if target not in seen_ids:
+                return {
+                    "success": False,
+                    "error": f"Node \"{original_id}\": choice references non-existent node \"{target}\".",
+                }
+
+        # --- call existing save pipeline ---
+        id_map, staged = self._build_staged_nodes(raw_nodes)
+        validation_errors = self._empty_validation_errors()
+        final = self._build_final_nodes(staged, set(), id_map, validation_errors)
+
+        if self._has_validation_errors(validation_errors):
+            error_msg = self._first_validation_error_message(validation_errors)
+            return {"success": False, "error": error_msg}
+
+        if not final:
+            return {"success": False, "error": "File must contain at least one non-empty node."}
+
+        # --- Post-process: strip internal fields, assign types ---
         nodes_dict = {}
-        for index, node in enumerate(validated_nodes):
+        for index, node in enumerate(final):
             node_id = node["id"]
+            node.pop("client_id", None)
             if index == 0:
                 node["type"] = "start"
             elif not node["choices"]:
@@ -1377,7 +1313,7 @@ class BranchingXBlock(XBlock):
                 node["type"] = "normal"
             nodes_dict[node_id] = node
 
-        start_node_id = validated_nodes[0]["id"] if validated_nodes else None
+        start_node_id = next(iter(nodes_dict)) if nodes_dict else None
 
         cycle_ids = self._find_cycle_node_ids(nodes_dict)
         if cycle_ids:
@@ -1391,6 +1327,20 @@ class BranchingXBlock(XBlock):
             "nodes_dict": nodes_dict,
             "start_node_id": start_node_id,
         }
+
+    @staticmethod
+    def _first_validation_error_message(validation_errors):
+        """Extract the first human-readable error from structured validation errors."""
+        for node_errors in validation_errors.get("node_input_errors", {}).values():
+            for value in node_errors.values():
+                if isinstance(value, str):
+                    return value
+                if isinstance(value, dict):
+                    for msg in value.values():
+                        return msg
+        for error in validation_errors.get("global_errors", []):
+            return error
+        return "Import failed. Please check the file and try again."
 
     # TO-DO: change this to create the scenarios you'd like to see in the
     # workbench while developing your XBlock.
