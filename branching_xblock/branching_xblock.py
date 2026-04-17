@@ -1138,7 +1138,7 @@ class BranchingXBlock(XBlock):
 
             final_node = _default_node(
                 id=node['id'],
-                content=node['content'],
+                content=sanitize_html(node['content']),
                 media=node['media'],
                 choices=cleaned_choices,
                 hint=node.get('hint', ''),
