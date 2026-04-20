@@ -244,13 +244,12 @@ def test_normalize_scenario_nodes_preserves_non_empty_invalid_scores(block):
         "nodes": {
             "A": {
                 "id": "A",
-                "type": "start",
                 "choices": [
                     {"text": "to B", "target_node_id": "B", "score": "1.5"},
                     {"text": "to B", "target_node_id": "B", "score": "101"},
                 ],
             },
-            "B": {"id": "B", "type": "end", "choices": []},
+            "B": {"id": "B", "choices": []},
         },
         "start_node_id": "A",
     }
@@ -266,7 +265,6 @@ def test_normalize_scenario_nodes_defaults_empty_scores_to_zero(block):
         "nodes": {
             "A": {
                 "id": "A",
-                "type": "start",
                 "choices": [
                     {"text": "to B", "target_node_id": "B"},
                     {"text": "to B", "target_node_id": "B", "score": ""},
@@ -274,7 +272,7 @@ def test_normalize_scenario_nodes_defaults_empty_scores_to_zero(block):
                     {"text": "to B", "target_node_id": "B", "score": None},
                 ],
             },
-            "B": {"id": "B", "type": "end", "choices": []},
+            "B": {"id": "B", "choices": []},
         },
         "start_node_id": "A",
     }
@@ -416,7 +414,7 @@ def test_studio_submit_preserves_image_only_node(rf, block):
 
 def test_get_current_state_includes_display_name(rf, block):
     block.scenario_data = {
-        "nodes": {"X": {"id": "X", "type": "start", "choices": []}},
+        "nodes": {"X": {"id": "X", "choices": []}},
         "start_node_id": "X",
     }
     block.display_name = "Scenario Title"
@@ -677,8 +675,8 @@ def test_lazy_initialize_and_select_choice(rf, block):
     """
     block.scenario_data = {
         "nodes": {
-            "n1": {"id": "n1", "type": "start", "choices": [{"text": "Next", "target_node_id": "n2"}]},
-            "n2": {"id": "n2", "type": "end",   "choices": []}
+            "n1": {"id": "n1", "choices": [{"text": "Next", "target_node_id": "n2"}]},
+            "n2": {"id": "n2", "choices": []}
         },
         "start_node_id": "n1"
     }
@@ -698,8 +696,8 @@ def test_select_choice_scores_and_completes(rf, block):
     """
     block.scenario_data = {
         "nodes": {
-            "A": {"id": "A", "type": "start", "choices": [{"text": "→ B", "target_node_id": "B", "score": 12}]},
-            "B": {"id": "B", "type": "end",   "choices": []}
+            "A": {"id": "A", "choices": [{"text": "→ B", "target_node_id": "B", "score": 12}]},
+            "B": {"id": "B", "choices": []}
         },
         "start_node_id": "A"
     }
@@ -726,8 +724,8 @@ def test_select_choice_scores_and_completes(rf, block):
 def test_select_choice_rejects_boolean_score_values(rf, block):
     block.scenario_data = {
         "nodes": {
-            "A": {"id": "A", "type": "start", "choices": [{"text": "→ B", "target_node_id": "B", "score": True}]},
-            "B": {"id": "B", "type": "end", "choices": []},
+            "A": {"id": "A", "choices": [{"text": "→ B", "target_node_id": "B", "score": True}]},
+            "B": {"id": "B", "choices": []},
         },
         "start_node_id": "A",
     }
@@ -754,8 +752,8 @@ def test_undo_choice_honors_enable_undo(rf, block):
     """
     block.scenario_data = {
         "nodes": {
-            "start": {"id": "start", "type": "start", "choices": [{"text": "→ end", "target_node_id": "end"}]},
-            "end": {"id": "end",   "type": "end",   "choices": []}
+            "start": {"id": "start", "choices": [{"text": "→ end", "target_node_id": "end"}]},
+            "end": {"id": "end", "choices": []}
         },
         "start_node_id": "start"
     }
@@ -782,10 +780,9 @@ def test_undo_choice_reverts_choice_history(rf, block):
         "nodes": {
             "start": {
                 "id": "start",
-                "type": "start",
                 "choices": [{"text": "to end", "target_node_id": "end", "score": 10}],
             },
-            "end": {"id": "end", "type": "end", "choices": []},
+            "end": {"id": "end", "choices": []},
         },
         "start_node_id": "start",
     }
@@ -803,7 +800,7 @@ def test_undo_choice_reverts_choice_history(rf, block):
 
 def test_reset_activity_requires_enable_reset_activity(rf, block):
     block.scenario_data = {
-        "nodes": {"start": {"id": "start", "type": "start", "choices": []}},
+        "nodes": {"start": {"id": "start", "choices": []}},
         "start_node_id": "start",
     }
     block.enable_reset_activity = False
@@ -819,10 +816,9 @@ def test_reset_activity_clears_progress_and_score(rf, block):
         "nodes": {
             "start": {
                 "id": "start",
-                "type": "start",
                 "choices": [{"text": "Next", "target_node_id": "end"}],
             },
-            "end": {"id": "end", "type": "end", "choices": []},
+            "end": {"id": "end", "choices": []},
         },
         "start_node_id": "start",
     }
@@ -852,7 +848,7 @@ def test_reset_activity_clears_progress_and_score(rf, block):
 def test_reset_activity_clears_scoring_state_when_scoring_disabled(rf, block):
     block.scenario_data = {
         "nodes": {
-            "start": {"id": "start", "type": "start", "choices": []},
+            "start": {"id": "start", "choices": []},
         },
         "start_node_id": "start",
     }
@@ -905,7 +901,7 @@ def test_get_current_state_includes_expected_fields(rf, block):
     - score (float)
     """
     block.scenario_data = {
-        "nodes": {"X": {"id": "X", "type": "start", "choices": []}},
+        "nodes": {"X": {"id": "X", "choices": []}},
         "start_node_id": "X"
     }
     req = rf.post("/", data=json.dumps({}), content_type="application/json")
@@ -1012,8 +1008,8 @@ def test_export_nodes_returns_ordered_list(rf, block):
     """export_nodes should return nodes as an ordered array, start node first."""
     block.scenario_data = {
         "nodes": {
-            "node-b": {"id": "node-b", "type": "end", "content": "End", "choices": [], "media": {"type": "", "url": ""}},
-            "node-a": {"id": "node-a", "type": "start", "content": "Start",
+            "node-b": {"id": "node-b", "content": "End", "choices": [], "media": {"type": "", "url": ""}},
+            "node-a": {"id": "node-a", "content": "Start",
                        "choices": [{"text": "Go", "target_node_id": "node-b", "score": 10}],
                        "media": {"type": "", "url": ""}},
         },
@@ -1233,7 +1229,7 @@ def test_import_nodes_recomputes_max_score(rf, block):
 def test_start_node_resets_stale_learner_state(block):
     """If current_node_id references a node that no longer exists, reset learner."""
     block.scenario_data = {
-        "nodes": {"new-start": {"id": "new-start", "type": "start", "choices": []}},
+        "nodes": {"new-start": {"id": "new-start", "choices": []}},
         "start_node_id": "new-start",
     }
     block.current_node_id = "deleted-node-id"

@@ -66,7 +66,6 @@ class BranchingXBlock(XBlock):
 
         {
             "id": "node-1",
-            "type": "start",
             "content": "<p>...</p>",
             "media": {"type": "image", "url": "/asset.jpg"},
             "choices": [
@@ -264,6 +263,11 @@ class BranchingXBlock(XBlock):
         """
         normalized_node = dict(node)
         changed = False
+
+        # Remove deprecated type field from old persisted data.
+        if "type" in normalized_node:
+            del normalized_node["type"]
+            changed = True
 
         # Special migration: old image nodes stored the URL in media.url.
         if "left_image_url" not in normalized_node:
@@ -1155,7 +1159,6 @@ class BranchingXBlock(XBlock):
                 transcript_url=node.get('transcript_url', ''),
             )
             final_node['client_id'] = node_client_id
-            final_node['type'] = 'start' if not final else 'normal'
             final.append(final_node)
         return final
 
@@ -1194,9 +1197,6 @@ class BranchingXBlock(XBlock):
 
         return {"result": "success"}
 
-    # Keys that are internal to the backend and should not appear in exports.
-    _EXPORT_EXCLUDE_KEYS = {"type"}
-
     @XBlock.json_handler
     def export_nodes(self, data, suffix=''):
         """Return current scenario nodes as a JSON-serializable list for download."""
@@ -1214,10 +1214,7 @@ class BranchingXBlock(XBlock):
             if node_id not in ordered:
                 ordered.append(node_id)
 
-        nodes_list = [
-            {k: v for k, v in nodes[node_id].items() if k not in self._EXPORT_EXCLUDE_KEYS}
-            for node_id in ordered
-        ]
+        nodes_list = [dict(nodes[node_id]) for node_id in ordered]
 
         return {"success": True, "nodes": nodes_list}
 
@@ -1300,17 +1297,11 @@ class BranchingXBlock(XBlock):
         if not final:
             return {"success": False, "error": "File must contain at least one non-empty node."}
 
-        # --- Post-process: strip internal fields, assign types ---
+        # --- Post-process: strip internal fields ---
         nodes_dict = {}
-        for index, node in enumerate(final):
+        for node in final:
             node_id = node["id"]
             node.pop("client_id", None)
-            if index == 0:
-                node["type"] = "start"
-            elif not node["choices"]:
-                node["type"] = "end"
-            else:
-                node["type"] = "normal"
             nodes_dict[node_id] = node
 
         start_node_id = next(iter(nodes_dict)) if nodes_dict else None
