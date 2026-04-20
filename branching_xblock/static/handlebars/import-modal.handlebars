@@ -1,0 +1,28 @@
+{{#if is_success}}
+  <div class="bx-modal-success">
+    <div class="bx-modal-success-header">
+      <span class="bx-modal-success-icon">&#x2705;</span>
+      <h3 class="bx-modal-title bx-modal-title--success">Nodes Imported Successfully</h3>
+    </div>
+    <p class="bx-modal-body">Refresh the page to continue editing.</p>
+    <div class="bx-modal-actions">
+      <button type="button" class="bx-btn bx-btn--success" data-role="refresh-page">Refresh Page</button>
+    </div>
+  </div>
+{{else}}
+  <h3 class="bx-modal-title">Import Nodes</h3>
+  <p class="bx-modal-body">Please note that any existing nodes will be overwritten by the imported nodes. This cannot be undone.</p>
+  <div class="bx-modal-field">
+    <label class="bx-modal-label">Upload JSON file</label>
+    <input type="file" accept=".json" data-role="import-file-input" />
+  </div>
+  {{#if error}}
+    <div class="bx-modal-error">{{error}}</div>
+  {{/if}}
+  <div class="bx-modal-actions">
+    <button type="button" class="bx-btn bx-btn--text" data-role="import-cancel">Cancel</button>
+    <button type="button" class="bx-btn bx-btn--primary" data-role="import-confirm" {{#unless has_file}}disabled{{/unless}}>
+      {{#if is_loading}}Import Nodes <span class="bx-spinner"></span>{{else}}Import Nodes{{/if}}
+    </button>
+  </div>
+{{/if}}

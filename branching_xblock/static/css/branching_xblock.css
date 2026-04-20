@@ -79,10 +79,6 @@
 }
 
 @media (max-width: 768px) {
-    .branching-scenario .bx-image-composite__fg {
-        grid-template-columns: 1fr;
-    }
-
     .branching-scenario .bx-image-composite__overlay {
         position: static;
         transform: none;

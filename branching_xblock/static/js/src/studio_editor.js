@@ -1,11 +1,12 @@
 function BranchingStudioEditor(runtime, element, data) {
   const Templates = {};
-  ['settings-step', 'nodes-step', 'node-list-item', 'node-editor', 'choice-row'].forEach(name => {
+  ['settings-step', 'nodes-step', 'node-list-item', 'node-editor', 'choice-row', 'import-modal'].forEach(name => {
     const src = document.getElementById(name+'-tpl').innerHTML;
     Templates[name] = Handlebars.compile(src);
   });
   Handlebars.registerHelper('inc', value => parseInt(value,10) + 1);
   Handlebars.registerHelper('eq', (a,b) => a === b);
+
   const $root       = $(element);
   const $stepSettings = $root.find('[data-role="step-settings"]');
   const $stepNodes = $root.find('[data-role="step-nodes"]');
@@ -16,6 +17,8 @@ function BranchingStudioEditor(runtime, element, data) {
   const $cancelBtn  = $root.find('[data-role="cancel"]');
   const $pendingDeleteSummary = $root.find('[data-role="pending-delete-summary"]');
   const $saveValidationSummary = $root.find('[data-role="save-validation-summary"]');
+  const $importOverlay = $root.find('[data-role="import-modal-overlay"]');
+  const $importModal = $root.find('[data-role="import-modal"]');
 
   this.uniqueIdCount = 0;
 
@@ -37,7 +40,16 @@ function BranchingStudioEditor(runtime, element, data) {
     validationNodeErrorDetailsById: new Map(),
     validationNodeErrorTitlesById: new Map(),
     validationFieldErrorsByNodeId: new Map(),
+    importModal: {
+      isOpen: false,
+      isLoading: false,
+      isSuccess: false,
+      error: '',
+      fileContent: null,
+    },
   };
+
+  let savedNodesExist = Object.keys(data.nodes || {}).length > 0;
 
   // ---------------------------
   // Grade range slider helpers
@@ -126,6 +138,36 @@ function BranchingStudioEditor(runtime, element, data) {
   }
 
   // ---------------------------
+  // Import/Export helpers
+  // ---------------------------
+  function downloadJsonFile(jsonData, filename) {
+    const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 100);
+  }
+
+  function renderImportModal() {
+    if (!editorState.importModal.isOpen) {
+      $importOverlay.attr('hidden', true);
+      return;
+    }
+
+    $importOverlay.attr('hidden', false);
+    $importModal.html(Templates['import-modal']({
+      is_success: editorState.importModal.isSuccess,
+      is_loading: editorState.importModal.isLoading,
+      error: editorState.importModal.error,
+      has_file: Boolean(editorState.importModal.fileContent),
+    }));
+  }
+
+  // ---------------------------
   // Initial state hydration
   // ---------------------------
   function loadState() {
@@ -160,6 +202,8 @@ function BranchingStudioEditor(runtime, element, data) {
       transcript_url: raw?.transcript_url || '',
       left_image_url: raw?.left_image_url ?? null,
       right_image_url: raw?.right_image_url ?? null,
+      left_image_alt_text: raw?.left_image_alt_text || '',
+      right_image_alt_text: raw?.right_image_alt_text || '',
     };
   }
 
@@ -391,6 +435,8 @@ function BranchingStudioEditor(runtime, element, data) {
       left_image_url_error: currentNodeFieldErrors.left_image_url || '',
       left_image_url: leftImageUrl,
       right_image_url: rightImageUrl,
+      left_image_alt_text: node.left_image_alt_text || '',
+      right_image_alt_text: node.right_image_alt_text || '',
     });
     const $editor = $stepNodes.find('[data-role="node-editor"]').html(html);
     const $choices = $editor.find('[data-role="choices-container"]').empty();
@@ -410,6 +456,7 @@ function BranchingStudioEditor(runtime, element, data) {
 
   function renderNodesStep() {
     $stepNodes.html(Templates['nodes-step']({}));
+    $stepNodes.find('[data-role="export-nodes"]').prop('disabled', !savedNodesExist);
     renderNodeList();
     renderNodeEditor();
   }
@@ -460,9 +507,13 @@ function BranchingStudioEditor(runtime, element, data) {
     if (mediaType === 'image') {
       node.left_image_url = $e.find('[data-role="left-image-url"]').val()?.trim() || '';
       node.right_image_url = $e.find('[data-role="right-image-url"]').val()?.trim() || '';
+      node.left_image_alt_text = $e.find('[data-role="left-image-alt"]').val()?.trim() || '';
+      node.right_image_alt_text = $e.find('[data-role="right-image-alt"]').val()?.trim() || '';
     } else {
       node.left_image_url = '';
       node.right_image_url = '';
+      node.left_image_alt_text = '';
+      node.right_image_alt_text = '';
     }
 
     const noBranches = $e.find('[data-role="no-branches"]').is(':checked');
@@ -547,6 +598,8 @@ function BranchingStudioEditor(runtime, element, data) {
           overlay_text: Boolean(n.overlay_text),
           left_image_url: (n.left_image_url || '').trim(),
           right_image_url: (n.right_image_url || '').trim(),
+          left_image_alt_text: (n.left_image_alt_text || '').trim(),
+          right_image_alt_text: (n.right_image_alt_text || '').trim(),
           transcript_url: (n.transcript_url || '').trim(),
         })),
         deleted_node_ids: editorState.draftNodes
@@ -790,6 +843,130 @@ function BranchingStudioEditor(runtime, element, data) {
       clearValidationState();
       renderNodeEditor();
       updateClientValidationUi();
+    });
+
+    // --- Import/Export ---
+
+    // Download JSON template
+    $root.off('click.bx-ie', '[data-role="download-template"]');
+    $root.on('click.bx-ie', '[data-role="download-template"]', function(e) {
+      e.preventDefault();
+      downloadJsonFile(data.import_template, 'branching-scenario-template.json');
+    });
+
+    // Open import modal
+    $root.off('click.bx-ie', '[data-role="import-nodes"]');
+    $root.on('click.bx-ie', '[data-role="import-nodes"]', function() {
+      editorState.importModal = {
+        isOpen: true,
+        isLoading: false,
+        isSuccess: false,
+        error: '',
+        fileContent: null,
+      };
+      renderImportModal();
+    });
+
+    // Cancel import modal
+    $root.off('click.bx-ie', '[data-role="import-cancel"]');
+    $root.on('click.bx-ie', '[data-role="import-cancel"]', function() {
+      editorState.importModal.isOpen = false;
+      renderImportModal();
+    });
+
+    // Close modal on overlay click
+    $root.off('click.bx-ie', '[data-role="import-modal-overlay"]');
+    $root.on('click.bx-ie', '[data-role="import-modal-overlay"]', function(e) {
+      if ($(e.target).is('[data-role="import-modal-overlay"]')) {
+        editorState.importModal.isOpen = false;
+        renderImportModal();
+      }
+    });
+
+    // File selected — read and parse JSON client-side
+    $root.off('change.bx-ie', '[data-role="import-file-input"]');
+    $root.on('change.bx-ie', '[data-role="import-file-input"]', function() {
+      const file = this.files[0];
+      editorState.importModal.error = '';
+      editorState.importModal.fileContent = null;
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            editorState.importModal.fileContent = JSON.parse(e.target.result);
+            // Update UI without full re-render (preserves filename display).
+            editorState.importModal.error = '';
+            $importModal.find('.bx-modal-error').remove();
+            $importModal.find('[data-role="import-confirm"]').prop('disabled', false);
+          } catch (_err) {
+            editorState.importModal.error = 'Invalid JSON file. Please check the file format and try again.';
+            renderImportModal();
+          }
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    // Confirm import — send parsed JSON object directly (no JSON-in-JSON)
+    $root.off('click.bx-ie', '[data-role="import-confirm"]');
+    $root.on('click.bx-ie', '[data-role="import-confirm"]', function() {
+      if (editorState.importModal.isLoading) {
+        return;
+      }
+      if (!editorState.importModal.fileContent) {
+        editorState.importModal.error = 'Please select a JSON file.';
+        renderImportModal();
+        return;
+      }
+
+      editorState.importModal.isLoading = true;
+      editorState.importModal.error = '';
+      renderImportModal();
+
+      $.ajax({
+        type: 'POST',
+        url: runtime.handlerUrl(element, 'import_nodes'),
+        data: JSON.stringify(editorState.importModal.fileContent),
+        contentType: 'application/json; charset=utf-8',
+      }).done(function(res) {
+        if (res.success) {
+          editorState.importModal.isLoading = false;
+          editorState.importModal.isSuccess = true;
+          renderImportModal();
+        } else {
+          editorState.importModal.isLoading = false;
+          editorState.importModal.error = res.error || 'Import failed. Please try again.';
+          editorState.importModal.fileContent = null;
+          renderImportModal();
+        }
+      }).fail(function() {
+        editorState.importModal.isLoading = false;
+        editorState.importModal.error = 'An unexpected error occurred. Please try again.';
+        editorState.importModal.fileContent = null;
+        renderImportModal();
+      });
+    });
+
+    // Refresh page after successful import
+    $root.off('click.bx-ie', '[data-role="refresh-page"]');
+    $root.on('click.bx-ie', '[data-role="refresh-page"]', function() {
+      window.location.reload();
+    });
+
+    // Export nodes
+    $root.off('click.bx-ie', '[data-role="export-nodes"]');
+    $root.on('click.bx-ie', '[data-role="export-nodes"]', function() {
+      $.ajax({
+        type: 'POST',
+        url: runtime.handlerUrl(element, 'export_nodes'),
+        data: '{}',
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json',
+      }).done(function(res) {
+        if (res.success) {
+          downloadJsonFile({ nodes: res.nodes }, 'branching-scenario-export.json');
+        }
+      });
     });
   }
 

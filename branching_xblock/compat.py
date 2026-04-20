@@ -1,6 +1,8 @@
 """
 Compatibility helpers for optional Open edX imports and sanitization.
 """
+from __future__ import annotations
+
 from html import escape
 from typing import Any
 
