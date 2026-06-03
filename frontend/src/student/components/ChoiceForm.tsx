@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import Button from "@openedx/paragon/dist/Button";
+import Form from "@openedx/paragon/dist/Form";
 import { useIntl } from "react-intl";
 import { studentMessages } from "../../messages";
 import { Choice } from "../../types";
@@ -24,7 +26,7 @@ const ChoiceForm: React.FC<ChoiceFormProps> = ({ choices, nodeId, onSubmit }) =>
       <h3 className="choices-heading" data-role="choice-heading" style={{ display: hasChoices ? undefined : "none" }}>
         {intl.formatMessage(studentMessages.chooseNextStep)}
       </h3>
-      <form
+      <Form
         className="choices-form"
         data-role="choice-form"
         onSubmit={(e) => {
@@ -47,16 +49,17 @@ const ChoiceForm: React.FC<ChoiceFormProps> = ({ choices, nodeId, onSubmit }) =>
           ))}
         </div>
         {hasChoices && (
-          <button
+          <Button
             type="submit"
+            variant="primary"
             className="choice-submit-button action-primary btn-primary"
             data-role="submit-choice"
             disabled={selectedIndex === null}
           >
             {intl.formatMessage(studentMessages.submit)}
-          </button>
+          </Button>
         )}
-      </form>
+      </Form>
     </div>
   );
 };

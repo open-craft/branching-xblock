@@ -305,10 +305,16 @@
     height: 1.1rem;
 }
 
+.branching-scenario .choice-option > div {
+    flex: 1;
+}
+
 .branching-scenario .choice-option__text {
+    display: block;
     flex: 1;
     font-size: 1rem;
     color: var(--pgn-color-gray-900, #1f2a37);
+    cursor: pointer;
 }
 
 .branching-scenario .choice-actions {

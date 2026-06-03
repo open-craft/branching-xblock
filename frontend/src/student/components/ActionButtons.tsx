@@ -1,4 +1,5 @@
 import React from "react";
+import Button from "@openedx/paragon/dist/Button";
 import { useIntl } from "react-intl";
 import { studentMessages } from "../../messages";
 
@@ -28,36 +29,39 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   return (
     <div className="choice-actions" style={{ display: showActions ? "flex" : "none" }}>
       <div className="choice-actions__secondary">
-        <button
+        <Button
           type="button"
+          variant="outline-primary"
           className={`undo-button action-secondary btn-secondary${!canUndo ? " is-disabled" : ""}`}
           data-role="undo"
           disabled={!canUndo}
           onClick={onUndo}
         >
           {intl.formatMessage(studentMessages.goBack)}
-        </button>
+        </Button>
         {showReset && (
-          <button
+          <Button
             type="button"
+            variant="outline-primary"
             className="reset-button action-secondary btn-secondary"
             data-role="reset-activity"
             onClick={onReset}
           >
             {intl.formatMessage(studentMessages.reset)}
-          </button>
+          </Button>
         )}
       </div>
       <div className="choice-actions__primary">
         {showReport && (
-          <button
+          <Button
             type="button"
+            variant="primary"
             className="show-report-button action-primary btn-primary"
             data-role="show-report"
             onClick={onShowReport}
           >
             {intl.formatMessage(studentMessages.showReport)}
-          </button>
+          </Button>
         )}
       </div>
     </div>

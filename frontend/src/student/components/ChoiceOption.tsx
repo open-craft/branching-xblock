@@ -1,4 +1,5 @@
 import React from "react";
+import Form from "@openedx/paragon/dist/Form";
 import { useIntl } from "react-intl";
 import { studentMessages } from "../../messages";
 import { Choice } from "../../types";
@@ -15,20 +16,18 @@ const ChoiceOption: React.FC<ChoiceOptionProps> = ({ choice, index, nodeId, isSe
   const intl = useIntl();
   const choiceId = `choice-${nodeId || "node"}-${index}`;
   return (
-    <label className={`choice-option${isSelected ? " is-selected" : ""}`} htmlFor={choiceId}>
-      <input
-        type="radio"
-        className="choice-option__input"
-        name="branching-choice"
-        id={choiceId}
-        value={index}
-        checked={isSelected}
-        onChange={() => onChange(index)}
-      />
-      <span className="choice-option__text">
-        {choice.text || intl.formatMessage(studentMessages.choiceLabel, { index: index + 1 })}
-      </span>
-    </label>
+    <Form.Radio
+      className={`choice-option${isSelected ? " is-selected" : ""}`}
+      controlClassName="choice-option__input"
+      labelClassName="choice-option__text"
+      name="branching-choice"
+      id={choiceId}
+      value={index}
+      checked={isSelected}
+      onChange={() => onChange(index)}
+    >
+      {choice.text || intl.formatMessage(studentMessages.choiceLabel, { index: index + 1 })}
+    </Form.Radio>
   );
 };
 

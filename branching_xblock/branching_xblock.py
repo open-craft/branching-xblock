@@ -735,7 +735,6 @@ class BranchingXBlock(XBlock):
         Create primary view of the BranchingXBlock, shown to students when viewing courses.
         """
         frag = Fragment('<div data-react-root="true"></div>')
-        frag.add_css(self.resource_string("css/branching_xblock.css"))
         frag.add_javascript_url(self.runtime.local_resource_url(self, "static/bundles/student.js"))
         frag.initialize_js('BranchingXBlock', {
             "view": "student",
@@ -746,6 +745,10 @@ class BranchingXBlock(XBlock):
                 "reset_activity": self.runtime.handler_url(self, "reset_activity"),
             },
             "initial_state": self._get_state(),
+            "mfe_config_api": self._mfe_config_api_url(),
+            "style_urls": [
+                self._local_resource_absolute_url("static/css/branching_xblock.css"),
+            ],
         })
         return frag
 

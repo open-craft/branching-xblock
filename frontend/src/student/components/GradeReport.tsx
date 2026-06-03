@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import Button from "@openedx/paragon/dist/Button";
 import { useIntl } from "react-intl";
 import { studentMessages } from "../../messages";
 import { GradeReport as GradeReportData } from "../../apiTypes";
@@ -115,14 +116,15 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
       </div>
 
       {showResetInReport && (
-        <button
+        <Button
           type="button"
+          variant="primary"
           className="action-primary btn-primary"
           data-role="reset-activity-report"
           onClick={onReset}
         >
           {intl.formatMessage(studentMessages.resetActivity)}
-        </button>
+        </Button>
       )}
     </div>
   );
