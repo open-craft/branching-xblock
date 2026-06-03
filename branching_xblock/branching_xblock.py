@@ -787,9 +787,8 @@ class BranchingXBlock(XBlock):
                 "authoring_help_html": authoring_help_html,
                 "import_template": {"nodes": list(IMPORT_TEMPLATE_NODES)},
             },
-            "mfe_config_api": self._mfe_config_api_url(),
             "style_urls": [
-                self._local_resource_absolute_url("static/css/studio_editor.css"),
+                self.runtime.local_resource_url(self, "static/css/studio_editor.css"),
             ],
         })
         return frag
