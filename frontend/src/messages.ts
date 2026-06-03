@@ -117,6 +117,10 @@ export const studentMessages = defineMessages({
     id: "branching.student.resetActivity",
     defaultMessage: "Reset Activity",
   },
+  contentUpdated: {
+    id: "branching.student.contentUpdated",
+    defaultMessage: "Content updated.",
+  },
 });
 
 export const studioMessages = defineMessages({

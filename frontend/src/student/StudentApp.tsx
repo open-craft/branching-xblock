@@ -22,12 +22,14 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isReportVisible, setIsReportVisible] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
 
   const replaceState = useCallback((newState: StudentInitialState) => {
     setState(newState);
     setIsReportVisible(false);
     setError(null);
-  }, []);
+    setStatusMessage(intl.formatMessage(studentMessages.contentUpdated));
+  }, [intl]);
 
   useEffect(() => {
     setLoading(true);
@@ -124,6 +126,9 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
 
   return (
     <div className="branching-scenario">
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {statusMessage}
+      </div>
       <div className="active-scenario" data-role="active">
         {error && <div className="errors" style={{ color: "red", padding: "1em" }}>{error}</div>}
 

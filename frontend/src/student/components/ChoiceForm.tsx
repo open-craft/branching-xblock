@@ -23,7 +23,7 @@ const ChoiceForm: React.FC<ChoiceFormProps> = ({ choices, nodeId, onSubmit }) =>
 
   return (
     <div className="choices" data-role="choices">
-      <h3 className="choices-heading" data-role="choice-heading" style={{ display: hasChoices ? undefined : "none" }}>
+      <h3 id={`choice-heading-${nodeId}`} className="choices-heading" data-role="choice-heading" style={{ display: hasChoices ? undefined : "none" }}>
         {intl.formatMessage(studentMessages.chooseNextStep)}
       </h3>
       <Form
@@ -36,7 +36,7 @@ const ChoiceForm: React.FC<ChoiceFormProps> = ({ choices, nodeId, onSubmit }) =>
           }
         }}
       >
-        <div className="choices-list" data-role="choice-list">
+        <div className="choices-list" data-role="choice-list" role="radiogroup" aria-labelledby={`choice-heading-${nodeId}`}>
           {choices.map((choice, idx) => (
             <ChoiceOption
               key={`${nodeId}-${idx}`}

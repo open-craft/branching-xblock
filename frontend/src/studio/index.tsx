@@ -1,4 +1,4 @@
-import { makeXBlockInitializer, XBlockRuntime } from "../mountApp";
+import { makeXBlockInitializer, XBlockRuntime, XBlockElementLike } from "../mountApp";
 import { StudioPayload, StudioHandlerUrls } from "../apiTypes";
 import StudioApp from "./StudioApp";
 
@@ -9,7 +9,7 @@ interface StudioAppProps {
   runtime: XBlockRuntime;
 }
 
-function propsFactory(runtime: XBlockRuntime, _element: Element, data: unknown): StudioAppProps {
+function propsFactory(runtime: XBlockRuntime, _element: XBlockElementLike, data: unknown): StudioAppProps {
   const payload = data as StudioPayload;
   const handlerUrls: StudioHandlerUrls = {
     studio_submit: payload.handler_urls?.studio_submit

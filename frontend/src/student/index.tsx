@@ -1,4 +1,4 @@
-import { makeXBlockInitializer, XBlockRuntime } from "../mountApp";
+import { makeXBlockInitializer, XBlockRuntime, XBlockElementLike } from "../mountApp";
 import { StudentPayload, StudentHandlerUrls } from "../apiTypes";
 import StudentApp from "./StudentApp";
 
@@ -7,7 +7,7 @@ interface StudentAppProps {
   initial_state: StudentPayload["initial_state"];
 }
 
-function propsFactory(runtime: XBlockRuntime, _element: Element, data: unknown): StudentAppProps {
+function propsFactory(runtime: XBlockRuntime, _element: XBlockElementLike, data: unknown): StudentAppProps {
   const payload = data as StudentPayload;
   const handlerUrls: StudentHandlerUrls = {
     get_current_state: payload.handler_urls?.get_current_state

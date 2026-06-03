@@ -89,29 +89,31 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
           </span>
           {intl.formatMessage(studentMessages.detailedScore)}
         </h4>
-        <div className="grade-report__details-header">
-          <span>{intl.formatMessage(studentMessages.yourSelections)}</span>
-          <span>{intl.formatMessage(studentMessages.scoreColumn)}</span>
-        </div>
-        <div className="grade-report__details-rows" data-role="report-details">
-          {details.length === 0 ? (
-            <div className="grade-report__details-row grade-report__details-row--empty">
-              {intl.formatMessage(studentMessages.noScoredSelections)}
-            </div>
-          ) : (
-            details.map((entry, idx) => {
-              const text = (entry.choice_text || "").trim();
-              const points = entry.awarded_points || 0;
-              return (
-                <div className="grade-report__details-row" key={idx}>
-                  <span className="grade-report__details-text">
-                    {text || intl.formatMessage(studentMessages.untitledChoice)}
-                  </span>
-                  <span className="grade-report__details-score">{String(points)}</span>
-                </div>
-              );
-            })
-          )}
+        <div role="table" aria-label={intl.formatMessage(studentMessages.detailedScore)}>
+          <div className="grade-report__details-header" role="row">
+            <span role="columnheader">{intl.formatMessage(studentMessages.yourSelections)}</span>
+            <span role="columnheader">{intl.formatMessage(studentMessages.scoreColumn)}</span>
+          </div>
+          <div className="grade-report__details-rows" data-role="report-details" role="rowgroup">
+            {details.length === 0 ? (
+              <div className="grade-report__details-row grade-report__details-row--empty" role="row">
+                <span role="cell">{intl.formatMessage(studentMessages.noScoredSelections)}</span>
+              </div>
+            ) : (
+              details.map((entry, idx) => {
+                const text = (entry.choice_text || "").trim();
+                const points = entry.awarded_points || 0;
+                return (
+                  <div className="grade-report__details-row" key={idx} role="row">
+                    <span className="grade-report__details-text" role="cell">
+                      {text || intl.formatMessage(studentMessages.untitledChoice)}
+                    </span>
+                    <span className="grade-report__details-score" role="cell">{String(points)}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 

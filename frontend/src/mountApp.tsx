@@ -2,8 +2,10 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { SharedIntlProvider } from "./i18n";
 
+export type XBlockElementLike = Element | { 0?: Element; length?: number; jquery?: string };
+
 export interface XBlockRuntime {
-  handlerUrl(element: Element | null, handlerName: string, suffix?: string, query?: string): string;
+  handlerUrl(element: XBlockElementLike | null, handlerName: string, suffix?: string, query?: string): string;
   notify?(name: string, payload?: Record<string, unknown>): void;
 }
 
@@ -34,6 +36,18 @@ interface StylePayload {
 
 const PARAGON_CORE_CSS = "https://cdn.jsdelivr.net/npm/@openedx/paragon@23/dist/core.min.css";
 const PARAGON_LIGHT_CSS = "https://cdn.jsdelivr.net/npm/@openedx/paragon@23/dist/light.min.css";
+
+function toDomElement(element: XBlockElementLike): Element {
+  if (element instanceof Element) {
+    return element;
+  }
+
+  if (element && element[0] instanceof Element) {
+    return element[0];
+  }
+
+  throw new Error("XBlock initializer received an unsupported root element.");
+}
 
 async function getParagonStyles(mfeConfigApi?: string): Promise<string[]> {
   if (!mfeConfigApi) {
@@ -82,10 +96,11 @@ async function loadStyles(data: unknown): Promise<void> {
 
 export function makeXBlockInitializer<P>(
   AppComponent: React.ComponentType<P>,
-  propsFactory: (runtime: XBlockRuntime, element: Element, data: unknown) => P,
+  propsFactory: (runtime: XBlockRuntime, element: XBlockElementLike, data: unknown) => P,
 ) {
-  return function initializer(runtime: XBlockRuntime, element: Element, data: unknown): void {
-    const mountNode = element.querySelector('[data-react-root="true"]') || element;
+  return function initializer(runtime: XBlockRuntime, element: XBlockElementLike, data: unknown): void {
+    const el = toDomElement(element);
+    const mountNode = el.querySelector('[data-react-root="true"]') || el;
     const props = propsFactory(runtime, element, data);
     const app = React.createElement(AppComponent as React.ComponentType<any>, props as any);
     void loadStyles(data).finally(() => {
