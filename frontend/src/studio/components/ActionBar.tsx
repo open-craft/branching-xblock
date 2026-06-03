@@ -1,4 +1,5 @@
 import React from "react";
+import Button from "@openedx/paragon/dist/Button";
 import { useIntl } from "react-intl";
 import { studioMessages } from "../../messages";
 
@@ -32,12 +33,13 @@ const ActionBar: React.FC<ActionBarProps> = ({
   return (
     <div className="xblock-actions">
       {isSettings && (
-        <button type="button" className="action-primary" data-role="continue" onClick={onContinue}>
+        <Button type="button" variant="primary" className="action-primary" data-role="continue" onClick={onContinue}>
           {intl.formatMessage(studioMessages.continue)}
-        </button>
+        </Button>
       )}
-      <button
+      <Button
         type="button"
+        variant="primary"
         className="action-primary"
         data-role="save"
         hidden={isSettings}
@@ -47,19 +49,20 @@ const ActionBar: React.FC<ActionBarProps> = ({
         {isSaving
           ? intl.formatMessage(studioMessages.saving)
           : intl.formatMessage(studioMessages.save)}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="outline-primary"
         className="action-secondary"
         data-role="back"
         hidden={isSettings}
         onClick={onBack}
       >
         {intl.formatMessage(studioMessages.back)}
-      </button>
-      <button type="button" className="action-secondary" data-role="cancel" onClick={onCancel}>
+      </Button>
+      <Button type="button" variant="outline-primary" className="action-secondary" data-role="cancel" onClick={onCancel}>
         {intl.formatMessage(studioMessages.cancel)}
-      </button>
+      </Button>
       {(hasValidationErrors || saveErrorMessage) && (
         <div className="xblock-actions__error" data-role="save-validation-summary">
           {saveErrorMessage || intl.formatMessage(studioMessages.saveValidationError)}

@@ -1,4 +1,5 @@
 import React from "react";
+import Form from "@openedx/paragon/dist/Form";
 import { useIntl } from "react-intl";
 import { studioMessages } from "../../messages";
 import { DraftSettings } from "../reducer";
@@ -33,48 +34,45 @@ const SettingsStep: React.FC<SettingsStepProps> = ({
         />
       )}
 
-      <label className="bx-field">
-        <div className="bx-field__label">
+      <Form.Group className="bx-field">
+        <Form.Label className="bx-field__label">
           {intl.formatMessage(studioMessages.displayName)}
-        </div>
-        <input
+        </Form.Label>
+        <Form.Control
           type="text"
           name="display_name"
           className="bx-input"
           value={settings.display_name}
-          onChange={(e) => onUpdateField("display_name", e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField("display_name", e.target.value)}
         />
-      </label>
+      </Form.Group>
 
-      <label className="bx-checkbox">
-        <input
-          type="checkbox"
-          name="enable_undo"
-          checked={settings.enable_undo}
-          onChange={(e) => onUpdateField("enable_undo", e.target.checked)}
-        />
-        <span>{intl.formatMessage(studioMessages.enableUndo)}</span>
-      </label>
+      <Form.Checkbox
+        className="bx-checkbox"
+        name="enable_undo"
+        checked={settings.enable_undo}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField("enable_undo", e.target.checked)}
+      >
+        {intl.formatMessage(studioMessages.enableUndo)}
+      </Form.Checkbox>
 
-      <label className="bx-checkbox">
-        <input
-          type="checkbox"
-          name="enable_reset_activity"
-          checked={settings.enable_reset_activity}
-          onChange={(e) => onUpdateField("enable_reset_activity", e.target.checked)}
-        />
-        <span>{intl.formatMessage(studioMessages.enableResetActivity)}</span>
-      </label>
+      <Form.Checkbox
+        className="bx-checkbox"
+        name="enable_reset_activity"
+        checked={settings.enable_reset_activity}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField("enable_reset_activity", e.target.checked)}
+      >
+        {intl.formatMessage(studioMessages.enableResetActivity)}
+      </Form.Checkbox>
 
-      <label className="bx-checkbox">
-        <input
-          type="checkbox"
-          name="enable_scoring"
-          checked={settings.enable_scoring}
-          onChange={(e) => onUpdateField("enable_scoring", e.target.checked)}
-        />
-        <span>{intl.formatMessage(studioMessages.enableScoring)}</span>
-      </label>
+      <Form.Checkbox
+        className="bx-checkbox"
+        name="enable_scoring"
+        checked={settings.enable_scoring}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField("enable_scoring", e.target.checked)}
+      >
+        {intl.formatMessage(studioMessages.enableScoring)}
+      </Form.Checkbox>
 
       <div className={`bx-grade-range${settings.enable_scoring ? "" : " is-hidden"}`} data-role="grade-range-section">
         <h3 className="bx-section-title bx-grade-range__title">
@@ -96,49 +94,48 @@ const SettingsStep: React.FC<SettingsStepProps> = ({
         {intl.formatMessage(studioMessages.backgroundImageHelp)}
       </p>
 
-      <label className="bx-field">
-        <div className="bx-field__label">
+      <Form.Group className="bx-field">
+        <Form.Label className="bx-field__label">
           {intl.formatMessage(studioMessages.imageUrl)}
-        </div>
-        <input
+        </Form.Label>
+        <Form.Control
           type="text"
           name="background_image_url"
           className={`bx-input${validation.settingsFieldErrors.background_image_url ? " is-error" : ""}`}
           placeholder={intl.formatMessage(studioMessages.urlPlaceholder)}
           value={settings.background_image_url}
-          onChange={(e) => onUpdateField("background_image_url", e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField("background_image_url", e.target.value)}
         />
         {validation.settingsFieldErrors.background_image_url && (
           <div className="bx-field-error">{validation.settingsFieldErrors.background_image_url}</div>
         )}
-      </label>
+      </Form.Group>
 
-      <div className="bx-field">
-        <div className="bx-field__label">
+      <Form.Group className="bx-field">
+        <Form.Label className="bx-field__label">
           {intl.formatMessage(studioMessages.altText)}
-        </div>
-        <label className="bx-checkbox bx-checkbox--nested">
-          <input
-            type="checkbox"
-            name="background_image_is_decorative"
-            checked={settings.background_image_is_decorative}
-            onChange={(e) => onUpdateField("background_image_is_decorative", e.target.checked)}
-          />
-          <span>{intl.formatMessage(studioMessages.decorativeImage)}</span>
-        </label>
-        <input
+        </Form.Label>
+        <Form.Checkbox
+          className="bx-checkbox bx-checkbox--nested"
+          name="background_image_is_decorative"
+          checked={settings.background_image_is_decorative}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField("background_image_is_decorative", e.target.checked)}
+        >
+          {intl.formatMessage(studioMessages.decorativeImage)}
+        </Form.Checkbox>
+        <Form.Control
           type="text"
           name="background_image_alt_text"
           className={`bx-input${validation.settingsFieldErrors.background_image_alt_text ? " is-error" : ""}`}
           placeholder={intl.formatMessage(studioMessages.altText)}
           value={settings.background_image_alt_text}
           disabled={settings.background_image_is_decorative}
-          onChange={(e) => onUpdateField("background_image_alt_text", e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField("background_image_alt_text", e.target.value)}
         />
         {validation.settingsFieldErrors.background_image_alt_text && (
           <div className="bx-field-error">{validation.settingsFieldErrors.background_image_alt_text}</div>
         )}
-      </div>
+      </Form.Group>
     </div>
   );
 };

@@ -1,4 +1,6 @@
 import React from "react";
+import Button from "@openedx/paragon/dist/Button";
+import Form from "@openedx/paragon/dist/Form";
 import { useIntl } from "react-intl";
 import { studioMessages } from "../../messages";
 import { DraftNode, ValidationState } from "../reducer";
@@ -74,27 +76,29 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
         )}
       </div>
 
-      <label className="bx-field">
-        <div className="bx-field__label">
+      <Form.Group className="bx-field">
+        <Form.Label className="bx-field__label">
           {intl.formatMessage(studioMessages.content)}
-        </div>
-        <textarea
+        </Form.Label>
+        <Form.Control
+          as="textarea"
           className="bx-textarea"
           data-role="node-content"
           value={node.content}
-          onChange={(e) => onUpdateField(node.id, "content", e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdateField(node.id, "content", e.target.value)}
         />
-      </label>
+      </Form.Group>
 
-      <label className="bx-field">
-        <div className="bx-field__label">
+      <Form.Group className="bx-field">
+        <Form.Label className="bx-field__label">
           {intl.formatMessage(studioMessages.media)}
-        </div>
-        <select
+        </Form.Label>
+        <Form.Control
+          as="select"
           className="bx-select"
           data-role="media-type"
           value={mediaType}
-          onChange={(e) => onSetMediaType(node.id, e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onSetMediaType(node.id, e.target.value)}
         >
           <option value="">
             {intl.formatMessage(studioMessages.mediaNone)}
@@ -108,141 +112,139 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
           <option value="audio">
             {intl.formatMessage(studioMessages.mediaAudio)}
           </option>
-        </select>
-      </label>
+        </Form.Control>
+      </Form.Group>
 
       {/* Image URL fields — always visible, not gated by media type (bug fix) */}
       <div data-role="image-url-fields">
-        <label className="bx-field">
-          <div className="bx-field__label">
+        <Form.Group className="bx-field">
+          <Form.Label className="bx-field__label">
             {intl.formatMessage(studioMessages.leftImageUrl)}
-          </div>
-          <input
+          </Form.Label>
+          <Form.Control
             type="text"
             className={`bx-input${leftImageUrlError ? " is-error" : ""}`}
             data-role="left-image-url"
             placeholder={intl.formatMessage(studioMessages.urlPlaceholder)}
             value={node.left_image_url}
-            onChange={(e) => onUpdateField(node.id, "left_image_url", e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField(node.id, "left_image_url", e.target.value)}
           />
           {leftImageUrlError && <div className="bx-field-error">{leftImageUrlError}</div>}
-        </label>
-        <label className="bx-field">
-          <div className="bx-field__label">
+        </Form.Group>
+        <Form.Group className="bx-field">
+          <Form.Label className="bx-field__label">
             {intl.formatMessage(studioMessages.leftImageAltText)}
-          </div>
-          <input
+          </Form.Label>
+          <Form.Control
             type="text"
             className="bx-input"
             data-role="left-image-alt"
             placeholder={intl.formatMessage(studioMessages.altTextPlaceholder)}
             value={node.left_image_alt_text}
-            onChange={(e) => onUpdateField(node.id, "left_image_alt_text", e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField(node.id, "left_image_alt_text", e.target.value)}
           />
-        </label>
-        <label className="bx-field">
-          <div className="bx-field__label">
+        </Form.Group>
+        <Form.Group className="bx-field">
+          <Form.Label className="bx-field__label">
             {intl.formatMessage(studioMessages.rightImageUrl)}
-          </div>
-          <input
+          </Form.Label>
+          <Form.Control
             type="text"
             className="bx-input"
             data-role="right-image-url"
             placeholder={intl.formatMessage(studioMessages.urlPlaceholder)}
             value={node.right_image_url}
-            onChange={(e) => onUpdateField(node.id, "right_image_url", e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField(node.id, "right_image_url", e.target.value)}
           />
-        </label>
-        <label className="bx-field">
-          <div className="bx-field__label">
+        </Form.Group>
+        <Form.Group className="bx-field">
+          <Form.Label className="bx-field__label">
             {intl.formatMessage(studioMessages.rightImageAltText)}
-          </div>
-          <input
+          </Form.Label>
+          <Form.Control
             type="text"
             className="bx-input"
             data-role="right-image-alt"
             placeholder={intl.formatMessage(studioMessages.altTextPlaceholder)}
             value={node.right_image_alt_text}
-            onChange={(e) => onUpdateField(node.id, "right_image_alt_text", e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField(node.id, "right_image_alt_text", e.target.value)}
           />
-        </label>
+        </Form.Group>
       </div>
 
-      <label className={`bx-field${showMediaUrl ? "" : " is-hidden"}`} data-role="media-url-field">
-        <div className="bx-field__label">
+      <Form.Group className={`bx-field${showMediaUrl ? "" : " is-hidden"}`} data-role="media-url-field">
+        <Form.Label className="bx-field__label">
           {intl.formatMessage(studioMessages.url)}
-        </div>
-        <input
+        </Form.Label>
+        <Form.Control
           type="text"
           className="bx-input"
           data-role="media-url"
           placeholder={intl.formatMessage(studioMessages.urlPlaceholder)}
           value={node.media.url}
-          onChange={(e) => onUpdateField(node.id, "media", { ...node.media, url: e.target.value })}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField(node.id, "media", { ...node.media, url: e.target.value })}
         />
         <div className="bx-help">
           {intl.formatMessage(studioMessages.mediaUrlHelp)}
         </div>
-      </label>
+      </Form.Group>
 
-      <label className={`bx-field${showTranscript ? "" : " is-hidden"}`} data-role="transcript-url-field">
-        <div className="bx-field__label">
+      <Form.Group className={`bx-field${showTranscript ? "" : " is-hidden"}`} data-role="transcript-url-field">
+        <Form.Label className="bx-field__label">
           {intl.formatMessage(studioMessages.transcriptUrl)}
-        </div>
-        <input
+        </Form.Label>
+        <Form.Control
           type="text"
           className="bx-input"
           data-role="transcript-url"
           placeholder="https://..."
           value={node.transcript_url}
-          onChange={(e) => onUpdateField(node.id, "transcript_url", e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField(node.id, "transcript_url", e.target.value)}
         />
-      </label>
+      </Form.Group>
 
       <div className={`overlay-text-control${showOverlay ? "" : " is-hidden"}`} data-role="overlay-text-control">
-        <label className="overlay-text-toggle">
-          <input
-            type="checkbox"
-            className="overlay-text-checkbox"
-            data-role="overlay-text"
-            checked={node.overlay_text}
-            onChange={(e) => onUpdateField(node.id, "overlay_text", e.target.checked)}
-          />
+        <Form.Checkbox
+          className="overlay-text-toggle overlay-text-checkbox"
+          data-role="overlay-text"
+          checked={node.overlay_text}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField(node.id, "overlay_text", e.target.checked)}
+        >
           {intl.formatMessage(studioMessages.overlayTextOnImage)}
-        </label>
+        </Form.Checkbox>
         <p className="overlay-text-help">
           {intl.formatMessage(studioMessages.overlayTextHelp)}
         </p>
       </div>
 
-      <label className="bx-checkbox">
-        <input
-          type="checkbox"
-          data-role="no-branches"
-          checked={node.no_branches}
-          disabled={hasChoices}
-          onChange={(e) => {
-            onUpdateField(node.id, "no_branches", e.target.checked);
-            if (e.target.checked) {
-              // Clear choices when no_branches is checked
-              onUpdateField(node.id, "choices", []);
-            }
-          }}
-        />
-        <span>{intl.formatMessage(studioMessages.noBranches)}</span>
-      </label>
+      <Form.Checkbox
+        className="bx-checkbox"
+        data-role="no-branches"
+        checked={node.no_branches}
+        disabled={hasChoices}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+          onUpdateField(node.id, "no_branches", e.target.checked);
+          if (e.target.checked) {
+            // Clear choices when no_branches is checked
+            onUpdateField(node.id, "choices", []);
+          }
+        }}
+      >
+        {intl.formatMessage(studioMessages.noBranches)}
+      </Form.Checkbox>
 
-      <label className="bx-field">
-        <div className="bx-field__label">
+      <Form.Group className="bx-field">
+        <Form.Label className="bx-field__label">
           {intl.formatMessage(studioMessages.hint)}
-        </div>
-        <textarea
+        </Form.Label>
+        <Form.Control
+          as="textarea"
           className="bx-textarea"
           data-role="node-hint"
           value={node.hint}
-          onChange={(e) => onUpdateField(node.id, "hint", e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdateField(node.id, "hint", e.target.value)}
         />
-      </label>
+      </Form.Group>
 
       <div className={`bx-choices${noBranches ? " is-hidden" : ""}`} data-role="choices-section">
         <h3 className="bx-section-title">
@@ -265,14 +267,15 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
             />
           ))}
         </div>
-        <button
+        <Button
           type="button"
+          variant="outline-primary"
           className="bx-btn bx-btn--secondary"
           data-role="add-choice"
           onClick={() => onAddChoice(node.id)}
         >
           {intl.formatMessage(studioMessages.addChoice)}
-        </button>
+        </Button>
       </div>
     </div>
   );

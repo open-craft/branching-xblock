@@ -5,6 +5,7 @@ import uuid
 from collections import deque
 from typing import Any, Optional
 
+from django.conf import settings
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
 from xblock.fields import Boolean, Dict, Integer, List, Scope, String
@@ -715,6 +716,20 @@ class BranchingXBlock(XBlock):
         path = os.path.join('static', path)
         return resource_loader.load_unicode(path)
 
+    def _local_resource_absolute_url(self, path: str) -> str:
+        """
+        Return an absolute resource URL for styles loaded by the React runtime.
+        """
+        root_url = getattr(settings, "LMS_ROOT_URL", "") or ""
+        return root_url + self.runtime.local_resource_url(self, path)
+
+    def _mfe_config_api_url(self) -> str:
+        """
+        Return the platform MFE config endpoint used to discover Paragon theme CSS.
+        """
+        root_url = getattr(settings, "LMS_ROOT_URL", "") or ""
+        return f"{root_url}/api/mfe_config/v1?mfe=learning" if root_url else ""
+
     def student_view(self, context: Optional[dict[str, Any]] = None) -> Fragment:
         """
         Create primary view of the BranchingXBlock, shown to students when viewing courses.
@@ -740,7 +755,6 @@ class BranchingXBlock(XBlock):
         """
         self._normalize_scenario_nodes()
         frag = Fragment('<div data-react-root="true"></div>')
-        frag.add_css(self.resource_string("css/studio_editor.css"))
         frag.add_javascript_url(self.runtime.local_resource_url(self, "static/bundles/studio.js"))
 
         authoring_help_html = sanitize_html(
@@ -770,6 +784,10 @@ class BranchingXBlock(XBlock):
                 "authoring_help_html": authoring_help_html,
                 "import_template": {"nodes": list(IMPORT_TEMPLATE_NODES)},
             },
+            "mfe_config_api": self._mfe_config_api_url(),
+            "style_urls": [
+                self._local_resource_absolute_url("static/css/studio_editor.css"),
+            ],
         })
         return frag
 

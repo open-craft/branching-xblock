@@ -2,13 +2,16 @@ module.exports = {
   testEnvironment: "jsdom",
   transform: {
     "^.+\\.tsx?$": "ts-jest",
-    "^.+\\.jsx?$": "babel-jest",
+    "node_modules/.+\\.jsx?$": ["ts-jest", {
+      tsconfig: { allowJs: true },
+      diagnostics: false,
+    }],
   },
   transformIgnorePatterns: [
-    "node_modules/(?!@openedx/paragon)",
+    "node_modules/(?!(@openedx/paragon|@openedx/paragon/icons)/)",
   ],
   moduleNameMapper: {
-    "\\.css$": "identity-obj-proxy",
+    "\\.(css|scss)$": "identity-obj-proxy",
   },
   setupFilesAfterEnv: ["./src/test/setup.ts"],
   collectCoverageFrom: [

@@ -1,4 +1,5 @@
 import React from "react";
+import Button from "@openedx/paragon/dist/Button";
 import { useIntl } from "react-intl";
 import { studioMessages } from "../../messages";
 import { DraftNode, ValidationState } from "../reducer";
@@ -50,9 +51,9 @@ const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
 
   return (
     <div className="bx-nodes-sidebar">
-      <button type="button" className="bx-btn bx-btn--primary" data-role="add-node" disabled={atLimit} onClick={onAddNode}>
+      <Button type="button" variant="primary" className="bx-btn bx-btn--primary" data-role="add-node" disabled={atLimit} onClick={onAddNode}>
         {intl.formatMessage(studioMessages.addNode)}
-      </button>
+      </Button>
       <div className="bx-node-limit">
         {intl.formatMessage(studioMessages.maxNodes)}
       </div>

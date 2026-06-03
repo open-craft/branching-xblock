@@ -1,4 +1,5 @@
 import React from "react";
+import Button from "@openedx/paragon/dist/Button";
 import { useIntl } from "react-intl";
 import { studioMessages } from "../../messages";
 import { DraftNode } from "../reducer";
@@ -31,8 +32,9 @@ const NodeListItem: React.FC<NodeListItemProps> = ({
       className={`bx-node-list-item${isSelected ? " is-selected" : ""}${node.pending_delete ? " is-pending-delete" : ""}${hasErrors ? " has-errors" : ""}`}
       data-node-id={node.id}
     >
-      <button
+      <Button
         type="button"
+        variant="link"
         className="bx-node-list-item__select"
         data-role="select-node"
         data-node-id={node.id}
@@ -45,12 +47,13 @@ const NodeListItem: React.FC<NodeListItemProps> = ({
             {intl.formatMessage(studioMessages.unlinkedNode)}
           </span>
         )}
-      </button>
+      </Button>
       {hasErrors && (
         <span className="bx-node-list-item__error" aria-label={intl.formatMessage(studioMessages.nodeHasErrors)}>!</span>
       )}
-      <button
+      <Button
         type="button"
+        variant="link"
         className={`bx-node-list-item__delete${node.pending_delete ? " is-restore" : ""}`}
         data-role="toggle-delete-node"
         data-node-id={node.id}
@@ -65,7 +68,7 @@ const NodeListItem: React.FC<NodeListItemProps> = ({
         ) : (
           <span className="fa fa-trash-o" aria-hidden="true" />
         )}
-      </button>
+      </Button>
     </div>
   );
 };

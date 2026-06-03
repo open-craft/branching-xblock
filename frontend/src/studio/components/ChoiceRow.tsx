@@ -1,4 +1,6 @@
 import React from "react";
+import Button from "@openedx/paragon/dist/Button";
+import Form from "@openedx/paragon/dist/Form";
 import { useIntl } from "react-intl";
 import { studioMessages } from "../../messages";
 import { DraftChoice } from "../reducer";
@@ -27,21 +29,21 @@ const ChoiceRow: React.FC<ChoiceRowProps> = ({
   return (
     <div className="choice-row" data-choice-idx={index}>
       <div className="choice-col choice-col--text">
-        <label className="choice-col__label">
+        <Form.Label className="choice-col__label">
           {intl.formatMessage(studioMessages.choiceText)}
-        </label>
-        <input
+        </Form.Label>
+        <Form.Control
           className="choice-text"
           value={choice.text}
           placeholder={intl.formatMessage(studioMessages.choiceTextPlaceholder)}
-          onChange={(e) => onChange(index, "text", e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, "text", e.target.value)}
         />
       </div>
       <div className="choice-col choice-col--score">
-        <label className="choice-col__label">
+        <Form.Label className="choice-col__label">
           {intl.formatMessage(studioMessages.choiceScore)}
-        </label>
-        <input
+        </Form.Label>
+        <Form.Control
           className={`choice-score${scoreError ? " is-error" : ""}`}
           type="number"
           min="0"
@@ -50,18 +52,19 @@ const ChoiceRow: React.FC<ChoiceRowProps> = ({
           value={choice.score}
           placeholder="0"
           aria-label={intl.formatMessage(studioMessages.choiceScoreAriaLabel)}
-          onChange={(e) => onChange(index, "score", e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(index, "score", e.target.value)}
         />
         {scoreError && <div className="choice-field-error">{scoreError}</div>}
       </div>
       <div className="choice-col choice-col--target">
-        <label className="choice-col__label">
+        <Form.Label className="choice-col__label">
           {intl.formatMessage(studioMessages.choiceDestination)}
-        </label>
-        <select
+        </Form.Label>
+        <Form.Control
+          as="select"
           className={`choice-target${destinationError ? " is-error" : ""}`}
           value={choice.target_node_id}
-          onChange={(e) => onChange(index, "target_node_id", e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange(index, "target_node_id", e.target.value)}
         >
           <option value="">
             {intl.formatMessage(studioMessages.selectNode)}
@@ -71,17 +74,18 @@ const ChoiceRow: React.FC<ChoiceRowProps> = ({
               {opt.label}
             </option>
           ))}
-        </select>
+        </Form.Control>
         {destinationError && <div className="choice-field-error">{destinationError}</div>}
       </div>
-      <button
+      <Button
         type="button"
+        variant="link"
         className="btn-delete-choice"
         aria-label={intl.formatMessage(studioMessages.deleteChoice)}
         onClick={() => onDelete(index)}
       >
         ×
-      </button>
+      </Button>
     </div>
   );
 };

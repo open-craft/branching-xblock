@@ -56,6 +56,8 @@ export interface StudentPayload {
   view: "student";
   handler_urls: StudentHandlerUrls;
   initial_state: StudentInitialState;
+  mfe_config_api?: string;
+  style_urls?: string[];
 }
 
 // ---- Studio view ----
@@ -90,6 +92,8 @@ export interface StudioPayload {
   handler_urls: StudioHandlerUrls;
   initial_state: StudioInitialState;
   meta: StudioMeta;
+  mfe_config_api?: string;
+  style_urls?: string[];
 }
 
 // ---- Validation (from studio_submit error response) ----

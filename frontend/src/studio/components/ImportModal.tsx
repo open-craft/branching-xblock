@@ -1,4 +1,7 @@
 import React from "react";
+import Button from "@openedx/paragon/dist/Button";
+import Form from "@openedx/paragon/dist/Form";
+import Spinner from "@openedx/paragon/dist/Spinner";
 import { useIntl } from "react-intl";
 import { studioMessages } from "../../messages";
 
@@ -52,9 +55,9 @@ const ImportModal: React.FC<ImportModalProps> = ({
               {intl.formatMessage(studioMessages.importRefreshMessage)}
             </p>
             <div className="bx-modal-actions">
-              <button type="button" className="bx-btn bx-btn--success" data-role="refresh-page" onClick={onRefresh}>
+              <Button type="button" variant="success" className="bx-btn bx-btn--success" data-role="refresh-page" onClick={onRefresh}>
                 {intl.formatMessage(studioMessages.refreshPage)}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -75,15 +78,15 @@ const ImportModal: React.FC<ImportModalProps> = ({
         <p className="bx-modal-body">
           {intl.formatMessage(studioMessages.importWarning)}
         </p>
-        <div className="bx-modal-field">
-          <label className="bx-modal-label">
+        <Form.Group className="bx-modal-field">
+          <Form.Label className="bx-modal-label">
             {intl.formatMessage(studioMessages.uploadJsonFile)}
-          </label>
-          <input
+          </Form.Label>
+          <Form.Control
             type="file"
             accept=".json"
             data-role="import-file-input"
-            onChange={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
               const file = e.target.files?.[0];
               if (file) {
                 const reader = new FileReader();
@@ -99,14 +102,15 @@ const ImportModal: React.FC<ImportModalProps> = ({
               }
             }}
           />
-        </div>
+        </Form.Group>
         {error && <div className="bx-modal-error">{error}</div>}
         <div className="bx-modal-actions">
-          <button type="button" className="bx-btn bx-btn--text" data-role="import-cancel" onClick={onClose}>
+          <Button type="button" variant="link" className="bx-btn bx-btn--text" data-role="import-cancel" onClick={onClose}>
             {intl.formatMessage(studioMessages.cancel)}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="primary"
             className="bx-btn bx-btn--primary"
             data-role="import-confirm"
             disabled={!hasFile || isLoading}
@@ -115,12 +119,12 @@ const ImportModal: React.FC<ImportModalProps> = ({
             {isLoading ? (
               <>
                 {intl.formatMessage(studioMessages.importNodes)}{" "}
-                <span className="bx-spinner" />
+                <Spinner animation="border" size="sm" className="bx-spinner" screenReaderText="" />
               </>
             ) : (
               intl.formatMessage(studioMessages.importNodes)
             )}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
