@@ -945,7 +945,7 @@ def test_studio_view_passes_authoring_help_html_in_init_data(block):
         block.studio_view({})
 
     assert calls["name"] == "BranchingStudioEditor"
-    assert calls["init_data"]["authoring_help_html"] == "<p>Help</p>"
+    assert calls["init_data"]["meta"]["authoring_help_html"] == "<p>Help</p>"
 
 
 def test_studio_view_includes_enable_reset_activity_in_init_data(block):
@@ -969,7 +969,7 @@ def test_studio_view_includes_enable_reset_activity_in_init_data(block):
         block.studio_view({})
 
     assert calls["name"] == "BranchingStudioEditor"
-    assert calls["init_data"]["enable_reset_activity"] is True
+    assert calls["init_data"]["initial_state"]["enable_reset_activity"] is True
 
 
 def test_studio_view_includes_grade_ranges_in_init_data(block):
@@ -996,7 +996,7 @@ def test_studio_view_includes_grade_ranges_in_init_data(block):
         block.studio_view({})
 
     assert calls["name"] == "BranchingStudioEditor"
-    assert calls["init_data"]["grade_ranges"] == block.grade_ranges
+    assert calls["init_data"]["initial_state"]["grade_ranges"] == block.grade_ranges
 
 
 # ------------------------------------------------------------------

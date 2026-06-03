@@ -719,11 +719,19 @@ class BranchingXBlock(XBlock):
         """
         Create primary view of the BranchingXBlock, shown to students when viewing courses.
         """
-        html = self.resource_string("html/branching_xblock.html")
-        frag = Fragment(html)
+        frag = Fragment('<div data-react-root="true"></div>')
         frag.add_css(self.resource_string("css/branching_xblock.css"))
-        frag.add_javascript(self.resource_string("js/src/branching_xblock.js"))
-        frag.initialize_js('BranchingXBlock')
+        frag.add_javascript_url(self.runtime.local_resource_url(self, "static/bundles/student.js"))
+        frag.initialize_js('BranchingXBlock', {
+            "view": "student",
+            "handler_urls": {
+                "get_current_state": self.runtime.handler_url(self, "get_current_state"),
+                "select_choice": self.runtime.handler_url(self, "select_choice"),
+                "undo_choice": self.runtime.handler_url(self, "undo_choice"),
+                "reset_activity": self.runtime.handler_url(self, "reset_activity"),
+            },
+            "initial_state": self._get_state(),
+        })
         return frag
 
     def studio_view(self, context: Optional[dict[str, Any]] = None) -> Fragment:
@@ -731,50 +739,38 @@ class BranchingXBlock(XBlock):
         Studio editor view shown to course authors.
         """
         self._normalize_scenario_nodes()
-        html = self.resource_string("html/branching_xblock_edit.html")
-        frag = Fragment(html)
-
-        # Add JS/CSS for Studio
-        frag.add_javascript_url(
-            self.runtime.local_resource_url(self, 'public/js/vendor/handlebars.js')
-        )
-        for tpl in [
-            'settings-step',
-            'nodes-step',
-            'node-list-item',
-            'node-editor',
-            'choice-row',
-            'import-modal',
-        ]:
-            html = resource_loader.load_unicode(f'static/handlebars/{tpl}.handlebars')
-            frag.add_javascript(f"""
-                (function() {{
-                    var s = document.createElement('script');
-                    s.type = 'text/x-handlebars-template';
-                    s.id = '{tpl}-tpl';
-                    s.innerHTML = {json.dumps(html)};
-                    document.body.appendChild(s);
-                }})();
-            """)
-        frag.add_javascript(self.resource_string("js/src/studio_editor.js"))
+        frag = Fragment('<div data-react-root="true"></div>')
         frag.add_css(self.resource_string("css/studio_editor.css"))
+        frag.add_javascript_url(self.runtime.local_resource_url(self, "static/bundles/studio.js"))
 
         authoring_help_html = sanitize_html(
             get_site_configuration_value("branching_xblock", "AUTHORING_HELP_HTML") or ""
         )
-        init_data = {
-            "nodes":       self.scenario_data.get("nodes", []),
-            "enable_undo": bool(self.enable_undo),
-            "enable_scoring": bool(self.enable_scoring),
-            "enable_reset_activity": bool(self.enable_reset_activity),
-            "max_score":   self.max_score,
-            "grade_ranges": self.grade_ranges,
-            "display_name": self.display_name,
-            "authoring_help_html": authoring_help_html,
-            "import_template": {"nodes": list(IMPORT_TEMPLATE_NODES)},
-        }
-        # Initialize JS
-        frag.initialize_js('BranchingStudioEditor', init_data)
+        frag.initialize_js('BranchingStudioEditor', {
+            "view": "studio",
+            "handler_urls": {
+                "studio_submit": self.runtime.handler_url(self, "studio_submit"),
+                "export_nodes": self.runtime.handler_url(self, "export_nodes"),
+                "import_nodes": self.runtime.handler_url(self, "import_nodes"),
+                "get_current_state": self.runtime.handler_url(self, "get_current_state"),
+            },
+            "initial_state": {
+                "nodes": self.scenario_data.get("nodes", {}),
+                "enable_undo": bool(self.enable_undo),
+                "enable_scoring": bool(self.enable_scoring),
+                "enable_reset_activity": bool(self.enable_reset_activity),
+                "max_score": self.max_score,
+                "grade_ranges": self.grade_ranges,
+                "display_name": self.display_name,
+                "background_image_url": self.background_image_url,
+                "background_image_alt_text": self.background_image_alt_text,
+                "background_image_is_decorative": bool(self.background_image_is_decorative),
+            },
+            "meta": {
+                "authoring_help_html": authoring_help_html,
+                "import_template": {"nodes": list(IMPORT_TEMPLATE_NODES)},
+            },
+        })
         return frag
 
     def _get_state(self) -> dict[str, Any]:
