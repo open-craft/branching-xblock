@@ -3,6 +3,7 @@ import { useIntl } from "react-intl";
 import { studentMessages } from "../../messages";
 import { Node } from "../../types";
 import { normalizeEmbedUrl, isMediaFile } from "../mediaUtils";
+import { notifyHostRemeasure } from "../../notifyHostRemeasure";
 
 interface MediaDisplayProps {
   node: Node;
@@ -49,6 +50,7 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({
             className="bx-image-composite__bg"
             src={background_image_url}
             alt={background_image_is_decorative ? "" : background_image_alt_text}
+            onLoad={notifyHostRemeasure}
             {...(background_image_is_decorative ? { "aria-hidden": true } : {})}
           />
         )}
@@ -59,6 +61,7 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({
                 className="bx-image-composite__img bx-image-composite__img--left"
                 src={node.left_image_url}
                 alt={node.left_image_alt_text || ""}
+                onLoad={notifyHostRemeasure}
               />
             )}
             {node.right_image_url && (
@@ -66,6 +69,7 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({
                 className="bx-image-composite__img bx-image-composite__img--right"
                 src={node.right_image_url}
                 alt={node.right_image_alt_text || ""}
+                onLoad={notifyHostRemeasure}
               />
             )}
           </div>
@@ -89,7 +93,7 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({
       return null;
     }
     if (isMediaFile(mediaUrl)) {
-      return <video src={mediaUrl} controls />;
+      return <video src={mediaUrl} controls onLoadedMetadata={notifyHostRemeasure} />;
     }
     const embedUrl = normalizeEmbedUrl(mediaUrl) || mediaUrl;
     return (

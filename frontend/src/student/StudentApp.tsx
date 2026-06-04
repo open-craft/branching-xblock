@@ -141,16 +141,18 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
           <ChoiceForm choices={choices} nodeId={nodeId} onSubmit={handleSelectChoice} />
         )}
 
-        <ActionButtons
-          enableUndo={state.enable_undo}
-          canUndo={canUndo}
-          showReset={showReset}
-          showReport={showReportButton}
-          hasChoices={hasChoices}
-          onUndo={handleUndo}
-          onReset={handleReset}
-          onShowReport={handleShowReport}
-        />
+        {!showReport && (
+          <ActionButtons
+            enableUndo={state.enable_undo}
+            canUndo={canUndo}
+            showReset={showReset}
+            showReport={showReportButton}
+            hasChoices={hasChoices}
+            onUndo={handleUndo}
+            onReset={handleReset}
+            onShowReport={handleShowReport}
+          />
+        )}
 
         {showScore && (
           <div className="score-display" data-role="score">
