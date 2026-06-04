@@ -15,6 +15,7 @@ interface ActionButtonsProps {
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({
+  enableUndo,
   canUndo,
   showReset,
   showReport,
@@ -24,7 +25,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   onShowReport,
 }) => {
   const intl = useIntl();
-  const showActions = hasChoices || canUndo || showReset || showReport;
+  const showActions = hasChoices || enableUndo || showReset || showReport;
 
   return (
     <div className="choice-actions" style={{ display: showActions ? "flex" : "none" }}>

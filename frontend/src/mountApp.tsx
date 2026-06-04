@@ -85,9 +85,6 @@ function appendStylesheet(url: string): void {
 async function loadStyles(data: unknown): Promise<void> {
   const payload = (data || {}) as StylePayload;
   const styleUrls = payload.style_urls || [];
-  if (!payload.mfe_config_api && styleUrls.length === 0) {
-    return;
-  }
 
   const paragonStyleUrls = await getParagonStyles(payload.mfe_config_api);
 

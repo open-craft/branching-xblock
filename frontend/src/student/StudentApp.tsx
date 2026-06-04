@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { useIntl } from "react-intl";
 import { studentMessages } from "../messages";
 import { StudentInitialState, StudentHandlerUrls } from "../apiTypes";
@@ -26,24 +26,11 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
 
   const replaceState = useCallback((newState: StudentInitialState) => {
     setState(newState);
+    setLoading(false);
     setIsReportVisible(false);
     setError(null);
     setStatusMessage(intl.formatMessage(studentMessages.contentUpdated));
   }, [intl]);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    api.fetchState(handlerUrls.get_current_state)
-      .then((data) => {
-        setState(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message || intl.formatMessage(studentMessages.errorLoadingScenario));
-        setLoading(false);
-      });
-  }, [handlerUrls.get_current_state, intl]);
 
   const handleSelectChoice = useCallback(
     (choiceIndex: number) => {

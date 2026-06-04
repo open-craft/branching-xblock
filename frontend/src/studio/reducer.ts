@@ -139,6 +139,17 @@ export type StudioAction =
   | { type: "SET_IMPORT_FILE"; fileContent: unknown }
   | { type: "HYDRATE"; state: { nodes: Record<string, unknown>; display_name: string; enable_undo: boolean; enable_scoring: boolean; enable_reset_activity: boolean; background_image_url: string; background_image_alt_text: string; background_image_is_decorative: boolean; grade_ranges: GradeRange[] } };
 
+// ---- Helpers ----
+
+export function extractValidationKeys(fieldErrors: Record<string, unknown>) {
+  return {
+    nodeFieldErrors: (fieldErrors.node_input_errors || fieldErrors.node_field_errors || {}) as Record<string, Record<string, string | Record<string, string>>>,
+    nodeErrors: (fieldErrors.node_action_errors || fieldErrors.node_errors || {}) as Record<string, { title: string; detail: string }>,
+    settingsFieldErrors: (fieldErrors.settings_field_errors || {}) as Record<string, string>,
+    globalErrors: (Array.isArray(fieldErrors.global_errors) ? fieldErrors.global_errors : []) as string[],
+  };
+}
+
 // ---- Reducer ----
 
 export function studioReducer(state: StudioEditorState, action: StudioAction): StudioEditorState {
@@ -248,10 +259,7 @@ export function studioReducer(state: StudioEditorState, action: StudioAction): S
 
     case "APPLY_VALIDATION": {
       const fieldErrors = action.fieldErrors || {};
-      const nodeFieldErrors = (fieldErrors.node_input_errors || fieldErrors.node_field_errors || {}) as Record<string, Record<string, string | Record<string, string>>>;
-      const nodeErrors = (fieldErrors.node_action_errors || fieldErrors.node_errors || {}) as Record<string, { title: string; detail: string }>;
-      const settingsFieldErrors = (fieldErrors.settings_field_errors || {}) as Record<string, string>;
-      const globalErrors = (Array.isArray(fieldErrors.global_errors) ? fieldErrors.global_errors : []) as string[];
+      const { nodeFieldErrors, nodeErrors, settingsFieldErrors, globalErrors } = extractValidationKeys(fieldErrors);
 
       const validation: ValidationState = {
         settingsFieldErrors,

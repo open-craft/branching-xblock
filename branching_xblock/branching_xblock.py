@@ -324,9 +324,8 @@ class BranchingXBlock(XBlock):
         raw_score = choice.get("score")
 
         if raw_score is None:
-            if choice.get("score") != 0:
-                choice["score"] = 0
-                changed = True
+            choice["score"] = 0
+            changed = True
         elif isinstance(raw_score, str):
             stripped_score = raw_score.strip()
             if not stripped_score:
@@ -747,7 +746,7 @@ class BranchingXBlock(XBlock):
             "initial_state": self._get_state(),
             "mfe_config_api": self._mfe_config_api_url(),
             "style_urls": [
-                self._local_resource_absolute_url("static/css/branching_xblock.css"),
+                self.runtime.local_resource_url(self, "static/css/branching_xblock.css"),
             ],
         })
         return frag

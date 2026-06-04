@@ -7,10 +7,10 @@ import * as api from "./api";
 import {
   studioReducer,
   initialEditorState,
+  extractValidationKeys,
 } from "./reducer";
 import ActionBar from "./components/ActionBar";
 import SettingsStep from "./components/SettingsStep";
-import GradeRangeSlider from "./components/GradeRangeSlider";
 import NodesStep from "./components/NodesStep";
 import ImportModal from "./components/ImportModal";
 
@@ -79,8 +79,7 @@ const StudioApp: React.FC<StudioAppProps> = ({ handlerUrls, initial_state, meta,
   // Apply server validation and navigate to the errored step/node
   const applyValidationAndNavigate = useCallback((res: Record<string, unknown>) => {
     const fieldErrors = (res.field_errors || {}) as Record<string, unknown>;
-    const nodeFieldErrors = (fieldErrors.node_input_errors || fieldErrors.node_field_errors || {}) as Record<string, unknown>;
-    const nodeErrors = (fieldErrors.node_action_errors || fieldErrors.node_errors || {}) as Record<string, unknown>;
+    const { nodeFieldErrors, nodeErrors, settingsFieldErrors } = extractValidationKeys(fieldErrors);
     const erroredNodeIds = new Set<string>([
       ...Object.keys(nodeFieldErrors),
       ...Object.keys(nodeErrors),
@@ -93,8 +92,7 @@ const StudioApp: React.FC<StudioAppProps> = ({ handlerUrls, initial_state, meta,
     }
 
     // Navigate to the errored step
-    const settingsErrors = fieldErrors.settings_field_errors as Record<string, unknown> | undefined;
-    if (settingsErrors && Object.keys(settingsErrors).length > 0) {
+    if (Object.keys(settingsFieldErrors).length > 0) {
       dispatch({ type: "SET_STEP", step: "settings" });
     } else {
       dispatch({ type: "SET_STEP", step: "nodes" });
@@ -149,10 +147,11 @@ const StudioApp: React.FC<StudioAppProps> = ({ handlerUrls, initial_state, meta,
       })),
     };
 
+    runtime.notify?.("save", { state: "start" });
+
     try {
       const res = await api.saveScenario(handlerUrls.studio_submit, payload);
       if (res.result === "success") {
-        runtime.notify?.("save", { state: "start" });
         runtime.notify?.("save", { state: "end" });
         runtime.notify?.("cancel", {});
       } else {
@@ -262,17 +261,10 @@ const StudioApp: React.FC<StudioAppProps> = ({ handlerUrls, initial_state, meta,
             onUpdateField={(field, value) =>
               dispatch({ type: "UPDATE_SETTINGS_FIELD", field, value })
             }
+            onChangeGradeRanges={(ranges) =>
+              dispatch({ type: "UPDATE_SETTINGS_FIELD", field: "grade_ranges", value: ranges })
+            }
           />
-          {state.draftSettings.enable_scoring && (
-            <div style={{ maxWidth: 700, margin: "0 auto" }}>
-              <GradeRangeSlider
-                gradeRanges={state.draftSettings.grade_ranges}
-                onChange={(ranges) =>
-                  dispatch({ type: "UPDATE_SETTINGS_FIELD", field: "grade_ranges", value: ranges })
-                }
-              />
-            </div>
-          )}
         </div>
 
         {/* Nodes Step */}

@@ -2,14 +2,16 @@ import React from "react";
 import Form from "@openedx/paragon/dist/Form";
 import { useIntl } from "react-intl";
 import { studioMessages } from "../../messages";
-import { DraftSettings } from "../reducer";
-import { ValidationState } from "../reducer";
+import { DraftSettings, ValidationState } from "../reducer";
+import { GradeRange } from "../../types";
+import GradeRangeSlider from "./GradeRangeSlider";
 
 interface SettingsStepProps {
   settings: DraftSettings;
   validation: ValidationState;
   authoringHelpHtml: string;
   onUpdateField: (field: string, value: unknown) => void;
+  onChangeGradeRanges: (ranges: GradeRange[]) => void;
 }
 
 const SettingsStep: React.FC<SettingsStepProps> = ({
@@ -17,6 +19,7 @@ const SettingsStep: React.FC<SettingsStepProps> = ({
   validation,
   authoringHelpHtml,
   onUpdateField,
+  onChangeGradeRanges,
 }) => {
   const intl = useIntl();
 
@@ -81,7 +84,10 @@ const SettingsStep: React.FC<SettingsStepProps> = ({
         <p className="bx-help bx-grade-range__help">
           {intl.formatMessage(studioMessages.gradeRangeHelp)}
         </p>
-        <div className="bx-grade-range__slider" data-role="grade-range-slider" />
+        <GradeRangeSlider
+            gradeRanges={settings.grade_ranges}
+            onChange={onChangeGradeRanges}
+          />
         {validation.settingsFieldErrors.grade_ranges && (
           <div className="bx-field-error">{validation.settingsFieldErrors.grade_ranges}</div>
         )}
