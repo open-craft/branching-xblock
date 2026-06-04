@@ -1,5 +1,4 @@
 """Branching Scenario XBlock."""
-import json
 import os
 import uuid
 from collections import deque

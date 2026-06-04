@@ -9,7 +9,7 @@ These replace the _default_node() factory function as the canonical
 field definitions, though _default_node() remains in use for backward
 compatibility with the existing validation pipeline.
 """
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
 

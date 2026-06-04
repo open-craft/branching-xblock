@@ -22,6 +22,7 @@ def runtime():
     rt = TestRuntime()
     rt._services['field-data'] = DictFieldData({})
     rt.publish = lambda *args, **kwargs: None
+    rt.handler_url = lambda block, handler_name, *args, **kwargs: f"/handler/{handler_name}"
     return rt
 
 
