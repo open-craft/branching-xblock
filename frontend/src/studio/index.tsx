@@ -1,11 +1,11 @@
 import { makeXBlockInitializer, XBlockRuntime, XBlockElementLike } from "../mountApp";
-import { StudioPayload, StudioHandlerUrls } from "../apiTypes";
+import { StudioPayload, StudioHandlerUrls, StudioInitialState, StudioMeta } from "../apiTypes";
 import StudioApp from "./StudioApp";
 
 interface StudioAppProps {
   handlerUrls: StudioHandlerUrls;
-  initial_state: StudioPayload["initial_state"];
-  meta: StudioPayload["meta"];
+  initial_state: StudioInitialState;
+  meta: StudioMeta;
   runtime: XBlockRuntime;
 }
 

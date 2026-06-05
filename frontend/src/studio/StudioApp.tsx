@@ -1,7 +1,7 @@
 import React, { useReducer, useEffect, useCallback } from "react";
 import { useIntl } from "react-intl";
 import { studioMessages } from "../messages";
-import { StudioHandlerUrls, StudioPayload, XBlockRuntime } from "../apiTypes";
+import { StudioHandlerUrls, StudioInitialState, StudioMeta, XBlockRuntime } from "../apiTypes";
 import { SavePayload } from "./api";
 import * as api from "./api";
 import {
@@ -16,8 +16,8 @@ import ImportModal from "./components/ImportModal";
 
 interface StudioAppProps {
   handlerUrls: StudioHandlerUrls;
-  initial_state: StudioPayload["initial_state"];
-  meta: StudioPayload["meta"];
+  initial_state: StudioInitialState;
+  meta: StudioMeta;
   runtime: XBlockRuntime;
 }
 

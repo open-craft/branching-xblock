@@ -81,6 +81,11 @@ class BranchingXBlock(XBlock):
 
     """
 
+    # Allow the React bundles and CSS under static/ to be served via
+    # runtime.local_resource_url. XBlock core only serves files under
+    # `public_dir` (default "public"); the built frontend lives in static/.
+    public_dir = "static"
+
     display_name = String(
         default="Branching Scenario",
         scope=Scope.settings,
@@ -713,13 +718,6 @@ class BranchingXBlock(XBlock):
         """
         path = os.path.join('static', path)
         return resource_loader.load_unicode(path)
-
-    def _local_resource_absolute_url(self, path: str) -> str:
-        """
-        Return an absolute resource URL for styles loaded by the React runtime.
-        """
-        root_url = getattr(settings, "LMS_ROOT_URL", "") or ""
-        return root_url + self.runtime.local_resource_url(self, path)
 
     def _mfe_config_api_url(self) -> str:
         """
