@@ -1,0 +1,44 @@
+# Tool-version and task management for local development.
+#
+# Install mise (https://mise.jdx.dev), then:
+#   mise install        # install the pinned Python and Node versions
+#   mise run install    # install backend (Python) and frontend (Node) deps
+#   mise run build      # generate TS types from Pydantic models + build bundles
+#
+# The pinned versions mirror CI (Python 3.12) and frontend/.nvmrc (Node 18).
+
+[tools]
+python = "3.12"
+node = "18"
+
+[env]
+# Create/activate a project virtualenv so backend deps (incl. pydantic2ts,
+# needed by the frontend `generate-types` step) are isolated here.
+_.python.venv = { path = ".venv", create = true }
+
+[tasks.install]
+description = "Install all backend (Python) and frontend (Node) dependencies"
+depends = ["install:backend", "install:frontend"]
+
+[tasks."install:backend"]
+description = "Install Python dev requirements (includes pydantic-to-typescript)"
+run = "pip install -r requirements/dev.txt"
+
+[tasks."install:frontend"]
+description = "Install frontend (Node) dependencies"
+dir = "frontend"
+run = "npm ci"
+
+[tasks.build]
+description = "Generate TypeScript types from Pydantic models and build the React bundles"
+dir = "frontend"
+run = "npm run build"
+
+[tasks."test:frontend"]
+description = "Run frontend (Jest) unit tests"
+dir = "frontend"
+run = "npm test"
+
+[tasks."test:backend"]
+description = "Run Python tests across tox environments"
+run = "tox"

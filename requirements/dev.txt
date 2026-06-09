@@ -4,6 +4,10 @@
 #
 #    pip-compile --output-file=requirements/dev.txt requirements/dev.in
 #
+annotated-types==0.7.0
+    # via
+    #   -r requirements/quality.txt
+    #   pydantic
 appdirs==1.4.4
     # via
     #   -r requirements/quality.txt
@@ -237,6 +241,16 @@ polib==1.2.0
     #   edx-i18n-tools
 pycodestyle==2.13.0
     # via -r requirements/quality.txt
+pydantic==2.13.4
+    # via
+    #   -r requirements/quality.txt
+    #   pydantic-to-typescript
+pydantic-core==2.46.4
+    # via
+    #   -r requirements/quality.txt
+    #   pydantic
+pydantic-to-typescript==2.0.0
+    # via -r requirements/dev.in
 pydocstyle==6.3.0
     # via -r requirements/quality.txt
 pygments==2.19.1
@@ -360,9 +374,18 @@ types-python-dateutil==2.9.0.20241206
     # via
     #   -r requirements/quality.txt
     #   arrow
+typing-extensions==4.15.0
+    # via
+    #   -r requirements/quality.txt
+    #   pydantic
+    #   pydantic-core
+    #   typing-inspection
+typing-inspection==0.4.2
+    # via
+    #   -r requirements/quality.txt
+    #   pydantic
 urllib3==2.2.3
     # via
-    #   -c https://raw.githubusercontent.com/edx/edx-lint/master/edx_lint/files/common_constraints.txt
     #   -r requirements/quality.txt
     #   botocore
     #   requests
