@@ -93,10 +93,8 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   const media = node.media || { type: "", url: "" };
   const nodeId = node.id || "";
   const contentHtml = node.content || "";
-  const overlayEnabled = Boolean(node.overlay_text);
-  const hasImageComposite = Boolean(
-    state.background_image_url || node.left_image_url || node.right_image_url
-  );
+  const isCompositeImage = media.type === "image";
+  const overlayEnabled = Boolean(node.overlay_text) && isCompositeImage;
 
   const choices = node.choices || [];
   const isLeaf = choices.length === 0;
@@ -121,7 +119,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
 
         {!showReport && (
           <>
-            {overlayEnabled && hasImageComposite ? null : (
+            {overlayEnabled ? null : (
               <ContentDisplay contentHtml={contentHtml} />
             )}
             <MediaDisplay

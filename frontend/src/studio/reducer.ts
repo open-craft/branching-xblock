@@ -11,7 +11,7 @@ export interface DraftChoice {
 export interface DraftNode {
   id: string;
   content: string;
-  media: { type: string; url: string };
+  media: { type: string; url: string; alt: string };
   choices: DraftChoice[];
   no_branches: boolean;
   pending_delete: boolean;
@@ -102,6 +102,7 @@ export function buildDraftNode(raw: Record<string, unknown> | undefined): DraftN
     media: {
       type: (media.type as string) || "",
       url: (media.url as string) || "",
+      alt: (media.alt as string) || "",
     },
     choices,
     no_branches: Boolean(raw?.no_branches),
@@ -233,24 +234,31 @@ export function studioReducer(state: StudioEditorState, action: StudioAction): S
     }
 
     case "SET_MEDIA_TYPE": {
-      // Bug fix: never clear image URL fields when media type changes.
-      // Image URLs and media type are orthogonal in the data model.
+      // Clear the fields that do not apply to the newly selected type so stale
+      // data from a previous type is not persisted.
       const idx6 = state.draftNodes.findIndex((n) => n.id === action.nodeId);
       if (idx6 < 0) return state;
       const nodes = [...state.draftNodes];
       const node = { ...nodes[idx6] };
       const prevType = node.media.type;
-      node.media = { ...node.media, type: action.mediaType };
-      // Clear media URL when switching away from audio/video
-      if (prevType !== action.mediaType && action.mediaType !== "audio" && action.mediaType !== "video") {
-        node.media.url = "";
-      }
-      // Clear transcript when switching away from audio/video
-      if (action.mediaType !== "audio" && action.mediaType !== "video") {
+      const newType = action.mediaType;
+
+      // When the type changes, start media.url/alt fresh so a
+      // URL from the previous type doesn't carry over into the new one.
+      node.media = newType !== prevType
+        ? { type: newType, url: "", alt: "" }
+        : { ...node.media, type: newType };
+
+      // Transcript only applies to audio/video.
+      if (newType !== "audio" && newType !== "video") {
         node.transcript_url = "";
       }
-      // Reset overlay_text when switching away from image
-      if (action.mediaType !== "image") {
+      // Composite-only fields (background characters + overlay) apply only to "image".
+      if (newType !== "image") {
+        node.left_image_url = "";
+        node.right_image_url = "";
+        node.left_image_alt_text = "";
+        node.right_image_alt_text = "";
         node.overlay_text = false;
       }
       nodes[idx6] = node;

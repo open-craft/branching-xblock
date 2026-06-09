@@ -110,8 +110,11 @@ const StudioApp: React.FC<StudioAppProps> = ({ handlerUrls, initial_state, meta,
         id: n.id,
         content: (n.content || "").trim(),
         media: {
+          // Composite ("image") uses left/right + background, not media.url, so blank it.
+          // Single image / video / audio keep media.url; only single image keeps alt.
           type: n.media?.type || "",
           url: (n.media?.type === "image") ? "" : (n.media?.url || "").trim(),
+          alt: (n.media?.type === "single_image") ? (n.media?.alt || "").trim() : "",
         },
         choices: Array.isArray(n.choices)
           ? n.choices

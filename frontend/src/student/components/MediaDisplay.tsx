@@ -32,9 +32,7 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({
   const media = node.media || { type: "", url: "" };
   const mediaType = media.type;
   const mediaUrl = media.url || "";
-  const hasImageComposite = Boolean(
-    background_image_url || node.left_image_url || node.right_image_url
-  );
+  const mediaAlt = media.alt || "";
 
   const renderImageComposite = () => {
     const hasForeground = Boolean(node.left_image_url || node.right_image_url);
@@ -84,6 +82,15 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({
     );
   };
 
+  const renderSingleImage = () => (
+    <img
+      className="bx-single-image"
+      src={mediaUrl}
+      alt={mediaAlt}
+      onLoad={notifyHostRemeasure}
+    />
+  );
+
   const renderAudio = () => (
     <audio src={mediaUrl} controls />
   );
@@ -101,19 +108,18 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({
     );
   };
 
-  if (hasImageComposite) {
-    return <div className="node-media" data-role="media">{renderImageComposite()}</div>;
+  let mediaContent: React.ReactNode = null;
+  if (mediaType === "video" && mediaUrl) {
+    mediaContent = renderVideo();
+  } else if (mediaType === "audio" && mediaUrl) {
+    mediaContent = renderAudio();
+  } else if (mediaType === "single_image" && mediaUrl) {
+    mediaContent = renderSingleImage();
+  } else if (mediaType === "image") {
+    mediaContent = renderImageComposite();
   }
 
-  if (mediaType === "audio") {
-    return <div className="node-media" data-role="media">{renderAudio()}</div>;
-  }
-
-  if (mediaType === "video") {
-    return <div className="node-media" data-role="media">{renderVideo()}</div>;
-  }
-
-  return <div className="node-media" data-role="media" />;
+  return <div className="node-media" data-role="media">{mediaContent}</div>;
 };
 
 export default MediaDisplay;

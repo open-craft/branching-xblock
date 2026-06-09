@@ -45,6 +45,11 @@
     box-sizing: border-box;
 }
 
+.branching-scenario .bx-single-image {
+    margin: 0 auto;
+    border-radius: 0.5rem;
+}
+
 .branching-scenario .bx-image-composite__bg {
     position: absolute;
     inset: 0;

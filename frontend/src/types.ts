@@ -27,6 +27,7 @@ export interface GradeRange {
 export interface Media {
   type?: string;
   url?: string;
+  alt?: string;
 }
 /**
  * A single node in the branching scenario graph.

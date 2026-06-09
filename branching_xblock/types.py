@@ -25,8 +25,9 @@ class Choice(BaseModel):
 class Media(BaseModel):
     """Media configuration for a scenario node."""
 
-    type: str = ""  # "", "image", "video", "audio"
+    type: str = ""  # "", "image" (composite), "single_image", "video", "audio"
     url: str = ""
+    alt: str = ""  # Alt text for the "single_image" type
 
 
 class Node(BaseModel):

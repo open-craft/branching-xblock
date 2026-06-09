@@ -222,7 +222,15 @@ export const studioMessages = defineMessages({
   },
   mediaImage: {
     id: "branching.studio.mediaImage",
-    defaultMessage: "Image",
+    defaultMessage: "Composite Image (background + characters)",
+  },
+  mediaSingleImage: {
+    id: "branching.studio.mediaSingleImage",
+    defaultMessage: "Single image",
+  },
+  singleImageUrlHelp: {
+    id: "branching.studio.singleImageUrlHelp",
+    defaultMessage: "A single image shown on its own, centered. It does not use the shared background.",
   },
   mediaVideo: {
     id: "branching.studio.mediaVideo",
@@ -362,7 +370,7 @@ export const studioMessages = defineMessages({
   },
   backgroundImageHelp: {
     id: "branching.studio.backgroundImageHelp",
-    defaultMessage: 'This image will appear in the background of any nodes with "Image" as the media type.',
+    defaultMessage: 'This image is the shared backdrop for "Composite Image" nodes. It is not used by single-image, video, or audio nodes.',
   },
   imageUrl: {
     id: "branching.studio.imageUrl",

@@ -6,7 +6,7 @@ describe("studioReducer", () => {
   beforeEach(() => {
     initialState = initialEditorState();
     const rawNodes = {
-      "node-abc": { id: "node-abc", content: "Hello", media: { type: "", url: "" }, choices: [], hint: "", left_image_url: "", right_image_url: "", left_image_alt_text: "", right_image_alt_text: "", overlay_text: false, transcript_url: "" },
+      "node-abc": { id: "node-abc", content: "Hello", media: { type: "", url: "", alt: "" }, choices: [], hint: "", left_image_url: "", right_image_url: "", left_image_alt_text: "", right_image_alt_text: "", overlay_text: false, transcript_url: "" },
     };
     initialState = studioReducer(initialState, {
       type: "HYDRATE",
@@ -97,13 +97,27 @@ describe("studioReducer", () => {
       expect(state.draftNodes[0].media.type).toBe("video");
     });
 
-    it("does NOT clear image URL fields when switching media type (bug fix)", () => {
+    it("clears composite (left/right + overlay) fields when switching away from image", () => {
       const nodeId = initialState.draftNodes[0].id;
-      // Set image fields first
-      const withImages = studioReducer(initialState, { type: "UPDATE_NODE_FIELD", nodeId, field: "left_image_url", value: "http://example.com/img.jpg" });
-      // Switch media type away from image
-      const state = studioReducer(withImages, { type: "SET_MEDIA_TYPE", nodeId, mediaType: "video" });
-      expect(state.draftNodes[0].left_image_url).toBe("http://example.com/img.jpg");
+      let state = studioReducer(initialState, { type: "SET_MEDIA_TYPE", nodeId, mediaType: "image" });
+      state = studioReducer(state, { type: "UPDATE_NODE_FIELD", nodeId, field: "left_image_url", value: "http://example.com/img.jpg" });
+      state = studioReducer(state, { type: "UPDATE_NODE_FIELD", nodeId, field: "overlay_text", value: true });
+      // Switch to single image — composite fields should be cleared
+      state = studioReducer(state, { type: "SET_MEDIA_TYPE", nodeId, mediaType: "single_image" });
+      expect(state.draftNodes[0].left_image_url).toBe("");
+      expect(state.draftNodes[0].overlay_text).toBe(false);
+    });
+
+    it("preserves media.url/alt for single_image and clears them for composite image", () => {
+      const nodeId = initialState.draftNodes[0].id;
+      let state = studioReducer(initialState, { type: "SET_MEDIA_TYPE", nodeId, mediaType: "single_image" });
+      state = studioReducer(state, { type: "UPDATE_NODE_FIELD", nodeId, field: "media", value: { type: "single_image", url: "http://example.com/i.jpg", alt: "A description" } });
+      expect(state.draftNodes[0].media.url).toBe("http://example.com/i.jpg");
+      expect(state.draftNodes[0].media.alt).toBe("A description");
+      // Switching to composite image clears media.url and media.alt
+      state = studioReducer(state, { type: "SET_MEDIA_TYPE", nodeId, mediaType: "image" });
+      expect(state.draftNodes[0].media.url).toBe("");
+      expect(state.draftNodes[0].media.alt).toBe("");
     });
 
     it("clears media URL when switching away from audio/video", () => {
@@ -112,6 +126,16 @@ describe("studioReducer", () => {
       const withUrl = studioReducer(withMedia, { type: "UPDATE_NODE_FIELD", nodeId, field: "media", value: { type: "video", url: "http://example.com/vid.mp4" } });
       const state = studioReducer(withUrl, { type: "SET_MEDIA_TYPE", nodeId, mediaType: "image" });
       expect(state.draftNodes[0].media.url).toBe("");
+    });
+
+    it("does not carry media.url across url-using types (single_image -> video)", () => {
+      const nodeId = initialState.draftNodes[0].id;
+      let state = studioReducer(initialState, { type: "SET_MEDIA_TYPE", nodeId, mediaType: "single_image" });
+      state = studioReducer(state, { type: "UPDATE_NODE_FIELD", nodeId, field: "media", value: { type: "single_image", url: "http://example.com/i.jpg", alt: "x" } });
+      // Switching to another url-using type must start fresh, not reuse the image URL.
+      state = studioReducer(state, { type: "SET_MEDIA_TYPE", nodeId, mediaType: "video" });
+      expect(state.draftNodes[0].media.url).toBe("");
+      expect(state.draftNodes[0].media.alt).toBe("");
     });
   });
 

@@ -31,14 +31,17 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
 }) => {
   const intl = useIntl();
   const mediaType = node.media.type || "";
-  const showMediaUrl = Boolean(mediaType) && mediaType !== "image";
+  const isSingleImage = mediaType === "single_image";
+  const showComposite = mediaType === "image";
+  // The media URL input is used by video, audio, and single image.
+  const showMediaUrl = mediaType === "video" || mediaType === "audio" || isSingleImage;
   const showTranscript = mediaType === "audio" || mediaType === "video";
-  const showOverlay = mediaType === "image";
   const hasChoices = Array.isArray(node.choices) && node.choices.length > 0;
   const noBranches = Boolean(node.no_branches) && !hasChoices;
 
   const nodeFieldErrors = validation.nodeFieldErrors[node.id] || {};
   const leftImageUrlError = (nodeFieldErrors.left_image_url as string) || "";
+  const singleImageUrlError = (nodeFieldErrors.single_image_url as string) || "";
   const choiceDestinationErrors = (nodeFieldErrors.choiceDestinationByIndex as Record<string, string>) || {};
   const choiceScoreErrors = (nodeFieldErrors.choiceScoreByIndex as Record<string, string>) || {};
 
@@ -106,6 +109,9 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
           <option value="image">
             {intl.formatMessage(studioMessages.mediaImage)}
           </option>
+          <option value="single_image">
+            {intl.formatMessage(studioMessages.mediaSingleImage)}
+          </option>
           <option value="video">
             {intl.formatMessage(studioMessages.mediaVideo)}
           </option>
@@ -115,8 +121,9 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
         </Form.Control>
       </Form.Group>
 
-      {/* Image URL fields — always visible, not gated by media type (bug fix) */}
-      <div data-role="image-url-fields">
+      {/* Composite scene fields (background + left/right characters) — only for the
+          "Composite Image" media type. */}
+      <div data-role="image-url-fields" className={showComposite ? "" : "is-hidden"}>
         <Form.Group className="bx-field">
           <Form.Label className="bx-field__label">
             {intl.formatMessage(studioMessages.leftImageUrl)}
@@ -174,19 +181,36 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
 
       <Form.Group className={`bx-field${showMediaUrl ? "" : " is-hidden"}`} data-role="media-url-field">
         <Form.Label className="bx-field__label">
-          {intl.formatMessage(studioMessages.url)}
+          {intl.formatMessage(isSingleImage ? studioMessages.imageUrl : studioMessages.url)}
         </Form.Label>
         <Form.Control
           type="text"
-          className="bx-input"
+          className={`bx-input${isSingleImage && singleImageUrlError ? " is-error" : ""}`}
           data-role="media-url"
           placeholder={intl.formatMessage(studioMessages.urlPlaceholder)}
           value={node.media.url}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField(node.id, "media", { ...node.media, url: e.target.value })}
         />
+        {isSingleImage && singleImageUrlError && (
+          <div className="bx-field-error">{singleImageUrlError}</div>
+        )}
         <div className="bx-help">
-          {intl.formatMessage(studioMessages.mediaUrlHelp)}
+          {intl.formatMessage(isSingleImage ? studioMessages.singleImageUrlHelp : studioMessages.mediaUrlHelp)}
         </div>
+      </Form.Group>
+
+      <Form.Group className={`bx-field${isSingleImage ? "" : " is-hidden"}`} data-role="single-image-alt-field">
+        <Form.Label className="bx-field__label">
+          {intl.formatMessage(studioMessages.altText)}
+        </Form.Label>
+        <Form.Control
+          type="text"
+          className="bx-input"
+          data-role="single-image-alt"
+          placeholder={intl.formatMessage(studioMessages.altTextPlaceholder)}
+          value={node.media.alt || ""}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateField(node.id, "media", { ...node.media, alt: e.target.value })}
+        />
       </Form.Group>
 
       <Form.Group className={`bx-field${showTranscript ? "" : " is-hidden"}`} data-role="transcript-url-field">
@@ -203,7 +227,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
         />
       </Form.Group>
 
-      <div className={`overlay-text-control${showOverlay ? "" : " is-hidden"}`} data-role="overlay-text-control">
+      <div className={`overlay-text-control${showComposite ? "" : " is-hidden"}`} data-role="overlay-text-control">
         <Form.Checkbox
           className="overlay-text-toggle overlay-text-checkbox"
           data-role="overlay-text"
