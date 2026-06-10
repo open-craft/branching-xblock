@@ -29,7 +29,7 @@ interface ThemeUrls {
   };
 }
 
-interface StylePayload {
+export interface XBlockPayloadBase {
   mfe_config_api?: string;
   style_urls?: string[];
 }
@@ -83,7 +83,7 @@ function appendStylesheet(url: string): void {
 }
 
 async function loadStyles(data: unknown): Promise<void> {
-  const payload = (data || {}) as StylePayload;
+  const payload = (data || {}) as XBlockPayloadBase;
   const styleUrls = payload.style_urls || [];
 
   const paragonStyleUrls = await getParagonStyles(payload.mfe_config_api);

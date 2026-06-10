@@ -1,7 +1,8 @@
 import React, { useReducer, useEffect, useCallback } from "react";
 import { useIntl } from "react-intl";
 import { studioMessages } from "../messages";
-import { StudioHandlerUrls, StudioInitialState, StudioMeta, XBlockRuntime } from "../apiTypes";
+import { StudioHandlerUrls, StudioInitialState, StudioMeta } from "../apiTypes";
+import { XBlockRuntime } from "../mountApp";
 import { SavePayload } from "./api";
 import * as api from "./api";
 import {
@@ -155,6 +156,12 @@ const StudioApp: React.FC<StudioAppProps> = ({ handlerUrls, initial_state, meta,
     try {
       const res = await api.saveScenario(handlerUrls.studio_submit, payload);
       if (res.result === "success") {
+        // In Studio's runtime (cms.runtime.v1.js _handleSave), "save end" does not
+        // just hide the "Saving" notification — it calls modal.onSave(), which closes
+        // the editor modal and refreshes the XBlock. It must therefore fire ONLY on
+        // success, and BEFORE "cancel" ("cancel"/modal-hidden nulls runtime.modal,
+        // after which "end" would skip the refresh). On failure we deliberately do
+        // not fire it: that would close the modal and destroy the author's draft.
         runtime.notify?.("save", { state: "end" });
         runtime.notify?.("cancel", {});
       } else {

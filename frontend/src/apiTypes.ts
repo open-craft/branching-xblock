@@ -1,25 +1,12 @@
 import { Node, GradeRange } from "./types";
-
-export type UnknownRecord = Record<string, unknown>;
-
-export interface XBlockRuntime {
-  handlerUrl(element: Element | null, handlerName: string, suffix?: string, query?: string): string;
-  notify?(name: string, payload?: UnknownRecord): void;
-}
+import { XBlockPayloadBase } from "./mountApp";
 
 // ---- Student view ----
 
 export interface StudentHandlerUrls {
-  get_current_state: string;
   select_choice: string;
   undo_choice: string;
   reset_activity: string;
-}
-
-export interface ChoiceHistoryEntry {
-  source_node_id: string;
-  choice_text: string;
-  awarded_points: number;
 }
 
 export interface GradeReport {
@@ -31,6 +18,7 @@ export interface GradeReport {
   detailed_scores: Array<{ choice_text: string; awarded_points: number }>;
 }
 
+// Fields the student frontend actually consumes; the backend payload may carry more.
 export interface StudentInitialState {
   nodes: Record<string, Node>;
   start_node_id: string | null;
@@ -41,23 +29,16 @@ export interface StudentInitialState {
   background_image_alt_text: string;
   background_image_is_decorative: boolean;
   max_score: number;
-  grade_ranges: GradeRange[];
-  display_name: string;
   current_node: Node | null;
   history: string[];
-  score_history: number[];
-  choice_history: ChoiceHistoryEntry[];
-  has_completed: boolean;
   score: number;
   grade_report: GradeReport;
 }
 
-export interface StudentPayload {
+export interface StudentPayload extends XBlockPayloadBase {
   view: "student";
   handler_urls: StudentHandlerUrls;
   initial_state: StudentInitialState;
-  mfe_config_api?: string;
-  style_urls?: string[];
 }
 
 // ---- Studio view ----
@@ -66,7 +47,6 @@ export interface StudioHandlerUrls {
   studio_submit: string;
   export_nodes: string;
   import_nodes: string;
-  get_current_state: string;
 }
 
 export interface StudioInitialState {
@@ -87,16 +67,13 @@ export interface StudioMeta {
   import_template: { nodes: Node[] };
 }
 
-export interface StudioPayload {
+export interface StudioPayload extends XBlockPayloadBase {
   view: "studio";
   handler_urls: StudioHandlerUrls;
   initial_state: StudioInitialState;
   meta: StudioMeta;
-  mfe_config_api?: string;
-  style_urls?: string[];
 }
 
-// ---- Validation (from studio_submit error response) ----
 
 export interface ValidationErrors {
   node_input_errors: Record<string, Record<string, string | Record<string, string>>>;

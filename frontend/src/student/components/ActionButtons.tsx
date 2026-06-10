@@ -4,7 +4,6 @@ import { useIntl } from "react-intl";
 import { studentMessages } from "../../messages";
 
 interface ActionButtonsProps {
-  enableUndo: boolean;
   canUndo: boolean;
   showReset: boolean;
   showReport: boolean;
@@ -15,7 +14,6 @@ interface ActionButtonsProps {
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({
-  enableUndo,
   canUndo,
   showReset,
   showReport,
@@ -25,7 +23,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   onShowReport,
 }) => {
   const intl = useIntl();
-  const showActions = hasChoices || enableUndo || showReset || showReport;
+  const showActions = hasChoices || canUndo || showReset || showReport;
 
   return (
     <div className="choice-actions" style={{ display: showActions ? "flex" : "none" }}>

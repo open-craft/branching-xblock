@@ -1,4 +1,4 @@
-import { saveScenario, exportNodes, importNodes, fetchStudioState } from "../studio/api";
+import { saveScenario, exportNodes, importNodes } from "../studio/api";
 import * as request from "../request";
 
 jest.mock("../request");
@@ -67,11 +67,4 @@ describe("studio API", () => {
     });
   });
 
-  describe("fetchStudioState", () => {
-    it("calls postJson with empty object", async () => {
-      mockPostJson.mockResolvedValue({ nodes: {} } as any);
-      await fetchStudioState("/state");
-      expect(mockPostJson).toHaveBeenCalledWith("/state", {});
-    });
-  });
 });

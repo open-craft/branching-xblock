@@ -1,4 +1,4 @@
-import { fetchState, selectChoice, undoChoice, resetActivity } from "../student/api";
+import { selectChoice, undoChoice, resetActivity } from "../student/api";
 import * as request from "../request";
 
 jest.mock("../request");
@@ -29,13 +29,6 @@ const mockState = {
 describe("student API", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  it("fetchState calls postJson with empty object", async () => {
-    mockPostJson.mockResolvedValue(mockState);
-    const result = await fetchState("/handler");
-    expect(mockPostJson).toHaveBeenCalledWith("/handler", {});
-    expect(result).toEqual(mockState);
   });
 
   it("selectChoice calls postJson with choice_index", async () => {

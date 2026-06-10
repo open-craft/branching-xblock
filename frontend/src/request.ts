@@ -59,20 +59,3 @@ export async function postJson<T>(url: string, payload: unknown = {}): Promise<T
 
   return body as T;
 }
-
-export function getErrorMessage(error: unknown, fallbackMessage: string): string {
-  if (error instanceof RequestError) {
-    const body = error.responseBody as Record<string, unknown> | undefined;
-    if (body && typeof body.message === "string" && body.message.length > 0) {
-      return body.message;
-    }
-    return error.message || fallbackMessage;
-  }
-  if (error instanceof Error) {
-    return error.message || fallbackMessage;
-  }
-  if (typeof error === "string") {
-    return error;
-  }
-  return fallbackMessage;
-}

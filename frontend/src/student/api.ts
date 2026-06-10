@@ -1,10 +1,6 @@
 import { postJson } from "../request";
 import { StudentInitialState } from "../apiTypes";
 
-export async function fetchState(url: string): Promise<StudentInitialState> {
-  return postJson<StudentInitialState>(url, {});
-}
-
 type ActionResponse = { success: boolean; error?: string } & StudentInitialState;
 
 export async function selectChoice(url: string, choiceIndex: number): Promise<StudentInitialState> {

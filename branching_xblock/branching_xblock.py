@@ -758,7 +758,6 @@ class BranchingXBlock(XBlock):
         frag.initialize_js('BranchingXBlock', {
             "view": "student",
             "handler_urls": {
-                "get_current_state": self.runtime.handler_url(self, "get_current_state"),
                 "select_choice": self.runtime.handler_url(self, "select_choice"),
                 "undo_choice": self.runtime.handler_url(self, "undo_choice"),
                 "reset_activity": self.runtime.handler_url(self, "reset_activity"),
@@ -788,8 +787,8 @@ class BranchingXBlock(XBlock):
                 "studio_submit": self.runtime.handler_url(self, "studio_submit"),
                 "export_nodes": self.runtime.handler_url(self, "export_nodes"),
                 "import_nodes": self.runtime.handler_url(self, "import_nodes"),
-                "get_current_state": self.runtime.handler_url(self, "get_current_state"),
             },
+            "mfe_config_api": self._mfe_config_api_url(),
             "initial_state": {
                 "nodes": self.scenario_data.get("nodes", {}),
                 "enable_undo": bool(self.enable_undo),

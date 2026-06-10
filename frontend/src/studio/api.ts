@@ -1,5 +1,4 @@
 import { postJson } from "../request";
-import { StudioInitialState } from "../apiTypes";
 
 export interface SavePayload {
   nodes: Array<Record<string, unknown>>;
@@ -18,9 +17,10 @@ export interface SaveSuccess {
   result: "success";
 }
 
+// Response shapes declare the fields the frontend consumes; the backend may
+// send more (e.g. a constant "message" on save errors, "error" on export failure).
 export interface SaveError {
   result: "error";
-  message: string;
   field_errors: Record<string, unknown>;
 }
 
@@ -29,7 +29,6 @@ export type SaveResult = SaveSuccess | SaveError;
 export interface ExportResult {
   success: boolean;
   nodes?: Array<Record<string, unknown>>;
-  error?: string;
 }
 
 export interface ImportResult {
@@ -47,8 +46,4 @@ export async function exportNodes(url: string): Promise<ExportResult> {
 
 export async function importNodes(url: string, fileContent: unknown): Promise<ImportResult> {
   return postJson<ImportResult>(url, fileContent);
-}
-
-export async function fetchStudioState(url: string): Promise<StudioInitialState> {
-  return postJson<StudioInitialState>(url, {});
 }

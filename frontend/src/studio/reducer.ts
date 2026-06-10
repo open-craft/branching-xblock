@@ -1,4 +1,5 @@
 import { GradeRange } from "../types";
+import { ValidationErrors } from "../apiTypes";
 
 // ---- Draft types ----
 
@@ -62,7 +63,6 @@ export interface StudioEditorState {
   savedNodesExist: boolean;
   validation: ValidationState;
   importModal: ImportModalState;
-  uniqueIdCounter: number;
 }
 
 // ---- Helpers ----
@@ -144,10 +144,10 @@ export type StudioAction =
 
 export function extractValidationKeys(fieldErrors: Record<string, unknown>) {
   return {
-    nodeFieldErrors: (fieldErrors.node_input_errors || fieldErrors.node_field_errors || {}) as Record<string, Record<string, string | Record<string, string>>>,
-    nodeErrors: (fieldErrors.node_action_errors || fieldErrors.node_errors || {}) as Record<string, { title: string; detail: string }>,
-    settingsFieldErrors: (fieldErrors.settings_field_errors || {}) as Record<string, string>,
-    globalErrors: (Array.isArray(fieldErrors.global_errors) ? fieldErrors.global_errors : []) as string[],
+    nodeFieldErrors: (fieldErrors.node_input_errors || fieldErrors.node_field_errors || {}) as ValidationErrors["node_input_errors"],
+    nodeErrors: (fieldErrors.node_action_errors || fieldErrors.node_errors || {}) as ValidationErrors["node_action_errors"],
+    settingsFieldErrors: (fieldErrors.settings_field_errors || {}) as ValidationErrors["settings_field_errors"],
+    globalErrors: (Array.isArray(fieldErrors.global_errors) ? fieldErrors.global_errors : []) as ValidationErrors["global_errors"],
   };
 }
 
@@ -373,6 +373,5 @@ export function initialEditorState(): StudioEditorState {
     savedNodesExist: false,
     validation: emptyValidation(),
     importModal: { isOpen: false, isLoading: false, isSuccess: false, error: "", fileContent: null },
-    uniqueIdCounter: 0,
   };
 }

@@ -48,7 +48,7 @@ export function normalizeEmbedUrl(url: string): string | null {
   }
 }
 
-export const MEDIA_FILE_REGEX = /\.(mp4|webm|ogg|mp3|wav)(\?|#|$)/i;
+const MEDIA_FILE_REGEX = /\.(mp4|webm|ogg|mp3|wav)(\?|#|$)/i;
 
 export function isMediaFile(url: string): boolean {
   return MEDIA_FILE_REGEX.test(url || "");

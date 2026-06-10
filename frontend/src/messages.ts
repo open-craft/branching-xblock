@@ -9,10 +9,6 @@ export const studentMessages = defineMessages({
     id: "branching.student.noContent",
     defaultMessage: "No content available.",
   },
-  errorLoadingScenario: {
-    id: "branching.student.errorLoadingScenario",
-    defaultMessage: "Failed to load scenario",
-  },
   errorSelectingChoice: {
     id: "branching.student.errorSelectingChoice",
     defaultMessage: "Failed to select choice",

@@ -89,7 +89,7 @@ function handleIntlError(error: IntlErrorLike): void {
   }
 }
 
-export function resolveIntlConfig(config?: SharedIntlConfig) {
+function resolveIntlConfig(config?: SharedIntlConfig) {
   const defaultLocale = normalizeLocale(config?.defaultLocale || "en");
   const locale = normalizeLocale(
     config?.locale || resolveLocaleFromDocument() || defaultLocale,

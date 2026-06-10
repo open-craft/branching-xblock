@@ -18,8 +18,6 @@ function propsFactory(runtime: XBlockRuntime, _element: XBlockElementLike, data:
       || runtime.handlerUrl(_element, "export_nodes"),
     import_nodes: payload.handler_urls?.import_nodes
       || runtime.handlerUrl(_element, "import_nodes"),
-    get_current_state: payload.handler_urls?.get_current_state
-      || runtime.handlerUrl(_element, "get_current_state"),
   };
   return {
     handlerUrls,

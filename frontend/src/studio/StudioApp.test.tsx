@@ -17,7 +17,6 @@ const baseProps = {
     studio_submit: "/save",
     export_nodes: "/export",
     import_nodes: "/import",
-    get_current_state: "/state",
   },
   initial_state: {
     nodes: {
