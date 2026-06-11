@@ -90,7 +90,6 @@ describe("StudioApp", () => {
   it("selects the first errored node after a validation failure", async () => {
     mockApi.saveScenario.mockResolvedValue({
       result: "error",
-      message: "Validation errors",
       field_errors: {
         node_action_errors: {
           "node-2": {

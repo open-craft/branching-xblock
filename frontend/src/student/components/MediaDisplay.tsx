@@ -14,10 +14,6 @@ interface MediaDisplayProps {
   contentHtml: string;
 }
 
-function iframeHtml(src: string, title: string): string {
-  return `<div class="bx-media-embed"><iframe src="${src}" title="${title}" allow="autoplay; fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe></div>`;
-}
-
 const MediaDisplay: React.FC<MediaDisplayProps> = ({
   node,
   background_image_url,
@@ -104,7 +100,15 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({
     }
     const embedUrl = normalizeEmbedUrl(mediaUrl) || mediaUrl;
     return (
-      <div dangerouslySetInnerHTML={{ __html: iframeHtml(embedUrl, embeddedMediaTitle) }} />
+      <div className="bx-media-embed">
+        <iframe
+          src={embedUrl}
+          title={embeddedMediaTitle}
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        />
+      </div>
     );
   };
 
