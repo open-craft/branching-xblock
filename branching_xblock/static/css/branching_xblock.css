@@ -1,5 +1,14 @@
 /* CSS for BranchingXBlock */
 
+:root {
+  --pgn-color-bx-choice-hover: var(--pgn-color-primary-base, #15376D);
+  --pgn-color-bx-choice-selected: var(--pgn-color-primary-base, #0f62a1);
+  --pgn-color-bx-grade-fail: var(--pgn-color-danger-base, #D23232);
+  --pgn-color-bx-grade-pass: var(--pgn-color-success-base, #178253);
+  --pgn-color-bx-btn-primary: var(--pgn-color-primary-base, #0f62a1);
+  --pgn-color-bx-btn-primary-hover: var(--pgn-color-primary-base, #0c4f83);
+}
+
 .branching_xblock_block .count {
     font-weight: bold;
 }
@@ -34,6 +43,11 @@
     overflow: hidden;
     padding: 0.75rem;
     box-sizing: border-box;
+}
+
+.branching-scenario .bx-single-image {
+    margin: 0 auto;
+    border-radius: 0.5rem;
 }
 
 .branching-scenario .bx-image-composite__bg {
@@ -110,8 +124,8 @@
     transform: translateX(-50%);
     width: calc(100% - 3rem);
     max-width: 90%;
-    background: rgba(8, 36, 73, 0.85);
-    color: #fff;
+    background: var(--pgn-color-dark-background, rgba(8, 36, 73, 0.85));
+    color: var(--pgn-color-light-text, #fff);
     padding: 1rem 1.5rem;
     border-radius: 0.5rem;
     font-size: 1.05rem;
@@ -161,7 +175,7 @@
 }
 
 .branching-scenario .transcript-link a {
-    color: #0a6ebd;
+    color: var(--pgn-color-primary-base, #0a6ebd);
     text-decoration: none;
 }
 
@@ -176,14 +190,14 @@
 }
 
 .branching-scenario .node-hint {
-    border: 1px solid #d9d9d9;
+    border: 1px solid var(--pgn-color-gray-100, #d9d9d9);
     border-top: none;
     border-bottom-left-radius: 0.75em;
     border-bottom-right-radius: 0.75em;
     border-top-left-radius: 0;
     border-top-right-radius: 0;
     font-style: italic;
-    background-color: #f9f9f9;
+    background-color: var(--pgn-color-body-bg, #f9f9f9);
     margin-top: 0;
 }
 
@@ -208,9 +222,9 @@
     align-items: center;
     gap: 0.5em;
     list-style: none;
-    border: 1px solid #d9d9d9;
+    border: 1px solid var(--pgn-color-gray-100, #d9d9d9);
     border-radius: 0.75em;
-    background-color: #f9f9f9;
+    background-color: var(--pgn-color-body-bg, #f9f9f9);
 }
 
 .branching-scenario .hint-summary::-webkit-details-marker {
@@ -251,7 +265,7 @@
     font-size: 1.15rem;
     font-weight: 600;
     margin-bottom: 1rem;
-    color: #1f2a37;
+    color: var(--pgn-color-gray-900, #1f2a37);
 }
 
 .branching-scenario .choices-form {
@@ -270,22 +284,22 @@
     display: flex;
     align-items: flex-start;
     gap: 0.75rem;
-    border: 1px solid #d6d6d6;
+    border: 1px solid var(--pgn-color-gray-100, #d6d6d6);
     border-radius: 8px;
     padding: 0.9rem 1rem;
-    background-color: #fff;
+    background-color: var(--pgn-color-body-bg, #fff);
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     cursor: pointer;
 }
 
 .branching-scenario .choice-option:hover,
 .branching-scenario .choice-option:focus-within {
-    border-color: #3b82f6;
+    border-color: var(--pgn-color-bx-choice-hover, #3b82f6);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .branching-scenario .choice-option.is-selected {
-    border-color: #0f62a1;
+    border-color: var(--pgn-color-bx-choice-selected, #0f62a1);
     box-shadow: 0 0 0 2px rgba(15, 98, 161, 0.25);
     background-color: #f0f7ff;
 }
@@ -296,10 +310,16 @@
     height: 1.1rem;
 }
 
+.branching-scenario .choice-option > div {
+    flex: 1;
+}
+
 .branching-scenario .choice-option__text {
+    display: block;
     flex: 1;
     font-size: 1rem;
-    color: #1f2a37;
+    color: var(--pgn-color-gray-900, #1f2a37);
+    cursor: pointer;
 }
 
 .branching-scenario .choice-actions {
@@ -325,8 +345,8 @@
 
 .choice-submit-button {
     border: none;
-    background-color: #0f62a1;
-    color: #fff;
+    background-color: var(--pgn-color-bx-btn-primary, #0f62a1);
+    color: var(--pgn-color-light-text, #fff);
     border-radius: 6px;
     padding: 11px 24px;
     font-size: 16px;
@@ -342,13 +362,13 @@
 
 .choice-submit-button:not(:disabled):hover,
 .choice-submit-button:not(:disabled):focus {
-    background-color: #0c4f83;
+    background-color: var(--pgn-color-bx-btn-primary-hover, #0c4f83);
 }
 
 .show-report-button {
     border: none;
-    background-color: #0f62a1;
-    color: #fff;
+    background-color: var(--pgn-color-bx-btn-primary, #0f62a1);
+    color: var(--pgn-color-light-text, #fff);
     border-radius: 6px;
     padding: 0.7rem 1.5rem;
     font-size: 1rem;
@@ -359,7 +379,7 @@
 
 .show-report-button:hover,
 .show-report-button:focus {
-    background-color: #0c4f83;
+    background-color: var(--pgn-color-bx-btn-primary-hover, #0c4f83);
 }
 
 .undo-button {
@@ -369,7 +389,7 @@
     font-size: 1em;
     cursor: pointer;
     background: transparent;
-    color: #1f2a37;
+    color: var(--pgn-color-gray-900, #1f2a37);
 }
 
 .undo-button.is-disabled {
@@ -383,7 +403,7 @@
     padding: 0.6em 1.2em;
     font-size: 1em;
     cursor: pointer;
-    background: #ffffff;
+    background: var(--pgn-color-body-bg, #ffffff);
     color: #9a3412;
 }
 
@@ -408,8 +428,8 @@
     margin: 1.5rem auto;
     max-width: 1082px;
     border-radius: 6px;
-    background: #001731;
-    color: #ffffff;
+    background: var(--pgn-color-dark-background, #001731);
+    color: var(--pgn-color-light-text, #ffffff);
     padding: 2rem;
 }
 
@@ -418,18 +438,18 @@
     font-size: 1.375rem;
     line-height: 1.27;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--pgn-color-light-text, #ffffff);
 }
 
 .grade-report__subtitle {
     margin: 0 0 1.5rem;
-    color: #ffffff;
+    color: var(--pgn-color-light-text, #ffffff);
     font-size: 0.875rem;
     line-height: 1.7;
 }
 
 .grade-report__summary-card {
-    background: #ffffff;
+    background: var(--pgn-color-body-bg, #ffffff);
     border-radius: 14px;
     padding: 1.75rem 1.9rem 1.65rem;
     margin-bottom: 1.85rem;
@@ -473,8 +493,8 @@
 }
 
 .grade-report__metric {
-    background: #ffffff;
-    color: #1f2a37;
+    background: var(--pgn-color-body-bg, #ffffff);
+    color: var(--pgn-color-gray-900, #1f2a37);
     border-radius: 12px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15), 0 1px 4px rgba(0, 0, 0, 0.15);
     padding: 1.35rem 1.5rem;
@@ -485,7 +505,7 @@
 }
 
 .grade-report__metric--score {
-    --report-score-color: #15803d;
+    --report-score-color: var(--pgn-color-bx-grade-pass, #15803d);
     background: #f2faf7;
 }
 
@@ -528,7 +548,7 @@
 }
 
 .grade-report__metric--score.is-fail {
-    --report-score-color: #b91c1c;
+    --report-score-color: var(--pgn-color-bx-grade-fail, #b91c1c);
     background: #fcf1f4;
 }
 
@@ -541,7 +561,7 @@
 }
 
 .grade-report__percent {
-    --report-percent-color: #15803d;
+    --report-percent-color: var(--pgn-color-bx-grade-pass, #15803d);
     width: 210px;
     height: 210px;
     border-radius: 999px;
@@ -554,7 +574,7 @@
 }
 
 .grade-report__percent.is-fail {
-    --report-percent-color: #b91c1c;
+    --report-percent-color: var(--pgn-color-bx-grade-fail, #b91c1c);
 }
 
 .grade-report__percent-ring {
@@ -603,8 +623,8 @@
 }
 
 .grade-report__details {
-    background: #ffffff;
-    color: #1f2a37;
+    background: var(--pgn-color-body-bg, #ffffff);
+    color: var(--pgn-color-gray-900, #1f2a37);
     border-radius: 14px;
     padding: 1.4rem 1.2rem 1.15rem;
     margin-bottom: 1.6rem;
@@ -742,4 +762,16 @@
         font-size: 1.1rem;
     }
 
+}
+
+.branching-scenario .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }

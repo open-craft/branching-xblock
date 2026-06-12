@@ -1,10 +1,10 @@
 """Branching Scenario XBlock."""
-import json
 import os
 import uuid
 from collections import deque
 from typing import Any, Optional
 
+from django.conf import settings
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
 from xblock.fields import Boolean, Dict, Integer, List, Scope, String
@@ -31,7 +31,7 @@ def _default_node(**overrides):
     node = {
         "id": "",
         "content": "",
-        "media": {"type": "", "url": ""},
+        "media": {"type": "", "url": "", "alt": ""},
         "left_image_url": "",
         "right_image_url": "",
         "left_image_alt_text": "",
@@ -80,6 +80,11 @@ class BranchingXBlock(XBlock):
         }
 
     """
+
+    # Allow the React bundles and CSS under static/ to be served via
+    # runtime.local_resource_url. XBlock core only serves files under
+    # `public_dir` (default "public"); the built frontend lives in static/.
+    public_dir = "static"
 
     display_name = String(
         default="Branching Scenario",
@@ -178,7 +183,7 @@ class BranchingXBlock(XBlock):
     )
 
     has_custom_completion = True
-    _normalized_nodes_ref: Optional[dict[str, Any]] = None
+    _migrated_nodes_ref: Optional[dict[str, Any]] = None
 
     def start_node(self) -> None:
         """
@@ -208,112 +213,135 @@ class BranchingXBlock(XBlock):
 
         return node
 
-    def _normalize_scenario_nodes(self) -> None:
+    def _migrate_and_save_legacy_nodes(self) -> None:
         """
-        Normalize authoring payload shape for already-persisted scenario nodes.
+        Upgrade already-persisted scenario nodes to the current schema and save.
 
-        Studio can load node data that was saved before newer authoring fields
-        (e.g. `overlay_text`, `left_image_url`, `right_image_url`, normalized
-        `choices[*].score`) existed. Without this pass, the editor can receive
-        inconsistent node objects and fail to render/update reliably.
+        Studio can load node data saved before newer authoring fields
+        (e.g. `overlay_text`, `left_image_url`, `right_image_url`, integer
+        `choices[*].score`, the `single_image` media type) existed. Without this
+        pass the editor can receive inconsistent node objects and fail to
+        render/update reliably.
 
         What this does:
         - Ensures `scenario_data["nodes"]` is a dict.
         - Drops malformed non-dict nodes/choices.
-        - Fills missing node keys required by the current editor schema.
-        - Normalizes choice score shape for editor reads.
-        - Writes back only when changes are needed.
-        - Runs once per `nodes` object via `_normalized_nodes_ref`.
+        - Upgrades each node via `_migrate_legacy_node` (fills missing keys,
+          fixes the media shape, converts legacy single images, cleans choices).
+        - Writes the result back to `scenario_data` only when something changed.
+        - Runs once per `nodes` object via `_migrated_nodes_ref`.
 
         Removal plan:
         Once all persisted scenario data is guaranteed to follow the current
         schema, this can be deleted.
         """
         nodes = self.scenario_data.get("nodes", {})
-        if nodes is self._normalized_nodes_ref:
+        if nodes is self._migrated_nodes_ref:
             return
 
         if not isinstance(nodes, dict):
             self.scenario_data = {**self.scenario_data, "nodes": {}}
-            self._normalized_nodes_ref = self.scenario_data["nodes"]
+            self._migrated_nodes_ref = self.scenario_data["nodes"]
             return
 
-        normalized_nodes: dict[str, dict[str, Any]] = {}
+        migrated_nodes: dict[str, dict[str, Any]] = {}
         changed = False
         for node_id, node in nodes.items():
             if not isinstance(node, dict):
                 changed = True
                 continue
 
-            normalized_node, node_changed = self._normalize_scenario_node(node)
+            migrated_node, node_changed = self._migrate_legacy_node(node)
             if node_changed:
                 changed = True
 
-            normalized_nodes[node_id] = normalized_node
+            migrated_nodes[node_id] = migrated_node
 
         if changed:
-            self.scenario_data = {**self.scenario_data, "nodes": normalized_nodes}
+            self.scenario_data = {**self.scenario_data, "nodes": migrated_nodes}
             nodes = self.scenario_data.get("nodes", {})
 
-        self._normalized_nodes_ref = nodes
+        self._migrated_nodes_ref = nodes
 
-    def _normalize_scenario_node(self, node: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    def _migrate_legacy_node(self, node: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         """
-        Normalize one stored node payload for backward-compatible authoring reads.
+        Return one stored node upgraded to the current schema.
+
+        Returns a ``(node_copy, changed)`` tuple and it does not mutate
+        the input or persist anything.
         """
-        normalized_node = dict(node)
+        migrated_node = dict(node)
         changed = False
 
         # Remove deprecated type field from old persisted data.
-        if "type" in normalized_node:
-            del normalized_node["type"]
+        if "type" in migrated_node:
+            del migrated_node["type"]
             changed = True
 
-        # Special migration: old image nodes stored the URL in media.url.
-        if "left_image_url" not in normalized_node:
-            media = normalized_node.get("media") or {}
-            normalized_node["left_image_url"] = (
-                media.get("url", "") if (media.get("type") == "image") else ""
-            )
+        # Upgrade the media dict shape (ensure type/url/alt keys) and migrate legacy
+        # single images. Released pre-Ren'Py single images were stored as
+        # media.type == "image" with the URL in media.url. Now that the composite scene
+        # is gated strictly on media.type == "image", such a node (a media URL with no
+        # foreground characters) must become a "single_image" or it would render as an
+        # empty composite. Ren'Py composite nodes (with left/right) are left untouched.
+        raw_media = migrated_node.get("media")
+        if not isinstance(raw_media, dict):
+            raw_media = {}
+        migrated_media = {
+            "type": raw_media.get("type", "") or "",
+            "url": raw_media.get("url", "") or "",
+            "alt": raw_media.get("alt", "") or "",
+        }
+        has_foreground = bool(
+            migrated_node.get("left_image_url") or migrated_node.get("right_image_url")
+        )
+        if (
+            migrated_media["type"] == "image"
+            and migrated_media["url"].strip()
+            and not has_foreground
+        ):
+            migrated_media["type"] = "single_image"
+        if migrated_media != migrated_node.get("media"):
+            migrated_node["media"] = migrated_media
             changed = True
 
         # Back-fill any remaining missing fields using canonical defaults.
         defaults = _default_node()
         for key, default_value in defaults.items():
             if key in ("id", "media", "choices"):
-                continue  # These have their own normalization logic below.
-            if key not in normalized_node:
-                normalized_node[key] = default_value
+                continue  # These have their own upgrade logic below.
+            if key not in migrated_node:
+                migrated_node[key] = default_value
                 changed = True
 
-        raw_choices = normalized_node.get("choices", [])
+        raw_choices = migrated_node.get("choices", [])
         choices_were_invalid = not isinstance(raw_choices, list)
         if choices_were_invalid:
             raw_choices = []
             changed = True
 
-        normalized_choices = []
+        migrated_choices = []
         for raw_choice in raw_choices:
-            normalized_choice, choice_changed = self._normalize_choice_score(raw_choice)
-            if normalized_choice is None:
+            migrated_choice, choice_changed = self._migrate_choice_score(raw_choice)
+            if migrated_choice is None:
                 changed = True
                 continue
-            normalized_choices.append(normalized_choice)
+            migrated_choices.append(migrated_choice)
             if choice_changed:
                 changed = True
 
-        if choices_were_invalid or normalized_choices != raw_choices:
-            normalized_node["choices"] = normalized_choices
+        if choices_were_invalid or migrated_choices != raw_choices:
+            migrated_node["choices"] = migrated_choices
             changed = True
 
-        if normalized_node != node:
+        if migrated_node != node:
             changed = True
 
-        return normalized_node, changed
+        return migrated_node, changed
 
-    def _normalize_choice_score(self, raw_choice: Any) -> tuple[Optional[dict[str, Any]], bool]:
+    def _migrate_choice_score(self, raw_choice: Any) -> tuple[Optional[dict[str, Any]], bool]:
         """
-        Normalize one choice object's score shape for authoring reads.
+        Upgrade one choice object's score shape to the current schema.
         """
         if not isinstance(raw_choice, dict):
             return None, True
@@ -323,9 +351,8 @@ class BranchingXBlock(XBlock):
         raw_score = choice.get("score")
 
         if raw_score is None:
-            if choice.get("score") != 0:
-                choice["score"] = 0
-                changed = True
+            choice["score"] = 0
+            changed = True
         elif isinstance(raw_score, str):
             stripped_score = raw_score.strip()
             if not stripped_score:
@@ -715,66 +742,73 @@ class BranchingXBlock(XBlock):
         path = os.path.join('static', path)
         return resource_loader.load_unicode(path)
 
+    def _mfe_config_api_url(self) -> str:
+        """
+        Return the platform MFE config endpoint used to discover Paragon theme CSS.
+        """
+        root_url = getattr(settings, "LMS_ROOT_URL", "") or ""
+        return f"{root_url}/api/mfe_config/v1?mfe=learning" if root_url else ""
+
     def student_view(self, context: Optional[dict[str, Any]] = None) -> Fragment:
         """
         Create primary view of the BranchingXBlock, shown to students when viewing courses.
         """
-        html = self.resource_string("html/branching_xblock.html")
-        frag = Fragment(html)
-        frag.add_css(self.resource_string("css/branching_xblock.css"))
-        frag.add_javascript(self.resource_string("js/src/branching_xblock.js"))
-        frag.initialize_js('BranchingXBlock')
+        frag = Fragment('<div data-react-root="true"></div>')
+        frag.add_javascript_url(self.runtime.local_resource_url(self, "static/bundles/student.js"))
+        frag.initialize_js('BranchingXBlock', {
+            "view": "student",
+            "handler_urls": {
+                "select_choice": self.runtime.handler_url(self, "select_choice"),
+                "undo_choice": self.runtime.handler_url(self, "undo_choice"),
+                "reset_activity": self.runtime.handler_url(self, "reset_activity"),
+            },
+            "initial_state": self._get_state(),
+            "mfe_config_api": self._mfe_config_api_url(),
+            "style_urls": [
+                self.runtime.local_resource_url(self, "static/css/branching_xblock.css"),
+            ],
+        })
         return frag
 
     def studio_view(self, context: Optional[dict[str, Any]] = None) -> Fragment:
         """
         Studio editor view shown to course authors.
         """
-        self._normalize_scenario_nodes()
-        html = self.resource_string("html/branching_xblock_edit.html")
-        frag = Fragment(html)
-
-        # Add JS/CSS for Studio
-        frag.add_javascript_url(
-            self.runtime.local_resource_url(self, 'public/js/vendor/handlebars.js')
-        )
-        for tpl in [
-            'settings-step',
-            'nodes-step',
-            'node-list-item',
-            'node-editor',
-            'choice-row',
-            'import-modal',
-        ]:
-            html = resource_loader.load_unicode(f'static/handlebars/{tpl}.handlebars')
-            frag.add_javascript(f"""
-                (function() {{
-                    var s = document.createElement('script');
-                    s.type = 'text/x-handlebars-template';
-                    s.id = '{tpl}-tpl';
-                    s.innerHTML = {json.dumps(html)};
-                    document.body.appendChild(s);
-                }})();
-            """)
-        frag.add_javascript(self.resource_string("js/src/studio_editor.js"))
-        frag.add_css(self.resource_string("css/studio_editor.css"))
+        self._migrate_and_save_legacy_nodes()
+        frag = Fragment('<div data-react-root="true"></div>')
+        frag.add_javascript_url(self.runtime.local_resource_url(self, "static/bundles/studio.js"))
 
         authoring_help_html = sanitize_html(
             get_site_configuration_value("branching_xblock", "AUTHORING_HELP_HTML") or ""
         )
-        init_data = {
-            "nodes":       self.scenario_data.get("nodes", []),
-            "enable_undo": bool(self.enable_undo),
-            "enable_scoring": bool(self.enable_scoring),
-            "enable_reset_activity": bool(self.enable_reset_activity),
-            "max_score":   self.max_score,
-            "grade_ranges": self.grade_ranges,
-            "display_name": self.display_name,
-            "authoring_help_html": authoring_help_html,
-            "import_template": {"nodes": list(IMPORT_TEMPLATE_NODES)},
-        }
-        # Initialize JS
-        frag.initialize_js('BranchingStudioEditor', init_data)
+        frag.initialize_js('BranchingStudioEditor', {
+            "view": "studio",
+            "handler_urls": {
+                "studio_submit": self.runtime.handler_url(self, "studio_submit"),
+                "export_nodes": self.runtime.handler_url(self, "export_nodes"),
+                "import_nodes": self.runtime.handler_url(self, "import_nodes"),
+            },
+            "mfe_config_api": self._mfe_config_api_url(),
+            "initial_state": {
+                "nodes": self.scenario_data.get("nodes", {}),
+                "enable_undo": bool(self.enable_undo),
+                "enable_scoring": bool(self.enable_scoring),
+                "enable_reset_activity": bool(self.enable_reset_activity),
+                "max_score": self.max_score,
+                "grade_ranges": self.grade_ranges,
+                "display_name": self.display_name,
+                "background_image_url": self.background_image_url,
+                "background_image_alt_text": self.background_image_alt_text,
+                "background_image_is_decorative": bool(self.background_image_is_decorative),
+            },
+            "meta": {
+                "authoring_help_html": authoring_help_html,
+                "import_template": {"nodes": list(IMPORT_TEMPLATE_NODES)},
+            },
+            "style_urls": [
+                self.runtime.local_resource_url(self, "static/css/studio_editor.css"),
+            ],
+        })
         return frag
 
     def _get_state(self) -> dict[str, Any]:
@@ -900,7 +934,7 @@ class BranchingXBlock(XBlock):
         raw_nodes: list[Any],
     ) -> tuple[dict[str, str], list[dict[str, Any]]]:
         """
-        Assign stable IDs and normalize raw studio node payloads.
+        Assign stable IDs and build canonical node dicts from raw studio payloads.
         """
         id_map = {}
         staged = []
@@ -918,6 +952,7 @@ class BranchingXBlock(XBlock):
                 media={
                     'type': raw.get('media', {}).get('type', ''),
                     'url': raw.get('media', {}).get('url', ''),
+                    'alt': raw.get('media', {}).get('alt', ''),
                 },
                 left_image_url=raw.get('left_image_url', ''),
                 right_image_url=raw.get('right_image_url', ''),
@@ -1102,13 +1137,22 @@ class BranchingXBlock(XBlock):
             if not self._node_has_content(node):
                 continue
 
+            media = node.get("media", {})
+            media_type = media.get("type")
             left_image_url = (node.get('left_image_url', '') or '').strip()
             right_image_url = (node.get('right_image_url', '') or '').strip()
-            if node.get("media", {}).get("type") == "image" and not left_image_url and not right_image_url:
+            if media_type == "image" and not left_image_url and not right_image_url:
                 self._add_node_field_error(
                     validation_errors,
                     node_client_id=node_client_id,
                     field_name="left_image_url",
+                    message="Please enter a valid URL",
+                )
+            if media_type == "single_image" and not (media.get("url") or "").strip():
+                self._add_node_field_error(
+                    validation_errors,
+                    node_client_id=node_client_id,
+                    field_name="single_image_url",
                     message="Please enter a valid URL",
                 )
 
@@ -1181,7 +1225,7 @@ class BranchingXBlock(XBlock):
             'nodes': nodes_dict,
             'start_node_id': start_node_id,
         }
-        self._normalized_nodes_ref = nodes_dict
+        self._migrated_nodes_ref = nodes_dict
         self.enable_undo = bool(payload.get('enable_undo', self.enable_undo))
         self.enable_scoring = bool(payload.get('enable_scoring', self.enable_scoring))
         self.enable_reset_activity = bool(payload.get('enable_reset_activity', self.enable_reset_activity))
@@ -1234,7 +1278,7 @@ class BranchingXBlock(XBlock):
             "nodes": nodes_dict,
             "start_node_id": start_node_id,
         }
-        self._normalized_nodes_ref = nodes_dict
+        self._migrated_nodes_ref = nodes_dict
         self.max_score = self._compute_max_attainable_score(nodes_dict, start_node_id)
 
         return {"success": True}

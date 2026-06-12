@@ -22,6 +22,7 @@ def runtime():
     rt = TestRuntime()
     rt._services['field-data'] = DictFieldData({})
     rt.publish = lambda *args, **kwargs: None
+    rt.handler_url = lambda block, handler_name, *args, **kwargs: f"/handler/{handler_name}"
     return rt
 
 
@@ -239,7 +240,7 @@ def test_studio_submit_normalizes_choice_score_from_string(rf, block):
     assert block.max_score == 7
 
 
-def test_normalize_scenario_nodes_preserves_non_empty_invalid_scores(block):
+def test_migrate_and_save_legacy_nodes_preserves_non_empty_invalid_scores(block):
     block.scenario_data = {
         "nodes": {
             "A": {
@@ -254,13 +255,13 @@ def test_normalize_scenario_nodes_preserves_non_empty_invalid_scores(block):
         "start_node_id": "A",
     }
 
-    block._normalize_scenario_nodes()
+    block._migrate_and_save_legacy_nodes()
     node_a = block.scenario_data["nodes"]["A"]
     assert node_a["choices"][0]["score"] == "1.5"
     assert node_a["choices"][1]["score"] == "101"
 
 
-def test_normalize_scenario_nodes_defaults_empty_scores_to_zero(block):
+def test_migrate_and_save_legacy_nodes_defaults_empty_scores_to_zero(block):
     block.scenario_data = {
         "nodes": {
             "A": {
@@ -277,12 +278,111 @@ def test_normalize_scenario_nodes_defaults_empty_scores_to_zero(block):
         "start_node_id": "A",
     }
 
-    block._normalize_scenario_nodes()
+    block._migrate_and_save_legacy_nodes()
     node_a = block.scenario_data["nodes"]["A"]
     assert node_a["choices"][0]["score"] == 0
     assert node_a["choices"][1]["score"] == 0
     assert node_a["choices"][2]["score"] == 0
     assert node_a["choices"][3]["score"] == 0
+
+
+def test_normalize_migrates_legacy_single_image_to_single_image_type(block):
+    """A legacy image node (media.url, no left/right) becomes a single_image node."""
+    block.scenario_data = {
+        "nodes": {
+            "A": {
+                "id": "A",
+                "media": {"type": "image", "url": "http://example.com/pic.jpg"},
+                "choices": [],
+            },
+        },
+        "start_node_id": "A",
+    }
+
+    block._migrate_and_save_legacy_nodes()
+    node_a = block.scenario_data["nodes"]["A"]
+    assert node_a["media"]["type"] == "single_image"
+    assert node_a["media"]["url"] == "http://example.com/pic.jpg"
+    assert node_a["media"]["alt"] == ""
+
+
+def test_normalize_keeps_composite_image_node(block):
+    """An image node with left/right characters stays a composite ('image') node."""
+    block.scenario_data = {
+        "nodes": {
+            "A": {
+                "id": "A",
+                "media": {"type": "image", "url": ""},
+                "left_image_url": "http://example.com/left.png",
+                "choices": [],
+            },
+        },
+        "start_node_id": "A",
+    }
+
+    block._migrate_and_save_legacy_nodes()
+    node_a = block.scenario_data["nodes"]["A"]
+    assert node_a["media"]["type"] == "image"
+    assert node_a["left_image_url"] == "http://example.com/left.png"
+
+
+def test_studio_submit_round_trips_single_image(rf, block):
+    """A single_image node preserves media.url and media.alt through save."""
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "Start",
+                "media": {"type": "single_image", "url": "http://example.com/i.jpg", "alt": "A scene"},
+                "choices": [],
+                "transcript_url": "",
+            },
+        ],
+        "enable_undo": False,
+        "enable_scoring": False,
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["result"] == "success"
+    node = list(block.scenario_data["nodes"].values())[0]
+    assert node["media"]["type"] == "single_image"
+    assert node["media"]["url"] == "http://example.com/i.jpg"
+    assert node["media"]["alt"] == "A scene"
+
+
+def test_studio_submit_rejects_single_image_without_url(rf, block):
+    """A single_image node with no media.url is a validation error."""
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "Start",
+                "media": {"type": "single_image", "url": "", "alt": ""},
+                "choices": [{"text": "go", "target_node_id": "temp-2"}],
+                "transcript_url": "",
+            },
+            {
+                "id": "temp-2",
+                "content": "End",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+                "transcript_url": "",
+            },
+        ],
+        "enable_undo": False,
+        "enable_scoring": False,
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["result"] == "error"
+    assert (
+        result["field_errors"]["node_input_errors"]["temp-1"]["single_image_url"]
+        == "Please enter a valid URL"
+    )
 
 
 def test_studio_submit_persists_enable_reset_activity(rf, block):
@@ -945,7 +1045,7 @@ def test_studio_view_passes_authoring_help_html_in_init_data(block):
         block.studio_view({})
 
     assert calls["name"] == "BranchingStudioEditor"
-    assert calls["init_data"]["authoring_help_html"] == "<p>Help</p>"
+    assert calls["init_data"]["meta"]["authoring_help_html"] == "<p>Help</p>"
 
 
 def test_studio_view_includes_enable_reset_activity_in_init_data(block):
@@ -969,7 +1069,7 @@ def test_studio_view_includes_enable_reset_activity_in_init_data(block):
         block.studio_view({})
 
     assert calls["name"] == "BranchingStudioEditor"
-    assert calls["init_data"]["enable_reset_activity"] is True
+    assert calls["init_data"]["initial_state"]["enable_reset_activity"] is True
 
 
 def test_studio_view_includes_grade_ranges_in_init_data(block):
@@ -996,7 +1096,7 @@ def test_studio_view_includes_grade_ranges_in_init_data(block):
         block.studio_view({})
 
     assert calls["name"] == "BranchingStudioEditor"
-    assert calls["init_data"]["grade_ranges"] == block.grade_ranges
+    assert calls["init_data"]["initial_state"]["grade_ranges"] == block.grade_ranges
 
 
 # ------------------------------------------------------------------

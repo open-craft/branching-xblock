@@ -62,6 +62,53 @@ The scenario editor allows you to:
 4. **Preview**: Test your scenario before publishing
 
 
+Frontend development
+********************
+
+The Studio editor and learner views are built with React + TypeScript (in
+``frontend/``) and bundled with webpack. The compiled bundles are committed under
+``branching_xblock/static/bundles/`` and are what the XBlock serves at runtime, so
+**they must be rebuilt and committed whenever frontend code changes**.
+
+Prerequisites
+=============
+
+- **Python 3.12** and **Node 18** (see ``frontend/.nvmrc``).
+- If you use `mise <https://mise.jdx.dev>`_, ``mise install`` installs both pinned
+  versions and ``mise run install`` sets up all dependencies (see ``mise.toml``).
+
+Setup
+=====
+
+.. code-block:: bash
+
+    # Backend dev requirements. This installs pydantic-to-typescript, which
+    # provides the `pydantic2ts` command used by the frontend type generation.
+    pip install -r requirements/dev.txt
+
+    # Frontend (Node) dependencies
+    cd frontend
+    npm ci
+
+Building
+========
+
+.. code-block:: bash
+
+    cd frontend
+    npm run build      # generate TS types from Pydantic models, then build bundles
+    npm run watch      # rebuild on change during development
+    npm test           # run the Jest unit tests
+
+``npm run build`` first runs ``generate-types``, which regenerates
+``frontend/src/types.ts`` from the Pydantic models in ``branching_xblock/types.py``.
+This step requires:
+
+- ``pydantic2ts`` — from the ``pydantic-to-typescript`` Python package (installed by
+  ``requirements/dev.txt`` above), and
+- ``json2ts`` — from the ``json-schema-to-typescript`` npm package (installed by
+  ``npm ci``).
+
 Testing with Docker
 *******************
 
