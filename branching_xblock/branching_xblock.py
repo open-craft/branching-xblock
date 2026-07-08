@@ -1,5 +1,6 @@
 """Branching Scenario XBlock."""
 import os
+import re
 import uuid
 from collections import deque
 from typing import Any, Optional
@@ -19,6 +20,13 @@ DFS_STATE_VISITING = 1
 DFS_STATE_VISITED = 2
 
 MAX_NODES = 30
+
+
+def _strip_html(text: str) -> str:
+    """
+    Replace HTML tags with spaces and collapse the surrounding whitespace.
+    """
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text)).strip()
 
 
 def _default_node(**overrides):
@@ -741,6 +749,47 @@ class BranchingXBlock(XBlock):
         """
         path = os.path.join('static', path)
         return resource_loader.load_unicode(path)
+
+    def index_dictionary(self) -> dict[str, Any]:
+        """
+        Return content fields for search.
+        """
+        xblock_body = super().index_dictionary()
+        parts = []
+        nodes = (self.scenario_data or {}).get("nodes", {}) or {}
+        # Nodes are normally a dict keyed by node id, but legacy data saved
+        # before migration may store them as a list. Handle both.
+        if isinstance(nodes, dict):
+            node_values = nodes.values()
+        elif isinstance(nodes, list):
+            node_values = nodes
+        else:
+            node_values = []
+        for node in node_values:
+            if not isinstance(node, dict):
+                continue
+            # Narrative body + authored alt text only. Choice text, hints, feedback,
+            # overlay_text (a flag), URLs, ids, and scores are intentionally excluded.
+            if node.get("content"):
+                parts.append(_strip_html(str(node["content"])))
+            media = node.get("media")
+            if isinstance(media, dict) and media.get("alt"):
+                parts.append(str(media["alt"]))
+            for key in ("left_image_alt_text", "right_image_alt_text"):
+                if node.get(key):
+                    parts.append(str(node[key]))
+        if self.background_image_alt_text:
+            parts.append(self.background_image_alt_text)
+        index_body = {
+            "display_name": self.display_name,
+            "scenario_content": " ".join(parts).strip(),
+        }
+        if "content" in xblock_body:
+            xblock_body["content"].update(index_body)
+        else:
+            xblock_body["content"] = index_body
+        xblock_body["content_type"] = "Branching Scenario"
+        return xblock_body
 
     def _mfe_config_api_url(self) -> str:
         """
