@@ -1345,3 +1345,99 @@ def test_start_node_resets_stale_learner_state(block):
     assert block.score_history == []
     assert block.choice_history == []
     assert block.has_completed is False
+
+
+def test_index_dictionary_indexes_content_and_alt_text(block):
+    """
+    index_dictionary should index node content (HTML stripped) and authored
+    alt text, but never choice text, hints, feedback, scores, ids, or URLs.
+    """
+    block.display_name = "Fire Safety Scenario"
+    block.background_image_alt_text = "Office floor plan"
+    block.scenario_data = {
+        "nodes": {
+            "start": {
+                "id": "start",
+                "content": "<p>You <strong>smell smoke</strong> in the hallway.</p>",
+                "media": {"type": "image", "url": "/asset/scene.jpg", "alt": "Smoky hallway"},
+                "left_image_url": "/asset/left.png",
+                "right_image_url": "/asset/right.png",
+                "left_image_alt_text": "Worried colleague",
+                "right_image_alt_text": "Fire warden",
+                "overlay_text": True,
+                "choices": [
+                    {
+                        "text": "Pull the alarm",
+                        "target_node_id": "ending",
+                        "feedback": "Correct, alarms come first.",
+                        "hint": "Think about alerting others.",
+                        "score": 100,
+                    },
+                ],
+                "hint": "Check the evacuation poster.",
+                "transcript_url": "/asset/transcript.txt",
+            },
+            "ending": {
+                "id": "ending",
+                "content": "<p>Everyone evacuates safely.</p>",
+                "media": {"type": "", "url": "", "alt": ""},
+                "choices": [],
+                "hint": "",
+            },
+        },
+        "start_node_id": "start",
+    }
+    block.current_node_id = "some-user-node"
+    block.history = ["start"]
+
+    result = block.index_dictionary()
+
+    assert result["content_type"] == "Branching Scenario"
+    assert result["content"]["display_name"] == "Fire Safety Scenario"
+    scenario_content = result["content"]["scenario_content"]
+
+    # Narrative content is indexed with HTML tags stripped.
+    assert "You smell smoke in the hallway." in scenario_content
+    assert "Everyone evacuates safely." in scenario_content
+    assert "<p>" not in scenario_content
+    assert "<strong>" not in scenario_content
+
+    # Authored alt text is indexed.
+    assert "Smoky hallway" in scenario_content
+    assert "Worried colleague" in scenario_content
+    assert "Fire warden" in scenario_content
+    assert "Office floor plan" in scenario_content
+
+    # Choice text, hints, feedback, scores, ids, and URLs are excluded.
+    assert "Pull the alarm" not in scenario_content
+    assert "Correct, alarms come first." not in scenario_content
+    assert "Think about alerting others." not in scenario_content
+    assert "Check the evacuation poster." not in scenario_content
+    assert "100" not in scenario_content
+    assert "/asset/" not in scenario_content
+    assert "transcript" not in scenario_content
+
+    # Indexing must not touch learner state.
+    assert block.current_node_id == "some-user-node"
+    assert block.history == ["start"]
+
+
+def test_index_dictionary_handles_legacy_list_nodes_and_empty_data(block):
+    """
+    index_dictionary should tolerate legacy list-shaped nodes, malformed
+    entries, and empty scenario data.
+    """
+    block.scenario_data = {
+        "nodes": [
+            {"id": "a", "content": "<p>Legacy list node.</p>"},
+            "not-a-dict",
+        ],
+        "start_node_id": "a",
+    }
+    result = block.index_dictionary()
+    assert "Legacy list node." in result["content"]["scenario_content"]
+
+    block.scenario_data = {"nodes": {}, "start_node_id": None}
+    result = block.index_dictionary()
+    assert result["content"]["scenario_content"] == ""
+    assert result["content_type"] == "Branching Scenario"
