@@ -16,6 +16,14 @@ Unreleased
 
 *
 
+0.3.0 – 2026-07-21
+**********************************************
+
+Added
+=====
+
+* Content-search (Meilisearch) support: node content and image alt texts are indexed via ``index_dictionary``.
+
 0.2.0 – 2026-04-28
 ******************
 
