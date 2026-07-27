@@ -104,3 +104,4 @@ xblock-utils==4.0.0
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
+nh3

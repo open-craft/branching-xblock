@@ -7,7 +7,7 @@ from django.test.client import RequestFactory
 from xblock.test.tools import TestRuntime
 from xblock.field_data import DictFieldData
 
-from branching_xblock.branching_xblock import BranchingXBlock
+from branching_xblock.branching_xblock import BranchingXBlock, _strip_html
 
 
 @pytest.fixture
@@ -1441,3 +1441,13 @@ def test_index_dictionary_handles_legacy_list_nodes_and_empty_data(block):
     result = block.index_dictionary()
     assert result["content"]["scenario_content"] == ""
     assert result["content_type"] == "Branching Scenario"
+
+
+def test_strip_html_hardening():
+    """Script/style contents are dropped and markup edge cases are handled."""
+    assert _strip_html('<script src="x.js">secret()</script>visible') == "visible"
+    assert _strip_html("<style>.a{color:red}</style>styled") == "styled"
+    assert _strip_html('<img alt="a > b">text') == "text"
+    assert _strip_html("<p>foo</p><p>bar</p>") == "foo bar"
+    assert _strip_html("see https://example.com <!-- hidden -->") == "see https://example.com"
+    assert _strip_html(None) == ""
