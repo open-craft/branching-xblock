@@ -113,6 +113,8 @@ markupsafe==3.0.2
     #   xblock
 mdurl==0.1.2
     # via markdown-it-py
+nh3==0.2.21
+    # via -r requirements/base.txt
 openedx-django-pyfs==3.8.0
     # via
     #   -r requirements/base.txt
