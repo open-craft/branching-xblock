@@ -157,6 +157,8 @@ mdurl==0.1.2
     # via
     #   -r requirements/test.txt
     #   markdown-it-py
+nh3==0.2.21
+    # via -r requirements/test.txt
 openedx-django-pyfs==3.8.0
     # via
     #   -r requirements/test.txt

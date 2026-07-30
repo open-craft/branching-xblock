@@ -1,10 +1,11 @@
 """Branching Scenario XBlock."""
+import html
 import os
-import re
 import uuid
 from collections import deque
 from typing import Any, Optional
 
+import nh3
 from django.conf import settings
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
@@ -23,10 +24,9 @@ MAX_NODES = 30
 
 
 def _strip_html(text: str) -> str:
-    """
-    Replace HTML tags with spaces and collapse the surrounding whitespace.
-    """
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text)).strip()
+    """Reduce HTML to searchable plain text; script/style contents are dropped."""
+    text = (text or "").replace("<", " <")
+    return " ".join(html.unescape(nh3.clean(text, tags=set())).split())
 
 
 def _default_node(**overrides):
