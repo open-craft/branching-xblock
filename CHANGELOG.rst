@@ -16,6 +16,14 @@ Unreleased
 
 *
 
+0.3.1 – 2026-07-31
+**********************************************
+
+Changed
+=======
+
+* Hardened search-index sanitization: HTML is now stripped with ``nh3``, dropping script/style contents, decoding entities, and keeping words in adjacent elements separated.
+
 0.3.0 – 2026-07-21
 **********************************************
 
