@@ -732,13 +732,34 @@ class BranchingXBlock(XBlock):
             "grade_ranges": grade_ranges,
         }
 
+    def _in_course_context(self) -> bool:
+        """
+        Return True unless the block is known to live outside a course run.
+
+        Grade and completion pipelines require a course run and enrollment
+        so events are skipped and the interaction still succeeds without
+        recording anything.
+        """
+        usage_id = getattr(self.scope_ids, "usage_id", None)
+        context_key = getattr(usage_id, "context_key", None)
+        if context_key is None:
+            return True
+        return bool(getattr(context_key, "is_course", True))
+
+    def _publish_event(self, event_type: str, event_data: dict[str, Any]) -> None:
+        """
+        Publish an XBlock runtime event, skipped outside a course context.
+        """
+        if not self._in_course_context():
+            return
+        self.runtime.publish(self, event_type, event_data)
+
     def publish_grade(self) -> None:
         """
         Send score to gradebook.
         """
         if self.enable_scoring:
-            self.runtime.publish(
-                self,
+            self._publish_event(
                 "grade",
                 {"value": self._current_score(), "max_value": self.max_score}
             )
@@ -932,7 +953,7 @@ class BranchingXBlock(XBlock):
             self.has_completed = True
             if self.enable_scoring:
                 self.publish_grade()
-            self.runtime.publish(self, "completion", {"completion": 1.0})
+            self._publish_event("completion", {"completion": 1.0})
 
         return {"success": True, **self._get_state()}
 
@@ -975,7 +996,7 @@ class BranchingXBlock(XBlock):
             self.publish_grade()
 
         self.start_node()
-        self.runtime.publish(self, "completion", {"completion": 0.0})
+        self._publish_event("completion", {"completion": 0.0})
         return {"success": True, **self._get_state()}
 
     def _build_staged_nodes(
@@ -1243,7 +1264,7 @@ class BranchingXBlock(XBlock):
                 content=sanitize_html(node['content']),
                 media=node['media'],
                 choices=cleaned_choices,
-                hint=node.get('hint', ''),
+                hint=sanitize_html(node.get('hint', '')),
                 overlay_text=bool(node.get('overlay_text', False)),
                 left_image_url=left_image_url,
                 right_image_url=right_image_url,

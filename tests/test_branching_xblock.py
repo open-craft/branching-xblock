@@ -821,6 +821,62 @@ def test_select_choice_scores_and_completes(rf, block):
     ]
 
 
+def _simple_scenario(block):
+    """Install a minimal two-node scenario with scoring enabled."""
+    block.scenario_data = {
+        "nodes": {
+            "A": {"id": "A", "choices": [{"text": "→ B", "target_node_id": "B", "score": 12}]},
+            "B": {"id": "B", "choices": []}
+        },
+        "start_node_id": "A"
+    }
+    block.enable_scoring = True
+
+
+def test_select_choice_skips_publish_outside_course_context(rf, block):
+    """
+    In a non-course context (content-library preview), grade/completion
+    events must be skipped and the interaction must still succeed.
+    """
+    _simple_scenario(block)
+    published = []
+    block.runtime.publish = lambda *args, **kwargs: published.append(args)
+    library_usage = mock.Mock()
+    library_usage.context_key.is_course = False  # e.g. LibraryLocatorV2
+    block.scope_ids = mock.Mock(usage_id=library_usage)
+
+    req = rf.post(
+        "/", data=json.dumps({"choice_index": 0}), content_type="application/json"
+    )
+    resp = block.select_choice(req)
+    result = json.loads(resp.body.decode('utf-8'))
+
+    assert result["success"] is True
+    assert block.has_completed is True
+    assert result["score"] == 12
+    assert published == []
+
+
+def test_select_choice_publishes_in_course_context(rf, block):
+    """In a real course context, grade and completion events are published."""
+    _simple_scenario(block)
+    published = []
+    block.runtime.publish = lambda _self, event_type, data: published.append(event_type)
+    course_usage = mock.Mock()
+    course_usage.context_key.is_course = True  # e.g. CourseLocator
+    block.scope_ids = mock.Mock(usage_id=course_usage)
+
+    req = rf.post(
+        "/", data=json.dumps({"choice_index": 0}), content_type="application/json"
+    )
+    resp = block.select_choice(req)
+    result = json.loads(resp.body.decode('utf-8'))
+
+    assert result["success"] is True
+    assert "grade" in published
+    assert "completion" in published
+
+
 def test_select_choice_rejects_boolean_score_values(rf, block):
     block.scenario_data = {
         "nodes": {
@@ -1298,6 +1354,56 @@ def test_import_nodes_sanitizes_html_content(rf, block):
     assert result["success"] is True
     node = list(block.scenario_data["nodes"].values())[0]
     assert "<script>" not in node["content"]
+
+
+def test_import_nodes_sanitizes_html_hint(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "start",
+                "content": "Start",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+                "hint": '<em>Look closer</em><img src=x onerror=alert(1)><script>alert("xss")</script>',
+            },
+        ]
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is True
+    node = list(block.scenario_data["nodes"].values())[0]
+    # Holds whether sanitize_html uses bleach (tags stripped) or the
+    # escape fallback (markup escaped): no raw executable markup survives.
+    assert "<script>" not in node["hint"]
+    assert "<img" not in node["hint"]
+    assert "Look closer" in node["hint"]
+
+
+def test_studio_submit_sanitizes_html_hint(rf, block):
+    payload = {
+        "nodes": [
+            {
+                "id": "temp-1",
+                "content": "First node",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+                "hint": '<em>Look closer</em><img src=x onerror=alert(1)><script>alert("xss")</script>',
+            },
+        ],
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.studio_submit(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["result"] == "success"
+    node = list(block.scenario_data["nodes"].values())[0]
+    # Holds whether sanitize_html uses bleach (tags stripped) or the
+    # escape fallback (markup escaped): no raw executable markup survives.
+    assert "<script>" not in node["hint"]
+    assert "<img" not in node["hint"]
+    assert "Look closer" in node["hint"]
 
 
 def test_import_nodes_recomputes_max_score(rf, block):
