@@ -29,6 +29,13 @@ def _strip_html(text: str) -> str:
     return " ".join(html.unescape(nh3.clean(text, tags=set())).split())
 
 
+def _clean_hint(value: Any) -> str:
+    """
+    Return a node hint as sanitized HTML.
+    """
+    return sanitize_html(str(value or ''))
+
+
 def _default_node(**overrides):
     """
     Return a node dict with all canonical fields set to defaults.
@@ -321,6 +328,13 @@ class BranchingXBlock(XBlock):
             if key not in migrated_node:
                 migrated_node[key] = default_value
                 changed = True
+
+        # Hints persisted before hints were sanitized (or written straight to
+        # OLX) can still hold raw HTML, which the learner UI renders as HTML.
+        cleaned_hint = _clean_hint(migrated_node.get("hint"))
+        if cleaned_hint != migrated_node.get("hint"):
+            migrated_node["hint"] = cleaned_hint
+            changed = True
 
         raw_choices = migrated_node.get("choices", [])
         choices_were_invalid = not isinstance(raw_choices, list)
@@ -881,11 +895,35 @@ class BranchingXBlock(XBlock):
         })
         return frag
 
+    @staticmethod
+    def _hint_safe_node(node: Any) -> Any:
+        """
+        Return a copy of the node with its hint sanitized, or the node itself.
+
+        The save/import pipeline sanitizes hints on the way in, but scenarios
+        stored before that (or edited straight into OLX) can still hold raw
+        HTML, and `_migrate_legacy_node` only cleans those for the Studio
+        editor. The learner UI renders hints as HTML, so clean on the way out
+        too.
+        """
+        if isinstance(node, dict) and node.get("hint"):
+            return {**node, "hint": _clean_hint(node.get("hint"))}
+        return node
+
     def _get_state(self) -> dict[str, Any]:
         """
         Build the learner-facing runtime state payload.
         """
         nodes = self.scenario_data.get("nodes", {})
+        start_node_id = self.scenario_data.get("start_node_id")
+
+        # The learner UI renders one hint: the current node's, falling back to
+        # the start node's before there is any learner state. Those are the
+        # only hints that reach the DOM, so sanitize them.
+        if isinstance(nodes, dict) and start_node_id in nodes:
+            safe_start_node = self._hint_safe_node(nodes[start_node_id])
+            if safe_start_node is not nodes[start_node_id]:
+                nodes = {**nodes, start_node_id: safe_start_node}
 
         return {
             "nodes":           nodes,
@@ -899,7 +937,7 @@ class BranchingXBlock(XBlock):
             "max_score":       self.max_score,
             "grade_ranges":    self.grade_ranges,
             "display_name":    self.display_name,
-            "current_node":    self.get_current_node(),
+            "current_node":    self._hint_safe_node(self.get_current_node()),
             "history":         list(self.history),
             "score_history":   list(self.score_history),
             "choice_history":  list(self.choice_history),
@@ -1264,7 +1302,7 @@ class BranchingXBlock(XBlock):
                 content=sanitize_html(node['content']),
                 media=node['media'],
                 choices=cleaned_choices,
-                hint=sanitize_html(node.get('hint', '')),
+                hint=_clean_hint(node.get('hint')),
                 overlay_text=bool(node.get('overlay_text', False)),
                 left_image_url=left_image_url,
                 right_image_url=right_image_url,

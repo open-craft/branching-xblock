@@ -7,7 +7,7 @@ from django.test.client import RequestFactory
 from xblock.test.tools import TestRuntime
 from xblock.field_data import DictFieldData
 
-from branching_xblock.branching_xblock import BranchingXBlock, _strip_html
+from branching_xblock.branching_xblock import BranchingXBlock, _default_node, _strip_html
 
 
 @pytest.fixture
@@ -1404,6 +1404,115 @@ def test_studio_submit_sanitizes_html_hint(rf, block):
     assert "<script>" not in node["hint"]
     assert "<img" not in node["hint"]
     assert "Look closer" in node["hint"]
+
+
+@pytest.mark.parametrize("bad_hint", [123, {"a": 1}, ["x"], True])
+def test_import_nodes_accepts_non_string_hint(rf, block, bad_hint):
+    """A non-string hint from JSON import must not raise; it is coerced."""
+    payload = {
+        "nodes": [
+            {
+                "id": "start",
+                "content": "Start",
+                "media": {"type": "", "url": ""},
+                "choices": [],
+                "hint": bad_hint,
+            },
+        ]
+    }
+    req = rf.post("/", data=json.dumps(payload), content_type="application/json")
+    resp = block.import_nodes(req)
+    result = json.loads(resp.body.decode("utf-8"))
+
+    assert result["success"] is True
+    node = list(block.scenario_data["nodes"].values())[0]
+    assert isinstance(node["hint"], str)
+
+
+def test_get_state_sanitizes_legacy_stored_hint(block):
+    """Hints stored before sanitization existed must not reach the learner raw."""
+    block.scenario_data = {
+        "nodes": {
+            "A": {"id": "A", "hint": "", "choices": [{"text": "go", "target_node_id": "B", "score": 0}]},
+            "B": {
+                "id": "B",
+                "hint": '<em>Legacy</em><img src=x onerror=alert(1)>',
+                "choices": [],
+            },
+        },
+        "start_node_id": "A",
+    }
+    block.current_node_id = "B"
+
+    state = block._get_state()
+
+    # Holds whether sanitize_html uses bleach (tags stripped) or the
+    # escape fallback (markup escaped): no raw executable markup survives.
+    assert "<img" not in state["current_node"]["hint"]
+    assert "Legacy" in state["current_node"]["hint"]
+    # Stored data is left untouched; only the emitted payload is cleaned.
+    assert "<img" in block.scenario_data["nodes"]["B"]["hint"]
+
+
+def test_get_state_cleans_start_node_hint_before_learner_state_exists(block):
+    """With no learner state yet the UI renders the start node, so clean that hint."""
+    block.scenario_data = {
+        "nodes": {"A": {"id": "A", "hint": "<img src=x onerror=alert(1)>Start", "choices": []}},
+        "start_node_id": "A",
+    }
+    block.current_node_id = None
+
+    state = block._get_state()
+
+    assert state["current_node"] is None
+    assert "<img" not in state["nodes"]["A"]["hint"]
+    assert "Start" in state["nodes"]["A"]["hint"]
+
+
+def test_get_state_only_cleans_the_hints_that_get_rendered(block):
+    """
+    Hints of nodes the UI never renders stay as stored.
+
+    Only the current node's hint (falling back to the start node's) reaches
+    `dangerouslySetInnerHTML`; sanitizing every node on every request costs far
+    more than serializing the whole payload, so unrendered hints are left alone.
+    They are inert JSON, and the save/import pipeline cleans them at write time.
+    """
+    block.scenario_data = {
+        "nodes": {
+            "A": {"id": "A", "hint": "", "choices": [{"text": "go", "target_node_id": "B", "score": 0}]},
+            "B": {"id": "B", "hint": "<img src=x onerror=alert(1)>Later", "choices": []},
+        },
+        "start_node_id": "A",
+    }
+    block.current_node_id = "A"
+
+    state = block._get_state()
+
+    assert state["current_node"]["id"] == "A"
+    assert state["nodes"]["B"]["hint"] == "<img src=x onerror=alert(1)>Later"
+
+
+def test_migrate_legacy_node_sanitizes_stored_hint(block):
+    """Opening the Studio editor cleans hints already persisted."""
+    migrated, changed = block._migrate_legacy_node({
+        "id": "A",
+        "hint": '<em>Legacy</em><script>alert(1)</script>',
+        "choices": [],
+    })
+
+    assert changed is True
+    assert "<script>" not in migrated["hint"]
+    assert "Legacy" in migrated["hint"]
+
+
+def test_migrate_legacy_node_leaves_clean_hint_untouched(block):
+    """An already-clean hint must not mark the node dirty (avoids pointless saves)."""
+    node = _default_node(id="A", hint="Plain hint text")
+    migrated, changed = block._migrate_legacy_node(node)
+
+    assert migrated["hint"] == "Plain hint text"
+    assert changed is False
 
 
 def test_import_nodes_recomputes_max_score(rf, block):
