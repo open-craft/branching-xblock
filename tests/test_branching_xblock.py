@@ -1564,8 +1564,8 @@ def test_start_node_resets_stale_learner_state(block):
 
 def test_index_dictionary_indexes_content_and_alt_text(block):
     """
-    index_dictionary should index node content (HTML stripped) and authored
-    alt text, but never choice text, hints, feedback, scores, ids, or URLs.
+    index_dictionary should index node content (HTML stripped), choice labels,
+    and authored alt text, but never hints, feedback, scores, ids, or URLs.
     """
     block.display_name = "Fire Safety Scenario"
     block.background_image_alt_text = "Office floor plan"
@@ -1623,8 +1623,10 @@ def test_index_dictionary_indexes_content_and_alt_text(block):
     assert "Fire warden" in scenario_content
     assert "Office floor plan" in scenario_content
 
-    # Choice text, hints, feedback, scores, ids, and URLs are excluded.
-    assert "Pull the alarm" not in scenario_content
+    # Choice labels are indexed: authors put substantive narrative text here.
+    assert "Pull the alarm" in scenario_content
+
+    # Hints, feedback, scores, ids, and URLs are excluded.
     assert "Correct, alarms come first." not in scenario_content
     assert "Think about alerting others." not in scenario_content
     assert "Check the evacuation poster." not in scenario_content
@@ -1656,6 +1658,48 @@ def test_index_dictionary_handles_legacy_list_nodes_and_empty_data(block):
     result = block.index_dictionary()
     assert result["content"]["scenario_content"] == ""
     assert result["content_type"] == "Branching Scenario"
+
+
+def test_index_dictionary_choice_labels(block):
+    """
+    Choice labels are indexed with HTML stripped; malformed choice entries and
+    non-list ``choices`` values are tolerated, and per-choice hints/feedback
+    and scores stay out of the index.
+    """
+    block.scenario_data = {
+        "nodes": {
+            "start": {
+                "id": "start",
+                "content": "<p>Pick a route.</p>",
+                "choices": [
+                    {"text": "<em>Take the forest shortcut</em>", "target_node_id": "a"},
+                    {"text": "", "target_node_id": "b"},
+                    {"text": "Walk the market road", "feedback": "Slower but safer.",
+                     "hint": "Crowds slow you down.", "score": 50},
+                    "not-a-dict",
+                ],
+            },
+            "legacy": {
+                "id": "legacy",
+                "content": "<p>Legacy shape.</p>",
+                "choices": "not-a-list",
+            },
+        },
+        "start_node_id": "start",
+    }
+
+    scenario_content = block.index_dictionary()["content"]["scenario_content"]
+
+    assert "Take the forest shortcut" in scenario_content
+    assert "Walk the market road" in scenario_content
+    assert "Pick a route." in scenario_content
+    assert "Legacy shape." in scenario_content
+    assert "<em>" not in scenario_content
+
+    # Per-choice reveal text and scoring remain excluded.
+    assert "Slower but safer." not in scenario_content
+    assert "Crowds slow you down." not in scenario_content
+    assert "50" not in scenario_content
 
 
 def test_strip_html_hardening():
