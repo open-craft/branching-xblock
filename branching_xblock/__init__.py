@@ -4,4 +4,4 @@ Init for the BranchingXBlock package.
 
 from .branching_xblock import BranchingXBlock
 
-__version__ = '0.3.2'
+__version__ = '0.3.3'

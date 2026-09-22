@@ -803,10 +803,15 @@ class BranchingXBlock(XBlock):
         for node in node_values:
             if not isinstance(node, dict):
                 continue
-            # Narrative body + authored alt text only. Choice text, hints, feedback,
-            # overlay_text (a flag), URLs, ids, and scores are intentionally excluded.
+            # Narrative body, choice labels and authored alt text only. Hints, feedback,
+            # overlay_text (a flag), URLs, ids, and scores are intentionally excluded
             if node.get("content"):
                 parts.append(_strip_html(str(node["content"])))
+            choices = node.get("choices")
+            if isinstance(choices, list):
+                for choice in choices:
+                    if isinstance(choice, dict) and choice.get("text"):
+                        parts.append(_strip_html(str(choice["text"])))
             media = node.get("media")
             if isinstance(media, dict) and media.get("alt"):
                 parts.append(str(media["alt"]))
