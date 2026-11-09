@@ -139,7 +139,7 @@ describe("StudentApp characterization: scenario to report journey", () => {
 
   it("shows the inline score then the report with the server's values verbatim", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, ...terminalState }));
-    renderApp();
+    const { container } = renderApp();
 
     fireEvent.click(radio("Go left"));
     fireEvent.click(button("Submit"));
@@ -153,27 +153,101 @@ describe("StudentApp characterization: scenario to report journey", () => {
     const reportText = report ? report.textContent || "" : "";
     // Server values are rendered as-is: 43% next to a 3/10 score is never recomputed.
     // Exact values, not prefixes: /Your Score\s*3/ would also accept 30, and 10 would accept 100.
-    expect(screen.getByText("Your Score").parentElement?.textContent).toBe("Your Score3");
-    expect(screen.getByText("Highest Possible Score").parentElement?.textContent).toBe(
-      "Highest Possible Score10",
-    );
+    // Read the metric values through the report's data-role hooks so the label wording
+    // (which the report owns) cannot make this assertion fail for punctuation reasons.
+    const metricValue = (role: string) =>
+      container.querySelector(`[data-role="${role}"]`)?.textContent;
+    expect(screen.getByText(/^Your Score:?$/)).toBeTruthy();
+    expect(screen.getByText(/^Highest Possible Score:?$/)).toBeTruthy();
+    expect(metricValue("report-score")).toBe("3");
+    expect(metricValue("report-max-score")).toBe("10");
     expect(reportText).toContain("43%");
     expect(reportText).toContain("Pass");
     expect(screen.queryByText("Score: 3/10")).toBeNull();
 
     const table = screen.getByRole("table", { name: "Detailed Score" });
-    const cellsOf = (row: HTMLElement) =>
-      within(row)
-        .getAllByRole("cell")
-        .map((cell) => cell.textContent);
     const dataRows = within(table)
       .getAllByRole("row")
       .filter((row) => within(row).queryAllByRole("cell").length > 0);
-    // The zero-point row is kept, and points are neither rounded nor recomputed.
-    expect(dataRows.map(cellsOf)).toEqual([
-      ["Go left", "3"],
-      ["Never chosen", "0"],
+    // The zero-point row is kept; the server's points are shown signed and never recomputed.
+    expect(dataRows.map((row) => within(row).getByRole("cell").textContent)).toEqual(["+3", "+0"]);
+    expect(dataRows.map((row) => within(row).getByRole("rowheader").textContent)).toEqual([
+      "Go left",
+      "Never chosen",
     ]);
+  });
+});
+
+describe("StudentApp: Paragon layout composition", () => {
+  // The row, the gap and the shrink hooks are Paragon's (Stack plus utilities), so a
+  // later edit to the block CSS alone cannot silently drop them.
+  it("builds the header title and the action row from Stack and spacing utilities", () => {
+    const { container } = renderApp(middleState);
+
+    const heading = screen.getByRole("heading", { level: 2, name: "Decision-Making Scenario" });
+    const title = heading.parentElement as HTMLElement;
+    expect(title).toHaveClass("branching-scenario__title", "pgn__hstack", "pgn__stack-gap--3");
+    const titleIcon = title.querySelector(".branching-scenario__title-icon") as HTMLElement;
+    expect(titleIcon).toHaveClass("flex-shrink-0");
+    // Reset keeps its own class: the focus-ring rules still target it.
+    expect(button("Reset")).toHaveClass("branching-scenario__reset", "flex-shrink-0");
+
+    const actions = container.querySelector('[data-role="actions"]') as HTMLElement;
+    expect(actions).toHaveClass("pgn__vstack", "pgn__stack-gap--2.5", "flex-wrap", "mt-4.5");
+    // DOM order stays primary then secondary; the 768 container query reverses the row.
+    expect(within(actions).getAllByRole("button").map((element) => element.textContent))
+      .toEqual(["Submit", "Go Back"]);
+  });
+});
+
+describe("StudentApp: authored HTML stays outside the choice form", () => {
+  const AUTHORED_CONTENT =
+    '<p>Start content</p><form id="author-form" action="/author-handler">'
+    + '<button type="submit">Author button</button></form>';
+
+  function renderAuthoredNode() {
+    const authoredNode: Node = { ...startNode, content: AUTHORED_CONTENT };
+    const state = makeState({
+      nodes: { ...initialState.nodes, start: authoredNode },
+      current_node: authoredNode,
+    });
+    return renderApp(state);
+  }
+
+  it("keeps the author's form out of our form, so its button cannot submit a selection", () => {
+    const { container } = renderAuthoredNode();
+
+    const ourForm = container.querySelector('[data-role="choice-form"]') as HTMLFormElement;
+    const authorForm = container.querySelector("#author-form") as HTMLFormElement;
+    const authorButton = screen.getByRole("button", { name: "Author button" });
+
+    // Both forms exist, and the authored one is neither inside ours nor a parent of it.
+    expect(container.querySelectorAll("form")).toHaveLength(2);
+    expect(authorForm).toBeTruthy();
+    expect(authorForm.closest("form")).toBe(authorForm);
+    expect(ourForm.contains(authorForm)).toBe(false);
+    expect(ourForm.contains(authorButton)).toBe(false);
+    expect(authorForm.contains(ourForm)).toBe(false);
+
+    // The author's submit button submits the author's own form, never our selection.
+    const authorSubmit = jest.fn();
+    authorForm.addEventListener("submit", (event) => {
+      authorSubmit();
+      event.preventDefault();
+    });
+    fireEvent.click(authorButton);
+
+    expect(authorSubmit).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(statusText()).not.toContain("Content updated.");
+
+    // Submit sits in the footer, outside the form, and reaches it through form={id}.
+    fireEvent.click(radio("Go left"));
+    expect(button("Submit").disabled).toBe(false);
+    fireEvent.click(button("Submit"));
+
+    expect(postedUrl()).toBe("/handlers/select_choice");
+    expect(postedBody()).toEqual({ choice_index: 0 });
   });
 });
 
@@ -188,7 +262,7 @@ describe("StudentApp characterization: reset journeys", () => {
     fireEvent.click(button("Show Report"));
 
     fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, ...initialState }));
-    fireEvent.click(button("Reset Activity"));
+    fireEvent.click(button("Restart"));
 
     expect(await screen.findByText("Start content")).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -222,6 +296,42 @@ describe("StudentApp characterization: reset journeys", () => {
     expect(radio("Continue").checked).toBe(false);
     expect(button("Reset")).toBeTruthy();
     expect(button("Submit").disabled).toBe(true);
+    expect(statusText()).not.toContain("Content updated.");
+  });
+
+  it("goes back through the undo_choice handler and clears the selection", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, ...initialState }));
+    renderApp(middleState);
+
+    expect(button("Go Back").disabled).toBe(false);
+    fireEvent.click(button("Go Back"));
+
+    expect(await screen.findByText("Start content")).toBeTruthy();
+    expect(postedUrl()).toBe("/handlers/undo_choice");
+    expect(postedBody()).toEqual({});
+    expect(statusText()).toContain("Content updated.");
+    expect(button("Submit").disabled).toBe(true);
+    expect(radio("Go left").checked).toBe(false);
+    // Accepted behaviour: the first step never offers Go Back.
+    expect(screen.queryByRole("button", { name: "Go Back" })).toBeNull();
+  });
+
+  it("shows a submit error as an alert and keeps the current choices", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: false, error: "Choice failed" }));
+    renderApp();
+
+    fireEvent.click(radio("Go left"));
+    fireEvent.click(button("Submit"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Choice failed");
+    // Stock Paragon alert classes: alert-content is what sets the variant text colour.
+    expect(alert.classList.contains("alert-content")).toBe(true);
+    // A failed submit keeps the view, the selection and the enabled Submit.
+    expect(screen.getByText("Start content")).toBeTruthy();
+    expect(radio("Go left").checked).toBe(true);
+    expect(button("Submit").disabled).toBe(false);
+    expect(postedUrl()).toBe("/handlers/select_choice");
     expect(statusText()).not.toContain("Content updated.");
   });
 });
@@ -258,7 +368,7 @@ const flagCases: FlagCase[] = [
   },
   {
     // Opening the report replaces the scenario controls, so the action bar is gone.
-    name: "enable_reset_activity off hides Reset Activity inside the report",
+    name: "enable_reset_activity off hides the report Restart",
     state: makeState({ current_node: terminalNode, history: ["start"], enable_reset_activity: false }),
     openReport: true,
     showReportButton: false,
@@ -296,6 +406,7 @@ const flagCases: FlagCase[] = [
   },
   {
     // Current rule: reset also needs current_node.id !== start_node_id, terminal start node included.
+    // Accepted behaviour: the first step never offers Go Back, terminal start nodes included.
     name: "a terminal start node offers no reset, only the report",
     state: makeState({
       current_node: { id: "start", content: "Start content", choices: [] },
@@ -305,7 +416,7 @@ const flagCases: FlagCase[] = [
     inlineScore: true,
     scenarioReset: false,
     reportReset: false,
-    goBack: "disabled",
+    goBack: "hidden",
   },
   {
     // Same position gate inside the report, with progress present: no reset is offered there either.
@@ -333,9 +444,10 @@ describe("StudentApp characterization: author flags", () => {
     expect(Boolean(screen.queryByRole("button", { name: "Show Report" }))).toBe(flagCase.showReportButton);
     expect(Boolean(screen.queryByText(/^Score: /))).toBe(flagCase.inlineScore);
     // The two reset entry points are mutually exclusive: opening the report unmounts the action
-    // bar, so each one is only asserted in the mode where it can appear.
+    // bar, so each one is only asserted in the mode where it can appear. The report's entry
+    // point is "Restart"; the card header keeps the scenario's "Reset".
     if (flagCase.openReport) {
-      expect(Boolean(screen.queryByRole("button", { name: "Reset Activity" }))).toBe(flagCase.reportReset);
+      expect(Boolean(screen.queryByRole("button", { name: "Restart" }))).toBe(flagCase.reportReset);
     } else {
       expect(Boolean(screen.queryByRole("button", { name: "Reset" }))).toBe(flagCase.scenarioReset);
     }

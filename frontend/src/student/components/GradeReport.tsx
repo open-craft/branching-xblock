@@ -1,5 +1,13 @@
-import React, { useEffect, useRef } from "react";
+import React, { useId } from "react";
+import Badge from "@openedx/paragon/dist/Badge";
 import Button from "@openedx/paragon/dist/Button";
+import Card from "@openedx/paragon/dist/Card";
+import Icon from "@openedx/paragon/dist/Icon";
+import Stack from "@openedx/paragon/dist/Stack";
+// Deep imports, not the icons barrel: each es5 module is a default export.
+import AccountTree from "@openedx/paragon/icons/es5/AccountTree";
+import AutoGraph from "@openedx/paragon/icons/es5/AutoGraph";
+import Cached from "@openedx/paragon/icons/es5/Cached";
 import { useIntl } from "react-intl";
 import { studentMessages } from "../../messages";
 import { GradeReport as GradeReportData } from "../../apiTypes";
@@ -11,124 +19,144 @@ interface GradeReportProps {
   hidden: boolean;
 }
 
+// Scroll starts only from a 9th detail row, so up to 8 rows wrap freely on phones.
+const SCROLL_ROW_THRESHOLD = 8;
+
+// Server points, signed: +2, +0, -1 (never "+-1").
+const signedPoints = (points: number) => `${points < 0 ? "-" : "+"}${Math.abs(points)}`;
+
 const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport, onReset, hidden }) => {
   const intl = useIntl();
-  const circleRef = useRef<SVGCircleElement>(null);
-
-  const score = reportData?.score || 0;
-  const maxScore = reportData?.max_score || 0;
-  const percentage = reportData?.percentage || 0;
-  const gradeLabel = (reportData?.grade_label || "").trim();
-  const isPassStyle = Boolean(reportData?.is_pass_style);
-  const details = Array.isArray(reportData?.detailed_scores) ? reportData.detailed_scores : [];
-  const boundedPercentage = Math.max(0, Math.min(100, percentage));
-
-  useEffect(() => {
-    if (circleRef.current) {
-      const radius = Number(circleRef.current.getAttribute("r")) || 48;
-      const circumference = 2 * Math.PI * radius;
-      const offset = circumference * (1 - boundedPercentage / 100);
-      circleRef.current.style.strokeDasharray = String(circumference);
-      circleRef.current.style.strokeDashoffset = String(offset);
-    }
-  }, [boundedPercentage]);
+  const detailsHeadingId = useId();
 
   if (hidden) {
     return <div className="grade-report" data-role="grade-report" hidden />;
   }
 
+  // Shown verbatim: the server owns score, max_score and percentage.
+  const score = reportData?.score ?? 0;
+  const maxScore = reportData?.max_score ?? 0;
+  const percentage = reportData?.percentage ?? 0;
+  const gradeLabel = (reportData?.grade_label ?? "").trim();
+  const isPassStyle = Boolean(reportData?.is_pass_style);
+  const details = Array.isArray(reportData?.detailed_scores) ? reportData.detailed_scores : [];
+  const detailsLabel = intl.formatMessage(studentMessages.detailedScore);
+  const scrollable = details.length > SCROLL_ROW_THRESHOLD;
+  const scrollProps = scrollable
+    ? { role: "region" as const, "aria-label": detailsLabel, tabIndex: 0 }
+    : {};
+
   return (
-    <div className="grade-report" data-role="grade-report">
-      <h3 className="grade-report__title">
-        {intl.formatMessage(studentMessages.activityComplete)}
-      </h3>
-      <p className="grade-report__subtitle">
-        {intl.formatMessage(studentMessages.reportSubtitle)}
-      </p>
-
-      <div className="grade-report__summary-card">
-        <h4 className="grade-report__section-title">
-          <span className="grade-report__section-icon" aria-hidden="true">
-            <span className="fa fa-graduation-cap" aria-hidden="true" />
-          </span>
-          {intl.formatMessage(studentMessages.yourGrade)}
-        </h4>
-        <div className="grade-report__summary">
-          <div className={`grade-report__metric grade-report__metric--score${!isPassStyle ? " is-fail" : ""}`}>
-            <div className="grade-report__metric-label">
-              <span className="grade-report__metric-label-icon" aria-hidden="true">
-                <span className={`fa ${isPassStyle ? "fa-trophy" : "fa-exclamation-triangle"}`} data-role="report-score-icon" aria-hidden="true" />
-              </span>
-              {intl.formatMessage(studentMessages.yourScore)}
+    <Card className="grade-report" data-role="grade-report">
+      {/* Same header as the scenario card, so the report reads as the same activity. */}
+      <Card.Header
+        title={
+          <Stack direction="horizontal" gap={3} className="branching-scenario__title">
+            <Icon src={AccountTree} className="branching-scenario__title-icon flex-shrink-0" />
+            <span className="branching-scenario__title-divider" aria-hidden="true" />
+            <h2 className="branching-scenario__title-text">
+              {intl.formatMessage(studentMessages.scenarioTitle)}
+            </h2>
+          </Stack>
+        }
+      />
+      <Card.Section>
+        <div className="grade-report__layout">
+          <section className="grade-report__summary">
+            <Icon src={AutoGraph} className="grade-report__sparkle" />
+            <div className="grade-report__result">
+              <p className="grade-report__percentage" data-role="report-percent">
+                {percentage}%
+              </p>
+              <Badge
+                pill
+                variant={isPassStyle ? "success" : "danger"}
+                className="grade-report__badge"
+                data-role="report-grade-label"
+              >
+                {gradeLabel}
+              </Badge>
             </div>
-            <div className="grade-report__metric-value" data-role="report-score">{Math.round(score)}</div>
-          </div>
-          <div className="grade-report__metric grade-report__metric--max">
-            <div className="grade-report__metric-label">
-              {intl.formatMessage(studentMessages.highestPossibleScore)}
-            </div>
-            <div className="grade-report__metric-value" data-role="report-max-score">{Math.round(maxScore)}</div>
-          </div>
-          <div className={`grade-report__percent${!isPassStyle ? " is-fail" : ""}`} data-role="report-percent-pill">
-            <svg className="grade-report__percent-ring" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
-              <circle className="grade-report__percent-track" cx="60" cy="60" r="48" />
-              <circle className="grade-report__percent-progress" data-role="report-percent-circle" cx="60" cy="60" r="48" ref={circleRef} />
-            </svg>
-            <div className="grade-report__percent-content">
-              <div className="grade-report__percent-value" data-role="report-percent">{percentage}%</div>
-              <div className="grade-report__percent-label" data-role="report-grade-label">{gradeLabel}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grade-report__details">
-        <h4 className="grade-report__details-title">
-          <span className="grade-report__section-icon" aria-hidden="true">
-            <span className="fa fa-line-chart" aria-hidden="true" />
-          </span>
-          {intl.formatMessage(studentMessages.detailedScore)}
-        </h4>
-        <div role="table" aria-label={intl.formatMessage(studentMessages.detailedScore)}>
-          <div className="grade-report__details-header" role="row">
-            <span role="columnheader">{intl.formatMessage(studentMessages.yourSelections)}</span>
-            <span role="columnheader">{intl.formatMessage(studentMessages.scoreColumn)}</span>
-          </div>
-          <div className="grade-report__details-rows" data-role="report-details" role="rowgroup">
-            {details.length === 0 ? (
-              <div className="grade-report__details-row grade-report__details-row--empty" role="row">
-                <span role="cell">{intl.formatMessage(studentMessages.noScoredSelections)}</span>
+            <h3 className="grade-report__heading">
+              {intl.formatMessage(studentMessages.activityComplete)}
+            </h3>
+            <p className="grade-report__subtitle">
+              {intl.formatMessage(studentMessages.reportSubtitle)}
+            </p>
+            <dl className="grade-report__metrics">
+              <div className={`grade-report__metric ${isPassStyle ? "is-pass" : "is-fail"}`}>
+                {/* Colon lives here: the message default has none. */}
+                <dt className="grade-report__metric-label">
+                  {intl.formatMessage(studentMessages.yourScore)}:
+                </dt>
+                <dd className="grade-report__metric-value" data-role="report-score">{score}</dd>
               </div>
-            ) : (
-              details.map((entry, idx) => {
-                const text = (entry.choice_text || "").trim();
-                const points = entry.awarded_points || 0;
-                return (
-                  <div className="grade-report__details-row" key={idx} role="row">
-                    <span className="grade-report__details-text" role="cell">
-                      {text || intl.formatMessage(studentMessages.untitledChoice)}
-                    </span>
-                    <span className="grade-report__details-score" role="cell">{String(points)}</span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </div>
+              <div className="grade-report__metric is-max">
+                <dt className="grade-report__metric-label">
+                  {intl.formatMessage(studentMessages.highestPossibleScore)}:
+                </dt>
+                <dd className="grade-report__metric-value" data-role="report-max-score">{maxScore}</dd>
+              </div>
+            </dl>
+          </section>
 
-      {showResetInReport && (
-        <Button
-          type="button"
-          variant="primary"
-          className="action-primary btn-primary"
-          data-role="reset-activity-report"
-          onClick={onReset}
-        >
-          {intl.formatMessage(studentMessages.resetActivity)}
-        </Button>
-      )}
-    </div>
+          <section className="grade-report__details">
+            <h3 className="grade-report__details-heading" id={detailsHeadingId}>{detailsLabel}</h3>
+            <Card className="grade-report__table-card">
+              <Card.Section>
+                <div
+                  className={`grade-report__table-scroll${scrollable ? " is-scrollable" : ""}`}
+                  {...scrollProps}
+                >
+                  <table className="grade-report__table" aria-labelledby={detailsHeadingId}>
+                    <thead>
+                      <tr>
+                        <th scope="col">{intl.formatMessage(studentMessages.yourSelections)}</th>
+                        <th scope="col">{intl.formatMessage(studentMessages.scoreColumn)}</th>
+                      </tr>
+                    </thead>
+                    <tbody data-role="report-details">
+                      {details.length === 0 ? (
+                        <tr>
+                          <td colSpan={2}>{intl.formatMessage(studentMessages.noScoredSelections)}</td>
+                        </tr>
+                      ) : (
+                        details.map((entry, idx) => {
+                          const text = (entry.choice_text || "").trim();
+                          return (
+                            <tr key={idx}>
+                              <th scope="row">
+                                {text || intl.formatMessage(studentMessages.untitledChoice)}
+                              </th>
+                              <td className="grade-report__details-score">
+                                {signedPoints(entry.awarded_points ?? 0)}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card.Section>
+            </Card>
+          </section>
+
+          {showResetInReport && (
+            <Button
+              type="button"
+              variant="outline-primary"
+              className="grade-report__restart"
+              data-role="reset-activity-report"
+              onClick={onReset}
+            >
+              {intl.formatMessage(studentMessages.restart)}
+              <Icon src={Cached} className="grade-report__restart-icon" />
+            </Button>
+          )}
+        </div>
+      </Card.Section>
+    </Card>
   );
 };
 

@@ -17,9 +17,9 @@ const ChoiceOption: React.FC<ChoiceOptionProps> = ({ choice, index, nodeId, isSe
   const choiceId = `choice-${nodeId || "node"}-${index}`;
   return (
     <Form.Radio
-      className={`choice-option${isSelected ? " is-selected" : ""}`}
-      controlClassName="choice-option__input"
-      labelClassName="choice-option__text"
+      className={`branching-scenario__choice${isSelected ? " is-selected" : ""}`}
+      controlClassName="branching-scenario__choice-input"
+      labelClassName="branching-scenario__choice-text"
       name="branching-choice"
       id={choiceId}
       value={index}

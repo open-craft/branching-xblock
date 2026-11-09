@@ -3,9 +3,10 @@
   "private": true,
   "scripts": {
     "generate-types": "pydantic2ts --module ../branching_xblock/types.py --output ./src/types.ts --json2ts-cmd ./node_modules/.bin/json2ts",
-    "build": "npm run generate-types && webpack --mode production",
+    "build": "npm run generate-types && npm run typecheck:production && webpack --mode production",
     "build:dev": "npm run generate-types && webpack --mode development",
     "typecheck": "tsc --noEmit",
+    "typecheck:production": "tsc --noEmit --project tsconfig.production.json",
     "watch": "webpack --mode development --watch",
     "test": "npx --no-install jest --coverage",
     "test:watch": "npx --no-install jest --watch"
