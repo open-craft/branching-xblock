@@ -100,7 +100,7 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
             </dl>
           </section>
 
-          <section className="grade-report__details">
+          <section className="grade-report__details align-self-center">
             <h3 className="grade-report__details-heading" id={detailsHeadingId}>{detailsLabel}</h3>
             <Card className="grade-report__table-card">
               <Card.Section>
