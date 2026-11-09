@@ -192,8 +192,24 @@ describe("StudentApp: Paragon layout composition", () => {
     // Reset keeps its own class: the focus-ring rules still target it.
     expect(button("Reset")).toHaveClass("branching-scenario__reset", "flex-shrink-0");
 
+    // The card floor is absorbed by the body and the content, never by the row. The
+    // column context is Paragon's too, so the block CSS cannot drop it silently.
+    const scenarioCard = container.querySelector(".branching-scenario__card") as HTMLElement;
+    expect(scenarioCard).toHaveClass("d-flex", "flex-column");
+    const body = container.querySelector(".branching-scenario__body") as HTMLElement;
+    expect(body).toHaveClass("d-flex", "flex-column", "flex-grow-1");
+    const content = container.querySelector(".branching-scenario__content") as HTMLElement;
+    expect(content).toHaveClass("branching-scenario__content--choices", "flex-grow-1");
+
     const actions = container.querySelector('[data-role="actions"]') as HTMLElement;
-    expect(actions).toHaveClass("pgn__vstack", "pgn__stack-gap--2.5", "flex-wrap", "mt-4.5");
+    expect(actions).toHaveClass(
+      "pgn__vstack",
+      "pgn__stack-gap--2.5",
+      "flex-wrap",
+      "mt-4.5",
+      "flex-grow-0",
+      "flex-shrink-0",
+    );
     // DOM order stays primary then secondary; the 768 container query reverses the row.
     expect(within(actions).getAllByRole("button").map((element) => element.textContent))
       .toEqual(["Submit", "Go Back"]);

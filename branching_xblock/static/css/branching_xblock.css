@@ -255,7 +255,7 @@
 
    Breakpoints are container queries on .branching-scenario (the block is the
    LMS iframe): the split content stacks at 768 and below, the action row goes
-   inline at 768 and up, and the report turns two-column at 992.
+   inline at 768 and up, and the report turns two-column at 900.
    ========================================================================== */
 
 .branching-scenario {
@@ -269,16 +269,15 @@
     margin-bottom: var(--pgn-spacing-spacer-base);
 }
 
-/* The card inset is a block token; the clamp is the approved design default. */
-/* Card spacings derive from the Card's own knobs, so a theme that changes
-   --pgn-spacing-card-spacer-x/y moves this surface with it. The block token is
-   only ever read at the point of use, with a default, so a theme value wins. */
-
+/* The inline insets derive from the Card's own --pgn-spacing-card-spacer-x, so a
+   theme that changes it moves this surface with it. Vertical rhythm uses the
+   Paragon spacing scale instead, and the block token is only read at the point of
+   use with a default, so a theme override still wins. */
 .branching-scenario .branching-scenario__card > .pgn__card-header {
     align-items: center;
-    padding: calc(var(--pgn-spacing-card-spacer-y) * 2) var(--pgn-spacing-bx-card-inset,
+    padding: calc(var(--pgn-spacing-spacer-base) * 4) var(--pgn-spacing-bx-card-inset,
             clamp(var(--pgn-spacing-card-spacer-x), 8%, calc(var(--pgn-spacing-card-spacer-x) * 4.8)))
-        var(--pgn-spacing-card-spacer-y);
+        var(--pgn-spacing-spacer-base);
     border-bottom: 0;
 }
 
@@ -293,9 +292,9 @@
 }
 
 .branching-scenario .branching-scenario__card > .pgn__card-body {
-    padding: calc(var(--pgn-spacing-card-spacer-y) * 0.5) var(--pgn-spacing-bx-card-inset,
+    padding: var(--pgn-spacing-spacer-base) var(--pgn-spacing-bx-card-inset,
             clamp(var(--pgn-spacing-card-spacer-x), 8%, calc(var(--pgn-spacing-card-spacer-x) * 4.8)))
-        calc(var(--pgn-spacing-card-spacer-y) * 4);
+        calc(var(--pgn-spacing-spacer-base) * 4);
 }
 
 /* Row and gap come from Paragon Stack (horizontal, gap={3}). The wrapper only has
@@ -316,11 +315,14 @@
     background: var(--pgn-color-gray-300);
 }
 
+/* Scoped H5 typography has to outrank the LMS/Studio nested h2 rules, which is what
+   the !important on these three declarations is for. The element stays a native h2
+   and the values stay tokens, so a theme still drives them. */
 .branching-scenario__title-text {
     margin: 0;
-    font-size: var(--pgn-typography-font-size-base);
-    line-height: calc(var(--pgn-spacing-card-spacer-y) * 2);
-    font-weight: var(--pgn-typography-font-weight-bold);
+    font-size: var(--pgn-typography-font-size-h5-base) !important;
+    line-height: var(--pgn-typography-headings-line-height) !important;
+    font-weight: var(--pgn-typography-headings-font-weight) !important;
 }
 
 /* ---------- content: one column by default, split from 769 ---------- */
@@ -495,11 +497,25 @@
         color-mix(in srgb, var(--pgn-color-info-base) 8%, var(--pgn-color-white)));
 }
 
+/* The report header takes the report's own inline inset, so its title lines up with
+   the section below it, and the stock Paragon header margins are zeroed exactly as
+   the scenario card does it. */
+.branching-scenario .grade-report > .pgn__card-header {
+    padding: calc(var(--pgn-spacing-spacer-base) * 4) var(--pgn-spacing-bx-report-inset,
+            clamp(var(--pgn-spacing-card-spacer-x), 7%, calc(var(--pgn-spacing-card-spacer-x) * 3.6)))
+        var(--pgn-spacing-spacer-base);
+}
+
+.branching-scenario .grade-report .pgn__card-header-content,
+.branching-scenario .grade-report .pgn__card-header-actions {
+    margin-top: 0;
+}
+
 .grade-report > .pgn__card-section {
-    padding: var(--pgn-spacing-card-spacer-y)
+    padding: var(--pgn-spacing-spacer-base)
         var(--pgn-spacing-bx-report-inset,
             clamp(var(--pgn-spacing-card-spacer-x), 7%, calc(var(--pgn-spacing-card-spacer-x) * 3.6)))
-        calc(var(--pgn-spacing-card-spacer-y) * 2);
+        calc(var(--pgn-spacing-spacer-base) * 4);
 }
 
 /* Summary, details and Restart are grid siblings, so the Restart position is a
@@ -721,8 +737,16 @@
             calc(var(--pgn-spacing-card-spacer-x) * 1.2));
     }
 
-    .branching-scenario .branching-scenario__card > .pgn__card-body {
-        padding-bottom: calc(var(--pgn-spacing-card-spacer-y) * 2);
+    /* One step down on phone: the desktop 64px rhythm would swallow the content.
+       Header top and body/section bottom only; the inline insets above stay. */
+    .branching-scenario .branching-scenario__card > .pgn__card-header,
+    .branching-scenario .grade-report > .pgn__card-header {
+        padding-top: calc(var(--pgn-spacing-spacer-base) * 2);
+    }
+
+    .branching-scenario .branching-scenario__card > .pgn__card-body,
+    .grade-report > .pgn__card-section {
+        padding-bottom: calc(var(--pgn-spacing-spacer-base) * 2);
     }
 }
 
@@ -768,22 +792,65 @@
     }
 }
 
-/* Split content from 769: 768 itself stacks, as the design's tablet does. */
+/* Split content from 769: 768 itself stacks, as the design's tablet does. Only the
+   two designed splits are targeted, so a terminal node without media keeps the
+   single column instead of being squeezed into a half-width pane. */
 @container (min-width: 769px) {
-    .branching-scenario__content {
+    .branching-scenario__content--choices,
+    .branching-scenario__content--terminal {
         grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
         gap: calc(var(--pgn-spacing-spacer-base) * 2);
         align-items: center;
+    }
+
+    /* Only the choices split tightens to 16 here: the form's own
+       padding-inline-start adds the other 16 back for the divider, while the
+       terminal's text/image gap keeps the design's 32. */
+    .branching-scenario__content--choices {
+        gap: var(--pgn-spacing-spacer-base);
     }
 
     /* Terminal nodes give text and image equal halves of the row. */
     .branching-scenario__content--terminal {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
+
+    /* Centred on the desktop for every case: the two splits already are, and a
+       terminal node without media has a single track that the card floor leaves with
+       free space below. */
+    .branching-scenario__content {
+        align-items: center;
+    }
+
+    /* Divider between the narrative and the choices only. The form is a grid item:
+       its padding restores the design's 32px column gap on top of the 16px grid gap,
+       align-self:stretch runs the rule the full row height, and align-content:center
+       keeps the choices centred in it. Terminal/media, the report and phone widths
+       never get a border. */
+    .branching-scenario__content--choices > .branching-scenario__form {
+        align-self: stretch;
+        display: grid;
+        align-content: center;
+        padding-inline-start: var(--pgn-spacing-spacer-base);
+        border-inline-start: var(--pgn-size-border-width) solid var(--pgn-color-gray-300);
+    }
+
+    /* Card floor: 65% of the container (the outer Figma frame's 1280x832 ratio),
+       capped at that frame's own 832px. The 48rem/768px lower bound is a pragmatic
+       step below the design, not a Figma height: it holds ordinary scenario and
+       report content steady at narrower desktops (~954px) without the 832 cap.
+       min-height only, so taller content grows and is never clipped; [hidden] keeps
+       the report stub out of layout. */
+    .branching-scenario__card,
+    .branching-scenario .grade-report:not([hidden]) {
+        min-height: clamp(48rem, 65cqw, 52rem);
+    }
 }
 
-/* Desktop report: two columns, strips stacked again, Restart under the summary. */
-@container (min-width: 992px) {
+/* Desktop report: two columns, strips stacked again, Restart under the summary.
+   900px, not 992: the desktop shell gives this block 954px at a 1024 viewport, so a
+   992 floor would never turn on for the desktop design. Tablet (768) is unchanged. */
+@container (min-width: 900px) {
     .grade-report__layout {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         grid-template-areas:

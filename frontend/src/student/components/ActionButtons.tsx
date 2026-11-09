@@ -41,7 +41,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   // DOM order is primary then secondary, so the stacked phone order and the Tab order agree.
   // The 768 container query in the block CSS reverses the row (Back left, primary right).
   return (
-    <Stack gap={2.5} className="branching-scenario__actions flex-wrap mt-4.5" data-role="actions">
+    <Stack
+      gap={2.5}
+      className="branching-scenario__actions flex-wrap flex-grow-0 flex-shrink-0 mt-4.5"
+      data-role="actions"
+    >
       {showSubmit && (
         <Button
           type="submit"

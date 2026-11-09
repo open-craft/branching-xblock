@@ -160,7 +160,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
 
   // Option nodes: text/media left, choices right. Terminal nodes: text left, media right.
   const nodeBody = hasChoices ? (
-    <div className="branching-scenario__content">
+    <div className="branching-scenario__content branching-scenario__content--choices flex-grow-1">
       <div className="branching-scenario__pane">
         {contentBlock}
         {hasMedia ? mediaBlock : null}
@@ -181,7 +181,9 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
       </form>
     </div>
   ) : (
-    <div className={`branching-scenario__content${hasMedia ? " branching-scenario__content--terminal" : ""}`}>
+    <div
+      className={`branching-scenario__content flex-grow-1${hasMedia ? " branching-scenario__content--terminal" : ""}`}
+    >
       <div className="branching-scenario__pane">
         {contentBlock}
         {supportBlocks}
@@ -207,8 +209,11 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
         )}
 
         {!showReport && (
-          <Card className="branching-scenario__card">
-            {/* Paragon 23 Card.Header is prop-driven: it ignores children. */}
+          <Card className="branching-scenario__card d-flex flex-column">
+            {/* Column context is Paragon's (d-flex flex-column), so the body can absorb
+                the card's min-height floor: the spare space lands inside the content,
+                above the controls. Paragon 23 Card.Header is prop-driven: it ignores
+                children. */}
             <Card.Header
               title={
                 <Stack direction="horizontal" gap={3} className="branching-scenario__title">
@@ -231,7 +236,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
                 ) : undefined
               }
             />
-            <Card.Body className="branching-scenario__body">
+            <Card.Body className="branching-scenario__body d-flex flex-column flex-grow-1">
               {nodeBody}
               <ActionButtons
                 submitFormId={choiceFormId}
