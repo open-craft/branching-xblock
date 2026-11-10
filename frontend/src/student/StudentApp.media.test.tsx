@@ -142,6 +142,21 @@ describe("StudentApp media: composite image", () => {
     expect(screen.getAllByRole("img")).toHaveLength(3);
   });
 
+  it("keeps the overlay on a background-only composite", () => {
+    const node = makeNode({
+      content: "<p>Overlay over the backdrop</p>",
+      media: { type: "image" },
+      overlay_text: true,
+    });
+
+    renderApp(makeState(node, { background_image_url: BACKGROUND_URL }));
+
+    const overlay = document.querySelector(".media-overlay__text") as HTMLElement;
+    expect(overlay).not.toBeNull();
+    expect(overlay.textContent).toContain("Overlay over the backdrop");
+    expect(document.querySelector(".bx-image-composite--bg-only")).not.toBeNull();
+  });
+
   it("shows the node content as the composite overlay once instead of beside the image", () => {
     const node = makeNode({
       content: "<p>Overlay copy with <strong>emphasis</strong></p>",
@@ -157,6 +172,36 @@ describe("StudentApp media: composite image", () => {
     expect(screen.getByText("emphasis").tagName).toBe("STRONG");
     expect((document.body.textContent || "").match(/Overlay copy with/g)).toHaveLength(1);
     expect(screen.getByRole("img", { name: "Left character" })).toBeTruthy();
+  });
+
+  it("overlays the content on foreground-only composite images with no scenario background", () => {
+    const node = makeNode({
+      content: "<p>Overlay without a backdrop</p>",
+      media: { type: "image", url: "", alt: "" },
+      overlay_text: true,
+      left_image_url: LEFT_URL,
+      left_image_alt_text: "Left character",
+      right_image_url: RIGHT_URL,
+      right_image_alt_text: "Right character",
+    });
+
+    const { container } = renderApp(makeState(node));
+
+    // Foregrounds keep their authored alt text; no background image joins them.
+    expect((screen.getByRole("img", { name: "Left character" }) as HTMLImageElement).getAttribute("src")).toBe(LEFT_URL);
+    expect((screen.getByRole("img", { name: "Right character" }) as HTMLImageElement).getAttribute("src")).toBe(RIGHT_URL);
+    expect(container.querySelectorAll("img")).toHaveLength(2);
+    expect(container.querySelector(".bx-image-composite__bg")).toBeNull();
+
+    // The authored content renders inside the overlay, once, and not beside the media.
+    const overlay = container.querySelector(".media-overlay__text") as HTMLElement;
+    expect(overlay).not.toBeNull();
+    expect(overlay.textContent).toContain("Overlay without a backdrop");
+    expect((document.body.textContent || "").match(/Overlay without a backdrop/g)).toHaveLength(1);
+
+    expect(container.querySelector('[data-role="media"]')).not.toBeNull();
+    expect(container.querySelector(".branching-scenario__content--terminal")).not.toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
@@ -179,6 +224,17 @@ describe("StudentApp media: audio and video transcripts", () => {
     expect(link.getAttribute("target")).toBe("_blank");
   });
 
+  it("keeps the transcript link when a video node has no url", () => {
+    const transcript = "http://example.com/video-transcript.vtt";
+    const node = makeNode({ media: { type: "video" }, transcript_url: transcript });
+    const { container } = renderApp(makeState(node));
+
+    // No player to render, but the transcript stays independently reachable.
+    expect(container.querySelector('[data-role="media"]')).toBeNull();
+    const link = screen.getByRole("link", { name: "Download transcript" }) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe(transcript);
+  });
+
   it("renders a hosted video file with native controls and its transcript link", () => {
     const url = "http://example.com/video.mp4";
     const transcript = "http://example.com/video-transcript.vtt";
@@ -194,6 +250,38 @@ describe("StudentApp media: audio and video transcripts", () => {
     expect(
       (screen.getByRole("link", { name: "Download transcript" }) as HTMLAnchorElement).getAttribute("href"),
     ).toBe(transcript);
+  });
+});
+
+describe("StudentApp media: nothing to show", () => {
+  it("keeps a text-only node text-only when the scenario has a background", () => {
+    const node = makeNode({ content: "<p>Plain narrative</p>", media: { type: "" } });
+    const { container } = renderApp(makeState(node, { background_image_url: BACKGROUND_URL }));
+
+    expect(screen.getByText("Plain narrative")).toBeTruthy();
+    // The shared background belongs to the composite scene, never to a text node.
+    expect(container.querySelector('[data-role="media"]')).toBeNull();
+    expect(container.querySelectorAll("img")).toHaveLength(0);
+    expect(container.querySelector(".branching-scenario__content--terminal")).toBeNull();
+  });
+
+  it("shows the authored text once, as text, when an image node has no background and no foreground", () => {
+    const node = makeNode({ content: "<p>Authored copy</p>", media: { type: "image" }, overlay_text: true });
+    const { container } = renderApp(makeState(node));
+
+    // overlay_text cannot apply: there is no composite to overlay.
+    expect(container.querySelector(".media-overlay__text")).toBeNull();
+    expect(container.querySelector('[data-role="media"]')).toBeNull();
+    expect(container.querySelector(".branching-scenario__content--terminal")).toBeNull();
+    expect((document.body.textContent || "").match(/Authored copy/g)).toHaveLength(1);
+  });
+
+  it("does not let a stale media url make an image node visible", () => {
+    const node = makeNode({ media: { type: "image", url: "http://example.com/legacy.jpg" } });
+    const { container } = renderApp(makeState(node));
+
+    expect(container.querySelector('[data-role="media"]')).toBeNull();
+    expect(imgBySrc(container, "http://example.com/legacy.jpg")).toBeNull();
   });
 });
 

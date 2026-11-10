@@ -10,6 +10,7 @@ import Cached from "@openedx/paragon/icons/es5/Cached";
 import { studentMessages } from "../messages";
 import { StudentInitialState, StudentHandlerUrls } from "../apiTypes";
 import * as api from "./api";
+import { describeNodeMedia } from "./mediaUtils";
 import MediaDisplay from "./components/MediaDisplay";
 import ContentDisplay from "./components/ContentDisplay";
 import HintCollapsible from "./components/HintCollapsible";
@@ -107,11 +108,10 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   const media = node.media || { type: "", url: "" };
   const nodeId = node.id || "";
   const contentHtml = node.content || "";
-  const isCompositeImage = media.type === "image";
-  const overlayEnabled = Boolean(node.overlay_text) && isCompositeImage;
-  // Mirrors MediaDisplay's own rendering conditions, so an empty pane is never created.
-  const hasMedia = isCompositeImage
-    || Boolean(media.url && (media.type === "video" || media.type === "audio" || media.type === "single_image"));
+  // One decision, shared with MediaDisplay: presence, kind and overlay.
+  const nodeMedia = describeNodeMedia(node, state.background_image_url);
+  const hasMedia = nodeMedia.kind !== "none";
+  const overlayEnabled = nodeMedia.kind === "composite" && nodeMedia.overlay;
 
   const choices = node.choices || [];
   const isLeaf = choices.length === 0;
@@ -142,11 +142,11 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
 
   const mediaBlock = (
     <MediaDisplay
+      media={nodeMedia}
       node={node}
       background_image_url={state.background_image_url}
       background_image_alt_text={state.background_image_alt_text}
       background_image_is_decorative={state.background_image_is_decorative}
-      overlayEnabled={overlayEnabled}
       contentHtml={contentHtml}
     />
   );
