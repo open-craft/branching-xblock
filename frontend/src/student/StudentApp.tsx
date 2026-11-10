@@ -1,5 +1,5 @@
 import React, { useCallback, useId, useState } from "react";
-import { useIntl } from "react-intl";
+import { MessageDescriptor, useIntl } from "react-intl";
 import Card from "@openedx/paragon/dist/Card";
 import Icon from "@openedx/paragon/dist/Icon";
 import IconButton from "@openedx/paragon/dist/IconButton";
@@ -47,41 +47,45 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
     setStatusMessage(intl.formatMessage(studentMessages.contentUpdated));
   }, [intl]);
 
+  // One transition rule for every learner action. The request is a thunk so the
+  // start state is written before the request is made, as it always was.
+  const runAction = useCallback((
+    request: () => Promise<StudentInitialState>,
+    fallbackMessage: MessageDescriptor,
+  ) => {
+    setLoading(true);
+    setError(null);
+    request()
+      .then(replaceState)
+      .catch((err) => {
+        setError(err.message || intl.formatMessage(fallbackMessage));
+        setLoading(false);
+      });
+  }, [replaceState, intl]);
+
   const handleSelectChoice = useCallback(
     (choiceIndex: number) => {
-      setLoading(true);
-      setError(null);
-      api.selectChoice(handlerUrls.select_choice, choiceIndex)
-        .then(replaceState)
-        .catch((err) => {
-          setError(err.message || intl.formatMessage(studentMessages.errorSelectingChoice));
-          setLoading(false);
-        });
+      runAction(
+        () => api.selectChoice(handlerUrls.select_choice, choiceIndex),
+        studentMessages.errorSelectingChoice,
+      );
     },
-    [handlerUrls.select_choice, replaceState, intl],
+    [handlerUrls.select_choice, runAction],
   );
 
   const handleUndo = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    api.undoChoice(handlerUrls.undo_choice)
-      .then(replaceState)
-      .catch((err) => {
-        setError(err.message || intl.formatMessage(studentMessages.errorUndoChoice));
-        setLoading(false);
-      });
-  }, [handlerUrls.undo_choice, replaceState, intl]);
+    runAction(
+      () => api.undoChoice(handlerUrls.undo_choice),
+      studentMessages.errorUndoChoice,
+    );
+  }, [handlerUrls.undo_choice, runAction]);
 
   const handleReset = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    api.resetActivity(handlerUrls.reset_activity)
-      .then(replaceState)
-      .catch((err) => {
-        setError(err.message || intl.formatMessage(studentMessages.errorResetActivity));
-        setLoading(false);
-      });
-  }, [handlerUrls.reset_activity, replaceState, intl]);
+    runAction(
+      () => api.resetActivity(handlerUrls.reset_activity),
+      studentMessages.errorResetActivity,
+    );
+  }, [handlerUrls.reset_activity, runAction]);
 
   const handleShowReport = useCallback(() => {
     setIsReportVisible(true);

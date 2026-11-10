@@ -1,6 +1,6 @@
 import React from "react";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
-import { fireEvent, render, screen, within } from "../test/helpers";
+import { act, fireEvent, render, screen, within } from "../test/helpers";
 import StudentApp from "./StudentApp";
 import { StudentInitialState } from "../apiTypes";
 import { Node } from "../types";
@@ -349,6 +349,61 @@ describe("StudentApp characterization: reset journeys", () => {
     expect(button("Submit").disabled).toBe(false);
     expect(postedUrl()).toBe("/handlers/select_choice");
     expect(statusText()).not.toContain("Content updated.");
+  });
+});
+
+describe("StudentApp characterization: action transitions", () => {
+  it("keeps the view, selection and status message when undo fails", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: false, error: "Undo failed" }));
+    renderApp(middleState);
+
+    fireEvent.click(radio("Continue"));
+    expect(button("Submit").disabled).toBe(false);
+
+    fireEvent.click(button("Go Back"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Undo failed");
+    expect(screen.getByText("Middle content")).toBeTruthy();
+    // A failed undo keeps the selection and every control it enables.
+    expect(radio("Continue").checked).toBe(true);
+    expect(button("Submit").disabled).toBe(false);
+    expect(button("Go Back")).toBeTruthy();
+    expect(statusText()).not.toContain("Content updated.");
+    expect(postedUrl()).toBe("/handlers/undo_choice");
+  });
+
+  it("clears the previous error as soon as the next action starts", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: false, error: "Reset failed" }));
+    renderApp(middleState);
+
+    fireEvent.click(button("Reset"));
+    expect((await screen.findByRole("alert")).textContent).toContain("Reset failed");
+
+    let resolveUndo: (response: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => {
+      resolveUndo = resolve;
+    }));
+
+    fireEvent.click(button("Go Back"));
+    // The error is gone while the request is still in flight.
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    await act(async () => {
+      resolveUndo(jsonResponse({ success: true, ...initialState }));
+    });
+    expect(await screen.findByText("Start content")).toBeTruthy();
+    expect(statusText()).toContain("Content updated.");
+  });
+
+  it("falls back to the action's own message when the request rejects without one", async () => {
+    fetchMock.mockRejectedValueOnce(new Error(""));
+    renderApp(middleState);
+
+    fireEvent.click(button("Go Back"));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Failed to undo choice");
+    expect(screen.getByText("Middle content")).toBeTruthy();
   });
 });
 
