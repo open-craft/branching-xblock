@@ -16,6 +16,14 @@ Unreleased
 
 *
 
+0.3.4 – 2026-11-11
+**********************************************
+
+Added
+=====
+
+* Added a ``student_view_data`` alias of ``index_dictionary`` for the Data Bricks indexer.
+
 0.3.3 – 2026-09-21
 **********************************************
 
