@@ -831,6 +831,9 @@ class BranchingXBlock(XBlock):
         xblock_body["content_type"] = "Branching Scenario"
         return xblock_body
 
+    # Alias needed for client's "Data Bricks" indexer project.
+    student_view_data = index_dictionary
+
     def _mfe_config_api_url(self) -> str:
         """
         Return the platform MFE config endpoint used to discover Paragon theme CSS.
