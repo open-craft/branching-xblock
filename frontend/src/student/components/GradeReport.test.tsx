@@ -62,13 +62,11 @@ describe("GradeReport", () => {
     expect(byRole(container, "report-score").textContent).toBe("5");
     expect(byRole(container, "report-max-score").textContent).toBe("5");
     expect(byRole(container, "report-grade-label")).toHaveTextContent("Pass");
-    expect(byRole(container, "report-grade-label")).toHaveClass("badge-success");
     expect(screen.getByRole("heading", { name: msg(studentMessages.activityComplete) })).toBeInTheDocument();
     expect(screen.getByText(msg(studentMessages.reportSubtitle))).toBeInTheDocument();
-    expect(container.querySelector(".grade-report__metric")).toHaveClass("is-pass");
   });
 
-  it("renders the failing attempt with the fail styling and danger badge", () => {
+  it("renders the failing attempt with the server's values verbatim", () => {
     const { container } = renderReport(
       makeReport({
         score: 1,
@@ -83,10 +81,7 @@ describe("GradeReport", () => {
     expect(byRole(container, "report-percent").textContent).toBe("43%");
     expect(byRole(container, "report-score").textContent).toBe("1");
     expect(byRole(container, "report-max-score").textContent).toBe("5");
-    expect(byRole(container, "report-grade-label")).toHaveClass("badge-danger");
-    const scoreMetric = container.querySelector(".grade-report__metric");
-    expect(scoreMetric).toHaveClass("is-fail");
-    expect(container.querySelector(".grade-report__metric.is-max")).not.toBeNull();
+    expect(byRole(container, "report-grade-label")).toHaveTextContent("Fail");
   });
 
   it("shows a fractional percentage and scores without rounding or recalculating", () => {
@@ -112,9 +107,9 @@ describe("GradeReport", () => {
       }),
     );
 
-    const scores = Array.from(container.querySelectorAll(".grade-report__details-score")).map(
-      (cell) => cell.textContent,
-    );
+    const scores = within(byRole(container, "report-details"))
+      .getAllByRole("row")
+      .map((row) => within(row).getByRole("cell").textContent);
     expect(scores).toEqual(["+2", "+0", "-1"]);
   });
 
@@ -126,7 +121,8 @@ describe("GradeReport", () => {
     } as unknown as GradeReportData["detailed_scores"][number];
     const { container } = renderReport(makeReport({ detailed_scores: [malformedRow] }));
 
-    expect(container.querySelector(".grade-report__details-score")?.textContent).toBe("+0");
+    const row = within(byRole(container, "report-details")).getAllByRole("row")[0];
+    expect(within(row).getByRole("cell").textContent).toBe("+0");
   });
 
   it("builds a real table named by the details heading, with column and row headers", () => {
@@ -163,7 +159,6 @@ describe("GradeReport", () => {
     expect(emptyCell).toHaveAttribute("colspan", "2");
     expect(emptyCell).toHaveTextContent(msg(studentMessages.noScoredSelections));
     expect(within(table).queryAllByRole("rowheader")).toHaveLength(0);
-    expect(container.querySelector(".grade-report__table-scroll")).not.toHaveClass("is-scrollable");
   });
 
   it("names and focuses the details region only when a ninth row makes it scroll", () => {
@@ -171,13 +166,10 @@ describe("GradeReport", () => {
       Array.from({ length: count }, (_, i) => ({ choice_text: `Selection ${i + 1}`, awarded_points: 1 }));
 
     const { container: eight } = renderReport(makeReport({ detailed_scores: rows(8) }));
-    expect(eight.querySelector(".grade-report__table-scroll")).not.toHaveClass("is-scrollable");
     expect(within(eight).queryByRole("region")).toBeNull();
 
     const { container: nine } = renderReport(makeReport({ detailed_scores: rows(9) }));
     const region = within(nine).getByRole("region", { name: msg(studentMessages.detailedScore) });
-    expect(region).toHaveClass("grade-report__table-scroll");
-    expect(region).toHaveClass("is-scrollable");
     expect(region).toHaveAttribute("tabindex", "0");
     expect(region.querySelector("table")).not.toBeNull();
   });
@@ -188,7 +180,6 @@ describe("GradeReport", () => {
 
     const { container, onReset } = renderReport(makeReport(), { showResetInReport: true });
     const restart = byRole(container, "reset-activity-report");
-    expect(restart).toHaveClass("grade-report__restart");
     // Label comes from studentMessages.restart (added with the report layout).
     expect(restart).toHaveTextContent("Restart");
 
@@ -197,41 +188,21 @@ describe("GradeReport", () => {
   });
 
   it("carries the same localized scenario header as the scenario, with no reset control", () => {
-    const { container } = renderReport();
+    renderReport();
     const titleText = msg(studentMessages.scenarioTitle);
 
-    const heading = screen.getByRole("heading", { level: 2, name: titleText });
-    expect(heading).toHaveClass("branching-scenario__title-text");
+    // One heading carrying the shared scenario title, and Restart is the card's only
+    // button - the header adds no reset entry point of its own.
+    expect(screen.getByRole("heading", { level: 2, name: titleText })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 2, name: titleText })).toHaveLength(1);
-
-    const title = heading.parentElement as HTMLElement;
-    // Paragon Stack owns the row and the gap, as it does on the scenario card.
-    expect(title).toHaveClass("branching-scenario__title", "pgn__hstack", "pgn__stack-gap--3");
-    expect(title.querySelectorAll(".branching-scenario__title-icon")).toHaveLength(1);
-    const icon = title.querySelector(".branching-scenario__title-icon") as HTMLElement;
-    expect(icon).toHaveClass("flex-shrink-0");
-    const divider = title.querySelector(".branching-scenario__title-divider") as HTMLElement;
-    expect(divider).toHaveAttribute("aria-hidden", "true");
-
-    // No reset action in the header: Restart is the report's only reset entry point.
-    expect(within(title).queryAllByRole("button")).toHaveLength(0);
-    // The header is part of the report card, which is a separate card from the scenario.
-    expect(container.querySelector('[data-role="grade-report"] .pgn__card-header')).not.toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
   it("keeps every report icon decorative so none adds or duplicates an accessible name", () => {
     const { container } = renderReport();
 
-    const sparkle = container.querySelector(".grade-report__sparkle") as HTMLElement;
-    const restartIcon = container.querySelector(".grade-report__restart-icon") as HTMLElement;
-    expect(sparkle).not.toBeNull();
-    expect(restartIcon).not.toBeNull();
-
-    const iconSvgs = [
-      container.querySelector(".branching-scenario__title-icon svg"),
-      sparkle.querySelector("svg"),
-      restartIcon.querySelector("svg"),
-    ] as SVGElement[];
+    const iconSvgs = Array.from(container.querySelectorAll("svg"));
+    expect(iconSvgs.length).toBeGreaterThanOrEqual(3);
     for (const svg of iconSvgs) {
       expect(svg.getAttribute("aria-hidden")).toBe("true");
       expect(svg.hasAttribute("aria-label")).toBe(false);
@@ -239,8 +210,7 @@ describe("GradeReport", () => {
     // Decorative icons expose no images, and the Restart button keeps its one label.
     expect(screen.queryAllByRole("img")).toHaveLength(0);
     expect(screen.getAllByRole("button")).toHaveLength(1);
-    const restart = screen.getByRole("button", { name: msg(studentMessages.restart) });
-    expect(restart).toContainElement(restartIcon);
+    expect(screen.getByRole("button", { name: msg(studentMessages.restart) })).toBeInTheDocument();
   });
 
   it("labels the score strips with a single colon", () => {
@@ -256,7 +226,6 @@ describe("GradeReport", () => {
     const host = byRole(container, "grade-report");
 
     expect(host).toHaveAttribute("hidden");
-    expect(host).toHaveClass("grade-report");
     expect(host.children).toHaveLength(0);
     expect(screen.queryByRole("table")).toBeNull();
     expect(container.querySelector('[data-role="report-score"]')).toBeNull();

@@ -77,8 +77,9 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({
     />
   );
 
+  // w-100, not auto: a centred flex item with width auto collapses the native control.
   const renderAudio = (url: string) => (
-    <audio src={url} controls />
+    <audio src={url} controls className="w-100" />
   );
 
   const renderVideo = (url: string) => {

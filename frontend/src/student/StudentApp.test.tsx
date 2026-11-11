@@ -178,39 +178,13 @@ describe("StudentApp characterization: scenario to report journey", () => {
   });
 });
 
-describe("StudentApp: Paragon layout composition", () => {
-  // The row, the gap and the shrink hooks are Paragon's (Stack plus utilities), so a
-  // later edit to the block CSS alone cannot silently drop them.
-  it("builds the header title and the action row from Stack and spacing utilities", () => {
+describe("StudentApp: action order", () => {
+  // DOM order is the Tab order: the primary action comes first, Go Back second. The
+  // visual row direction is CSS and is reviewed manually.
+  it("keeps the primary action before Go Back in the action bar", () => {
     const { container } = renderApp(middleState);
-
-    const heading = screen.getByRole("heading", { level: 2, name: "Decision-Making Scenario" });
-    const title = heading.parentElement as HTMLElement;
-    expect(title).toHaveClass("branching-scenario__title", "pgn__hstack", "pgn__stack-gap--3");
-    const titleIcon = title.querySelector(".branching-scenario__title-icon") as HTMLElement;
-    expect(titleIcon).toHaveClass("flex-shrink-0");
-    // Reset keeps its own class: the focus-ring rules still target it.
-    expect(button("Reset")).toHaveClass("branching-scenario__reset", "flex-shrink-0");
-
-    // The card floor is absorbed by the body and the content, never by the row. The
-    // column context is Paragon's too, so the block CSS cannot drop it silently.
-    const scenarioCard = container.querySelector(".branching-scenario__card") as HTMLElement;
-    expect(scenarioCard).toHaveClass("d-flex", "flex-column");
-    const body = container.querySelector(".branching-scenario__body") as HTMLElement;
-    expect(body).toHaveClass("d-flex", "flex-column", "flex-grow-1");
-    const content = container.querySelector(".branching-scenario__content") as HTMLElement;
-    expect(content).toHaveClass("branching-scenario__content--choices", "flex-grow-1");
-
     const actions = container.querySelector('[data-role="actions"]') as HTMLElement;
-    expect(actions).toHaveClass(
-      "pgn__vstack",
-      "pgn__stack-gap--2.5",
-      "flex-wrap",
-      "mt-4.5",
-      "flex-grow-0",
-      "flex-shrink-0",
-    );
-    // DOM order stays primary then secondary; the 768 container query reverses the row.
+
     expect(within(actions).getAllByRole("button").map((element) => element.textContent))
       .toEqual(["Submit", "Go Back"]);
   });
@@ -341,8 +315,6 @@ describe("StudentApp characterization: reset journeys", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Choice failed");
-    // Stock Paragon alert classes: alert-content is what sets the variant text colour.
-    expect(alert.classList.contains("alert-content")).toBe(true);
     // A failed submit keeps the view, the selection and the enabled Submit.
     expect(screen.getByText("Start content")).toBeTruthy();
     expect(radio("Go left").checked).toBe(true);

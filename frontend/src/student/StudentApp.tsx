@@ -6,7 +6,7 @@ import IconButton from "@openedx/paragon/dist/IconButton";
 import Stack from "@openedx/paragon/dist/Stack";
 // Deep imports, not the icons barrel: each es5 module is a default export.
 import AccountTree from "@openedx/paragon/icons/es5/AccountTree";
-import Cached from "@openedx/paragon/icons/es5/Cached";
+import Replay from "@openedx/paragon/icons/es5/Replay";
 import { studentMessages } from "../messages";
 import { StudentInitialState, StudentHandlerUrls } from "../apiTypes";
 import * as api from "./api";
@@ -233,7 +233,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
                   <IconButton
                     alt={intl.formatMessage(studentMessages.reset)}
                     className="branching-scenario__reset flex-shrink-0"
-                    src={Cached}
+                    src={Replay}
                     onClick={handleReset}
                     data-role="reset-activity"
                   />

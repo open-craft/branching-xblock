@@ -7,7 +7,7 @@ import Stack from "@openedx/paragon/dist/Stack";
 // Deep imports, not the icons barrel: each es5 module is a default export.
 import AccountTree from "@openedx/paragon/icons/es5/AccountTree";
 import AutoGraph from "@openedx/paragon/icons/es5/AutoGraph";
-import Cached from "@openedx/paragon/icons/es5/Cached";
+import Replay from "@openedx/paragon/icons/es5/Replay";
 import { useIntl } from "react-intl";
 import { studentMessages } from "../../messages";
 import { GradeReport as GradeReportData } from "../../apiTypes";
@@ -151,7 +151,7 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
               onClick={onReset}
             >
               {intl.formatMessage(studentMessages.restart)}
-              <Icon src={Cached} className="grade-report__restart-icon" />
+              <Icon src={Replay} className="grade-report__restart-icon" />
             </Button>
           )}
         </div>
