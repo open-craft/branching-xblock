@@ -70,7 +70,7 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({
 
   const renderSingleImage = (url: string, alt: string) => (
     <img
-      className="bx-single-image"
+      className="bx-single-image d-block w-100 mw-100"
       src={url}
       alt={alt}
       onLoad={notifyHostRemeasure}

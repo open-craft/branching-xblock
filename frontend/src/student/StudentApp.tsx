@@ -1,5 +1,5 @@
 import React, { useCallback, useId, useState } from "react";
-import { MessageDescriptor, useIntl } from "react-intl";
+import { FormattedMessage, MessageDescriptor, useIntl } from "react-intl";
 import Card from "@openedx/paragon/dist/Card";
 import Icon from "@openedx/paragon/dist/Icon";
 import IconButton from "@openedx/paragon/dist/IconButton";
@@ -94,7 +94,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   if (loading && !state.current_node) {
     return (
       <div className="branching-scenario">
-        {intl.formatMessage(studentMessages.loading)}
+        <FormattedMessage {...studentMessages.loading} />
       </div>
     );
   }
@@ -104,7 +104,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   if (!node) {
     return (
       <div className="branching-scenario">
-        {error || intl.formatMessage(studentMessages.noContent)}
+        {error || <FormattedMessage {...studentMessages.noContent} />}
       </div>
     );
   }
@@ -172,7 +172,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
       </div>
       <form
         id={choiceFormId}
-        className="branching-scenario__form"
+        className="branching-scenario__form m-0"
         data-role="choice-form"
         onSubmit={handleSubmit}
       >
@@ -223,8 +223,8 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
                 <Stack direction="horizontal" gap={3} className="branching-scenario__title">
                   <Icon src={AccountTree} className="branching-scenario__title-icon flex-shrink-0" />
                   <span className="branching-scenario__title-divider" aria-hidden="true" />
-                  <h2 className="branching-scenario__title-text">
-                    {intl.formatMessage(studentMessages.scenarioTitle)}
+                  <h2 className="branching-scenario__title-text m-0">
+                    <FormattedMessage {...studentMessages.scenarioTitle} />
                   </h2>
                 </Stack>
               }
@@ -253,8 +253,11 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
                 onShowReport={handleShowReport}
               />
               {showScore && (
-                <div className="score-display" data-role="score">
-                  {intl.formatMessage(studentMessages.scoreDisplay, { score: state.score, maxScore: state.max_score })}
+                <div className="score-display p-0" data-role="score">
+                  <FormattedMessage
+                    {...studentMessages.scoreDisplay}
+                    values={{ score: state.score, maxScore: state.max_score }}
+                  />
                 </div>
               )}
             </Card.Body>

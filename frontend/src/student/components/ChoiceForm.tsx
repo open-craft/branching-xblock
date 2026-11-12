@@ -1,5 +1,6 @@
 import React from "react";
-import { useIntl } from "react-intl";
+import { FormattedMessage } from "react-intl";
+import Stack from "@openedx/paragon/dist/Stack";
 import { studentMessages } from "../../messages";
 import { Choice } from "../../types";
 import ChoiceOption from "./ChoiceOption";
@@ -13,19 +14,19 @@ interface ChoiceFormProps {
 }
 
 const ChoiceForm: React.FC<ChoiceFormProps> = ({ choices, nodeId, selectedIndex, onSelect }) => {
-  const intl = useIntl();
   const headingId = `choice-heading-${nodeId || "node"}`;
 
   return (
-    <fieldset className="branching-scenario__choices" data-role="choices">
+    <fieldset className="branching-scenario__choices m-0 p-0 border-0" data-role="choices">
       <legend
-        className="branching-scenario__choices-legend"
+        className="branching-scenario__choices-legend d-block w-auto p-0"
         id={headingId}
         data-role="choice-heading"
       >
-        {intl.formatMessage(studentMessages.chooseNextStep)}
+        <FormattedMessage {...studentMessages.chooseNextStep} />
       </legend>
-      <div
+      <Stack
+        gap={3}
         className="branching-scenario__choice-list"
         data-role="choice-list"
         role="radiogroup"
@@ -41,7 +42,7 @@ const ChoiceForm: React.FC<ChoiceFormProps> = ({ choices, nodeId, selectedIndex,
             onChange={onSelect}
           />
         ))}
-      </div>
+      </Stack>
     </fieldset>
   );
 };

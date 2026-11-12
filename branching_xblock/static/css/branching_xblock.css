@@ -36,9 +36,6 @@
 }
 
 .branching-scenario .bx-single-image {
-    display: block;
-    width: 100%;
-    max-width: 100%;
     height: auto;
     border-radius: var(--pgn-size-bx-media-border-radius, var(--pgn-size-border-radius-base));
 }
@@ -205,7 +202,6 @@
     border-top-right-radius: 0;
     font-style: italic;
     background-color: var(--pgn-color-body-bg, #f9f9f9);
-    margin-top: 0;
 }
 
 .branching-scenario .node-hint-container {
@@ -257,46 +253,24 @@
     border-bottom: none;
 }
 
-.branching-scenario .hint-collapsible[open] .node-hint {
-    margin-top: 0;
-}
-
-
-
 /* ==========================================================================
-   Redesigned student surfaces: scenario card, choices, action row, report.
+   Student surfaces: scenario card, choices, action row, report.
 
-   Structural CSS only. Themeable values come from Paragon tokens; a
-   block-specific token is read as var(--pgn-<category>-bx-<role>, <standard
-   token fallback>) at the point of use, so a theme can set it and the default
-   still preserves the approved design. No :root aliases: this file loads after
-   the theme sheets, so an alias here would shadow the theme.
-
-   The roles are grouped by what a theme decides, never by Figma layer: surface
-   shape, text colours, the report's type steps, and one role per state (choice
-   border at rest, hover, selected). States, selector depth and the generic
-   isolation of legacy LMS declarations (it paints p, headings, labels and table
-   cells directly) belong here, so a theme only assigns roles.
-
-   Breakpoints are container queries on .branching-scenario (the block is the
-   LMS iframe): the split content stacks at 768 and below, the action row goes
-   inline at 768 and up, and the report turns two-column at 900.
+   Keep defaults in var() fallbacks so this stylesheet does not override theme
+   values. Breakpoints are container queries: the block is the LMS iframe.
    ========================================================================== */
 
 .branching-scenario {
     container-type: inline-size;
 }
 
-/* Scoped so it outranks the LMS `.alert:not(.pattern-library-shim)` colour rule (0,2,0)
-   that otherwise repaints Paragon's alert-content token white on the pale surface. */
+/* Outranks the host's `.alert:not(.pattern-library-shim)` colour rule (0,2,0). */
 .branching-scenario .branching-scenario__error {
     color: var(--pgn-color-alert-content);
-    margin-bottom: var(--pgn-spacing-spacer-base);
+    margin-bottom: var(--pgn-spacing-spacer-3);
 }
 
-/* The scenario and report cards are the block's two outer surfaces: Paragon's card
-   corner and surface by default, one role each so a brand squares or repaints them
-   without a deeper selector. */
+/* The block's two outer surfaces: Paragon's card corner and surface, one role each. */
 .branching-scenario .branching-scenario__card,
 .branching-scenario .grade-report {
     border-radius: var(--pgn-size-bx-card-border-radius,
@@ -307,19 +281,17 @@
     background-color: var(--pgn-color-bx-card-bg, var(--pgn-color-card-bg-base));
 }
 
-/* The inline insets derive from the Card's own --pgn-spacing-card-spacer-x, so a
-   theme that changes it moves this surface with it. Vertical rhythm uses the
-   Paragon spacing scale instead, and the block token is only read at the point of
-   use with a default, so a theme override still wins. */
+/* Let side padding grow with the card, with a cap that preserves room for content. */
 .branching-scenario .branching-scenario__card > .pgn__card-header {
     align-items: center;
-    padding: calc(var(--pgn-spacing-spacer-base) * 4) var(--pgn-spacing-bx-card-inset,
-            clamp(var(--pgn-spacing-card-spacer-x), 8%, calc(var(--pgn-spacing-card-spacer-x) * 4.8)))
-        var(--pgn-spacing-spacer-base);
+    padding: var(--pgn-spacing-bx-card-header-padding-top, var(--pgn-spacing-spacer-5-5))
+        var(--pgn-spacing-bx-card-inset,
+            clamp(var(--pgn-spacing-card-spacer-x), 8%, 6rem))
+        var(--pgn-spacing-spacer-3);
     border-bottom: 0;
 }
 
-/* Paragon gives the header content a 2rem top margin; the padding above replaces it. */
+/* Paragon's 2rem header-content margin is replaced by the padding above. */
 .branching-scenario .branching-scenario__card .pgn__card-header-content {
     margin-top: 0;
 }
@@ -329,21 +301,20 @@
     align-self: center;
 }
 
+/* Keep side padding aligned with the header while leaving space below the content. */
 .branching-scenario .branching-scenario__card > .pgn__card-body {
-    padding: var(--pgn-spacing-spacer-base) var(--pgn-spacing-bx-card-inset,
-            clamp(var(--pgn-spacing-card-spacer-x), 8%, calc(var(--pgn-spacing-card-spacer-x) * 4.8)))
-        calc(var(--pgn-spacing-spacer-base) * 4);
+    padding: var(--pgn-spacing-spacer-3)
+        var(--pgn-spacing-bx-card-inset,
+            clamp(var(--pgn-spacing-card-spacer-x), 8%, 6rem))
+        var(--pgn-spacing-bx-card-body-padding-bottom, var(--pgn-spacing-spacer-5-5));
 }
 
-/* Row and gap come from Paragon Stack (horizontal, gap={3}). The wrapper only has
-   to be allowed to shrink, so a long title wraps instead of overflowing the header. */
+/* Paragon Stack supplies the row and gap; the wrapper only has to be allowed to shrink. */
 .branching-scenario__title {
     min-width: 0;
 }
 
-/* Title and its glyph are one heading in the design, so both read the same text
-   role; the defaults are what each already computes (Paragon's heading colour for
-   the text, primary for the glyph). */
+/* Title and glyph are one heading, so both read the same text role. */
 .branching-scenario__title-icon {
     color: var(--pgn-color-bx-title-text, var(--pgn-color-primary-base));
 }
@@ -352,16 +323,13 @@
     width: var(--pgn-size-border-width);
     align-self: stretch;
     min-height: calc(var(--pgn-spacing-card-spacer-y) * 2);
-    /* gray-300, not --pgn-color-border: a brand theme can set border to near-white. */
+    /* gray-300, not --pgn-color-border: a brand theme can set border near-white. */
     background: var(--pgn-color-bx-title-divider, var(--pgn-color-gray-300));
 }
 
-/* Scoped H5 typography has to outrank the LMS/Studio nested h2 rules, which is what
-   the !important on these three declarations is for; this is the block's generic
-   isolation, not a theme override. The element stays a native h2 and the values stay
-   roles over tokens, so a theme still drives them. */
+/* Scoped to outrank the host's nested h2 rules; the element stays a native h2 and the
+   values stay roles, so a theme still drives them. */
 .branching-scenario__title-text {
-    margin: 0;
     color: var(--pgn-color-bx-title-text, var(--pgn-color-headings-base));
     font-size: var(--pgn-typography-bx-title-font-size,
         var(--pgn-typography-font-size-h5-base)) !important;
@@ -375,25 +343,22 @@
 .branching-scenario__content {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: calc(var(--pgn-spacing-spacer-base) * 1.5);
+    gap: var(--pgn-spacing-spacer-4);
     align-items: start;
 }
 
 .branching-scenario__form {
     min-width: 0;
-    margin: 0;
 }
 
 .branching-scenario__pane {
     display: grid;
-    gap: var(--pgn-spacing-spacer-base);
+    gap: var(--pgn-spacing-spacer-3);
     align-content: start;
     min-width: 0;
 }
 
-/* Authored copy. The legacy LMS paints p, li, labels and table cells directly with
-   its own face, so a brand's family has to be asserted on the elements instead of
-   inherited from the pane; the roles fall back to Paragon's own faces. */
+/* The LMS sets fonts directly on content elements, so inheritance alone is not enough. */
 .branching-scenario .branching-scenario__pane,
 .branching-scenario .branching-scenario__pane :is(p, li),
 .branching-scenario .media-overlay__text,
@@ -406,8 +371,7 @@
         var(--pgn-typography-font-family-sans-serif));
 }
 
-/* The colour defaults are what each element already computes: Paragon paints
-   headings with the headings colour, everything else inherits the host's. */
+/* The defaults are what each element already computes. */
 .branching-scenario .branching-scenario__pane :is(h1, h2, h3, h4, h5, h6) {
     font-family: var(--pgn-typography-bx-heading-font-family,
         var(--pgn-typography-headings-font-family));
@@ -418,81 +382,62 @@
     color: var(--pgn-color-bx-text, inherit);
 }
 
-/* The overlay's inverse copy: authored headings, paragraphs, list items, emphasis and
-   links take the overlay's own light colour whatever the text role above says. Same
-   weight as those rules and after them, so no !important and no reset of unrelated
-   descendants. */
+/* The overlay's inverse copy keeps its own light colour whatever the text role says.
+   Same weight and after those rules, so no !important and no unrelated reset. */
 .branching-scenario .media-overlay__text :is(h1, h2, h3, h4, h5, h6, p, li, a, strong, em) {
     color: var(--pgn-color-bx-inverse-text, var(--pgn-color-light-text, #fff));
 }
 
 /* ---------- choices ---------- */
 
+/* No utility covers the shrink reset: a fieldset defaults to min-content width. */
 .branching-scenario__choices {
-    margin: 0;
-    padding: 0;
-    border: 0;
     min-width: 0;
 }
 
 .branching-scenario .branching-scenario__choices-legend {
-    display: block;
-    width: auto;
-    margin: 0 0 calc(var(--pgn-spacing-spacer-base) * 0.5);
-    padding: 0;
+    margin: 0 0 var(--pgn-spacing-spacer-2);
     color: var(--pgn-color-bx-text, inherit);
     font-size: var(--pgn-typography-bx-legend-font-size, var(--pgn-typography-font-size-base));
-    line-height: var(--pgn-typography-bx-legend-line-height,
-        calc(var(--pgn-spacing-spacer-base) * 1.5));
+    line-height: var(--pgn-typography-bx-legend-line-height, 1.5rem);
     font-weight: var(--pgn-typography-font-weight-bold);
 }
 
-.branching-scenario__choice-list {
-    display: grid;
-    gap: var(--pgn-spacing-spacer-base);
-}
-
-/* A radio rendered as a card. Scoped past .pgn__form-radio (display:inline-flex). */
+/* A radio rendered as a card. Scoped past .pgn__form-radio (display: inline-flex). */
 .branching-scenario .branching-scenario__choice {
     position: relative;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
-    column-gap: calc(var(--pgn-spacing-spacer-base) * 0.75);
-    margin: 0;
-    padding: var(--pgn-spacing-spacer-base) calc(var(--pgn-spacing-spacer-base) * 2);
+    column-gap: var(--pgn-spacing-spacer-2-5);
+    padding: var(--pgn-spacing-spacer-3) var(--pgn-spacing-spacer-4-5);
     border: var(--pgn-size-border-width) solid var(--pgn-color-bx-choice-border-base, var(--pgn-color-gray-300));
-    /* Paragon's own radius: the design's 16px is a brand shape, so a theme sets it. */
+    /* Paragon's own radius: a brand sets its own shape through the role. */
     border-radius: var(--pgn-size-bx-choice-border-radius, var(--pgn-size-border-radius-base));
     background: var(--pgn-color-white);
     cursor: pointer;
 }
 
-/* The input keeps its own hit target above the label's card-wide overlay.
-   The checked border is the component's own token, mapped from a role here so the
-   focus border, the valid/invalid variants and the disabled opacity keep Paragon's
-   state rules instead of a property override fighting them. */
+/* The checked border is the component's own token, mapped from a role, so the focus
+   border and the valid/invalid variants keep Paragon's state rules. */
 .branching-scenario .branching-scenario__choice-input {
     position: relative;
     z-index: 1;
-    margin: calc(var(--pgn-spacing-spacer-base) * 0.25) 0 0;
+    margin: var(--pgn-spacing-spacer-1) 0 0;
     --pgn-color-form-control-indicator-checked-border-base: var(
         --pgn-color-bx-choice-radio-checked,
         var(--pgn-color-form-control-indicator-checked-base)
     );
 }
 
-/* The checked dot is a Paragon component token holding a data URI, so it cannot be
-   defaulted from another token: the role falls back to that token on the property
-   itself. The valid/invalid variants are one class deeper and still win. */
+/* A data-URI token, so the role defaults to that token on the property itself. */
 .branching-scenario .branching-scenario__choice-input:checked {
     background-image: var(--pgn-other-content-bx-choice-radio-icon-checked,
         var(--pgn-other-content-form-control-radio-indicator-icon-checked-base));
 }
 
+/* Block so long single-token labels wrap inside the min-width:0 column. */
 .branching-scenario .branching-scenario__choice-text {
-    /* Block, not the inherited inline/flex context: long single-token labels must
-       wrap inside the min-width:0 column instead of overflowing the card. */
     display: block;
     min-width: 0;
     overflow-wrap: anywhere;
@@ -502,7 +447,7 @@
         var(--pgn-size-form-control-indicator-base));
 }
 
-/* The whole card selects the radio: no JS, and the label text keeps its own hit area. */
+/* The whole card selects the radio: no JS, and the label keeps its own hit area. */
 .branching-scenario .branching-scenario__choice-text::after {
     content: "";
     position: absolute;
@@ -526,27 +471,18 @@
 
 /* ---------- actions ---------- */
 
-/* The action row is a vertical Paragon Stack (gap={2.5}) with flex-wrap and
-   mt-4.5 in the markup; only the direction change in the 768 container query below
-   is left to this file. */
+/* Only the 768 container override below needs this file: the row itself is a Paragon Stack. */
 
-/* Layout only: the actions and the report Restart keep their stock .btn padding,
-   border radius, face and colours from the button's own tokens (--pgn-spacing-btn-*,
-   --pgn-size-btn-border-radius-base, --pgn-btn-*), so a theme restyles them without
-   touching this file. A minimum width is the one thing Paragon has no token for, so it
-   is a role here: auto is the stock "only as wide as its label". */
+/* Layout only: the buttons keep their stock .btn tokens; min-width is the one value
+   Paragon has no token for. */
 .branching-scenario .branching-scenario__action,
 .grade-report__restart {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: calc(var(--pgn-spacing-spacer-base) * 0.5);
+    gap: var(--pgn-spacing-spacer-2);
     min-width: var(--pgn-size-bx-action-min-width, auto);
 }
 
-/* Legacy LMS bleed: the host paints every .btn with a gradient background image,
-   an inset white highlight and a text shadow; stock Paragon assumes none of them.
-   Our own controls only - authored HTML buttons are never touched. */
+/* Host bleed: every .btn gets a gradient, an inset highlight and a text shadow;
+   stock Paragon assumes none of them. Our own controls only. */
 .branching-scenario .branching-scenario__action,
 .branching-scenario .grade-report__restart,
 .branching-scenario .branching-scenario__reset {
@@ -554,8 +490,7 @@
     text-shadow: none;
 }
 
-/* Remove legacy LMS button effects so Paragon styles render correctly.
-   Keep the IconButton out of the shadow reset to preserve its focus ring. */
+/* The host repaints those effects in its own hover/focus states too. */
 .branching-scenario :is(.branching-scenario__action, .grade-report__restart, .branching-scenario__reset):is(:hover, :focus, :active, .focus, .active) {
     background-image: none;
     text-shadow: none;
@@ -565,32 +500,23 @@
     box-shadow: none;
 }
 
-/* box-shadow reset only where focus is NOT drawn with a box-shadow: the regular
-   Button's ring is a border on .btn:focus::before (core.css:9945), so clearing the
-   host shadow is safe there. The IconButton header Reset draws its ring WITH
-   box-shadow (.btn-icon:focus, core.css:16212), so it is excluded while focused -
-   stock focus is never overridden. */
+/* box-shadow reset only where the focus ring is not itself a box-shadow, so the
+   IconButton's stock ring survives. */
 .branching-scenario .branching-scenario__action,
 .branching-scenario .grade-report__restart,
 .branching-scenario .branching-scenario__reset:not(:focus):not(.focus) {
     box-shadow: none;
 }
 
-/* The header Reset is the one control whose focus ring IS a box-shadow
-   (.btn-icon:focus, core.css:16212), so the reset above deliberately skips it while
-   focused. Re-assert the component's own token here, matching the classes the
-   IconButton actually renders (.btn-icon + our own) and both focus styles Paragon
-   uses (:focus and .focus). The LMS paints .btn:focus from its own sheet, whose
-   selector outranks a two-class rule; this one is a class higher again, and this
-   file loads last. */
+/* The header Reset's ring is itself a box-shadow, so it is re-asserted from the
+   component's own token; the host's .btn:focus rule outranks a two-class selector, this
+   one is a class higher and this file loads last. */
 .branching-scenario .btn-icon.branching-scenario__reset:focus,
 .branching-scenario .btn-icon.branching-scenario__reset.focus {
     box-shadow: var(--btn-icon-box-shadow);
 }
 
-/* The header Reset's glyph rides the IconButton's own colour (currentColor) unless a
-   theme mutes it; backgrounds, hover/focus colours and the disabled opacity stay
-   Paragon's. */
+/* The glyph rides the IconButton's currentColor unless a theme mutes it. */
 .branching-scenario .branching-scenario__reset .btn-icon__icon {
     color: var(--pgn-color-bx-icon-muted, currentColor);
 }
@@ -600,32 +526,30 @@
 }
 
 .branching-scenario .score-display {
-    margin-top: var(--pgn-spacing-spacer-base);
-    padding: 0;
+    margin-top: var(--pgn-spacing-spacer-3);
     font-size: var(--pgn-typography-font-size-sm);
 }
 
 /* ==========================================================================
-   Report. The outer Card keeps stock Paragon shape and elevation: the correct
-   knobs are --pgn-size-card-border-radius-base and
-   --pgn-elevation-box-shadow-down-1, which a theme sets, not this file.
+   Report. The outer Card keeps stock Paragon shape and elevation: those are a
+   theme's tokens (--pgn-size-card-border-radius-base,
+   --pgn-elevation-box-shadow-down-1), not this file's.
    ========================================================================== */
 
-/* Pale surface mixed from the info palette: a custom surface no Paragon
-   component owns, so generic tokens are the right ones here. Mixed from *-base
-   because a brand theme may set the 100-level tints to near-white. */
+/* Pale surface mixed from the info palette: a surface no Paragon component owns, and
+   from *-base because a brand may set the 100-level tints near-white. */
 .grade-report {
     background: var(--pgn-color-bx-report-surface,
         color-mix(in srgb, var(--pgn-color-info-base) 8%, var(--pgn-color-white)));
 }
 
-/* The report header takes the report's own inline inset, so its title lines up with
-   the section below it, and the stock Paragon header margins are zeroed exactly as
-   the scenario card does it. */
+/* The report header takes the report's own inset so its title lines up with the
+   section below it. */
 .branching-scenario .grade-report > .pgn__card-header {
-    padding: calc(var(--pgn-spacing-spacer-base) * 4) var(--pgn-spacing-bx-report-inset,
-            clamp(var(--pgn-spacing-card-spacer-x), 7%, calc(var(--pgn-spacing-card-spacer-x) * 3.6)))
-        var(--pgn-spacing-spacer-base);
+    padding: var(--pgn-spacing-bx-card-header-padding-top, var(--pgn-spacing-spacer-5-5))
+        var(--pgn-spacing-bx-report-inset,
+            clamp(var(--pgn-spacing-card-spacer-x), 7%, 4.5rem))
+        var(--pgn-spacing-spacer-3);
 }
 
 .branching-scenario .grade-report .pgn__card-header-content,
@@ -633,19 +557,16 @@
     margin-top: 0;
 }
 
-/* The report card is a column flex box and Paragon already lets this, its only
-   section, grow to fill what the card's min-height floor leaves under the header.
-   Centring the section's single row puts the report content in the middle of that
-   space. Content taller than the floor keeps its own height, so long detail tables
-   still grow (or scroll at nine rows) instead of being clipped, and the phone
-   layout, where the content is the tallest thing, is unchanged. */
+/* Paragon lets this, the card's only section, fill what the card floor leaves under
+   the header; centring its row puts the report in that space, and content taller than
+   the floor keeps its own height. */
 .grade-report > .pgn__card-section {
     display: grid;
     align-content: center;
-    padding: var(--pgn-spacing-spacer-base)
+    padding: var(--pgn-spacing-spacer-3)
         var(--pgn-spacing-bx-report-inset,
-            clamp(var(--pgn-spacing-card-spacer-x), 7%, calc(var(--pgn-spacing-card-spacer-x) * 3.6)))
-        calc(var(--pgn-spacing-spacer-base) * 4);
+            clamp(var(--pgn-spacing-card-spacer-x), 7%, 4.5rem))
+        var(--pgn-spacing-bx-card-body-padding-bottom, var(--pgn-spacing-spacer-5-5));
 }
 
 /* Summary, details and Restart are grid siblings, so the Restart position is a
@@ -654,43 +575,31 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "summary" "details" "restart";
-    row-gap: var(--pgn-spacing-spacer-base);
+    row-gap: var(--pgn-spacing-spacer-3);
 }
 
 .grade-report__summary {
     grid-area: summary;
     display: grid;
     justify-items: center;
-    gap: calc(var(--pgn-spacing-spacer-base) * 0.5);
+    gap: var(--pgn-spacing-spacer-2);
     text-align: center;
 }
 
-.grade-report__result {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: calc(var(--pgn-spacing-spacer-base) * 0.25);
-}
-
-/* Report icons: Paragon renders .pgn__icon at 1.5rem, so scope past it. */
+/* Paragon renders .pgn__icon at 1.5rem, so the marker sets its own size. */
 .grade-report .grade-report__sparkle {
-    width: calc(var(--pgn-spacing-spacer-base) * 2.5);
-    height: calc(var(--pgn-spacing-spacer-base) * 2.5);
+    width: var(--pgn-size-bx-report-icon, 2.5rem);
+    height: var(--pgn-size-bx-report-icon, 2.5rem);
     color: var(--pgn-color-bx-report-sparkle, var(--pgn-color-primary-base));
 }
 
-/* The glyph rides the button's own label colour in every state: the outline
-   variant's text at rest and its hover/focus text when those states repaint the
-   button. Two classes keep it, and no theme is needed for an outline to look right. */
+/* The glyph rides the button's own label colour in every state. */
 .grade-report .grade-report__restart-icon {
     color: inherit;
 }
 
-/* Must match the courseware rule's weight: `.course-wrapper .course-content p`
-   paints a 1.41575em bottom margin that scales with this number's font-size and
-   pushes the badge off-centre beside it. */
+/* Typed on a stronger selector so the host's paragraph rules cannot set this number. */
 .grade-report .grade-report__result p.grade-report__percentage {
-    margin: 0;
     font-family: var(--pgn-typography-bx-heading-font-family,
         var(--pgn-typography-headings-font-family));
     font-size: var(--pgn-typography-bx-report-percentage-font-size,
@@ -700,9 +609,8 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Outcome colour on the number, driven by the badge Paragon already renders.
-   :has() is the same browser baseline as the container queries above; without
-   it the number simply inherits the body colour. */
+/* Outcome colour driven by the badge Paragon already renders; without :has() the
+   number simply inherits the body colour. */
 .grade-report:has(.grade-report__badge.badge-success) .grade-report__percentage {
     color: var(--pgn-color-bx-report-pass-text, var(--pgn-color-success-700));
 }
@@ -711,9 +619,8 @@
     color: var(--pgn-color-bx-report-fail-text, var(--pgn-color-danger-700));
 }
 
-/* The badge is a status marker beside the percentage, not a label: one type step
-   up from the Badge's own 75%, with the vertical padding doubled so the pill reads
-   at the same weight as the number. Paragon's .badge/.badge-pill win the cascade
+/* One type step up from the Badge's own 75%, with the vertical padding doubled so the
+   pill reads at the same weight as the number. Paragon's .badge rules win the cascade
    over its font-size and spacing utilities, so the size lives here. */
 .grade-report__badge {
     padding: calc(var(--pgn-spacing-badge-padding-y) * 2)
@@ -721,11 +628,7 @@
     font-size: var(--pgn-typography-font-size-sm);
 }
 
-/* WGU's success/danger *base* colours are too light for the badge's white text
-   (2.42:1 and 4.17:1 measured against #FFFFFF). The default here is the Badge's own
-   background token, so an unthemed install stays exactly stock Paragon; a theme
-   darkens only this block's badge through a block token, rather than rewriting the
-   global badge colours for every badge on the platform. */
+/* Allow sufficient contrast with white badge text without changing platform-wide badge colours. */
 .grade-report__badge.badge-success {
     background-color: var(--pgn-color-bx-report-badge-pass-bg, var(--pgn-color-badge-bg-success));
 }
@@ -734,14 +637,11 @@
     background-color: var(--pgn-color-bx-report-badge-fail-bg, var(--pgn-color-badge-bg-danger));
 }
 
-/* Margin and colour stay on the single class, as before, so the host's own h3
-   spacing and colour keep their cascade. Only the type goes on the strong selector:
-   the host paints h3 (measured 21.6/30.24) from a rule a single class loses to. */
 .grade-report__heading {
-    margin: 0;
     color: var(--pgn-color-bx-text, var(--pgn-color-headings-base));
 }
 
+/* The type needs the stronger selector to outrank the host's h3 rule. */
 .branching-scenario .grade-report .grade-report__heading {
     font-size: var(--pgn-typography-bx-report-heading-font-size,
         var(--pgn-typography-font-size-h4-base));
@@ -751,31 +651,24 @@
 }
 
 .grade-report__subtitle {
-    margin: 0;
-    max-width: 34ch;
+    max-width: var(--pgn-size-bx-report-subtitle-max-width, 34ch);
     color: var(--pgn-color-bx-text, inherit);
     font-size: var(--pgn-typography-bx-report-subtitle-font-size,
         var(--pgn-typography-font-size-sm));
-    /* inherit, not a token: nothing declares a line-height on plain copy today, so
-       the role must not change what an unthemed report computes. */
+    /* inherit, not a token: nothing declares a line-height on plain copy today. */
     line-height: var(--pgn-typography-bx-report-subtitle-line-height, inherit);
 }
 
 .grade-report__metrics {
-    width: 100%;
-    margin: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: calc(var(--pgn-spacing-spacer-base) * 0.5);
+    gap: var(--pgn-spacing-spacer-2);
 }
 
 .grade-report__metric {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: calc(var(--pgn-spacing-spacer-base) * 0.75);
-    padding: calc(var(--pgn-spacing-spacer-base) * 0.625) calc(var(--pgn-spacing-spacer-base) * 0.75);
-    border-radius: var(--pgn-size-border-radius-base);
+    gap: var(--pgn-spacing-spacer-2-5);
+    padding: var(--pgn-spacing-bx-report-metric-padding-y, .625rem)
+        var(--pgn-spacing-bx-report-metric-padding-x, var(--pgn-spacing-spacer-2-5));
 }
 
 .grade-report__metric-label {
@@ -783,7 +676,6 @@
 }
 
 .grade-report__metric-value {
-    margin: 0;
     color: var(--pgn-color-bx-text, inherit);
     font-size: var(--pgn-typography-font-size-base);
     font-weight: var(--pgn-typography-font-weight-bold);
@@ -810,10 +702,11 @@
 }
 
 .grade-report__details-heading {
-    margin: 0 0 calc(var(--pgn-spacing-spacer-base) * 0.5);
+    margin: 0 0 var(--pgn-spacing-bx-report-details-heading-gap, var(--pgn-spacing-spacer-2));
     color: var(--pgn-color-bx-text, var(--pgn-color-headings-base));
 }
 
+/* One type step and weight for the details heading; the selector outranks the host. */
 .branching-scenario .grade-report .grade-report__details-heading {
     font-size: var(--pgn-typography-bx-report-details-heading-font-size,
         var(--pgn-typography-font-size-h4-base));
@@ -822,19 +715,18 @@
     font-weight: var(--pgn-typography-bx-report-details-heading-font-weight, 600);
 }
 
-/* Nothing to override: the nested Card already takes its surface from
-   --pgn-color-card-bg-base (white in the light theme) and its shadow from
-   --pgn-elevation-box-shadow-down-1. Its corner is its own role: the design squares
-   the outer cards and rounds this one, so it cannot ride the card token they share. */
+/* The nested Card keeps its own surface and shadow; only its corner is a role, since
+   one radius cannot serve both the outer cards and this one. */
 .branching-scenario .grade-report__table-card {
     border-radius: var(--pgn-size-bx-report-table-border-radius,
         calc(var(--pgn-size-card-border-radius-base) - var(--pgn-size-card-border-width)));
 }
 
-/* Scroll starts only from a 9th detail row (the component adds .is-scrollable),
-   so up to 8 rows wrap freely at phone widths. */
+/* Scroll starts only from a 9th detail row (the component adds .is-scrollable), so up
+   to 8 rows wrap freely. The cap is a literal, not rhythm arithmetic, so a theme's
+   global spacer cannot move it. */
 .grade-report__table-scroll.is-scrollable {
-    max-height: calc(var(--pgn-spacing-spacer-base) * 29);
+    max-height: var(--pgn-size-bx-report-details-max-height, 29rem);
     overflow-y: auto;
 }
 
@@ -852,11 +744,9 @@
     line-height: var(--pgn-typography-bx-report-table-line-height, inherit);
 }
 
-/* One type step and one emphasis role for the table's header row and its points
-   column: the defaults are what each cell already computes, so an unthemed report is
-   unchanged and a brand sets both columns in one place. */
+/* One type step and one emphasis role for the header row and the points column. */
 .grade-report__table thead th {
-    padding: calc(var(--pgn-spacing-spacer-base) * 0.625) 0;
+    padding: var(--pgn-spacing-bx-report-table-header-padding-y, .625rem) 0;
     color: var(--pgn-color-bx-report-table-text, var(--pgn-color-gray-500));
     font-size: var(--pgn-typography-bx-report-table-font-size,
         var(--pgn-typography-font-size-xs));
@@ -864,10 +754,9 @@
     text-align: start;
 }
 
-/* Explicit gutter on both sides of the score column, so points never touch the
-   selection text when it happens to fit on one line. */
+/* Gutter so points never touch the selection text on a one-line row. */
 .grade-report__table thead th:first-child {
-    padding-inline-end: calc(var(--pgn-spacing-spacer-base) * 1.25);
+    padding-inline-end: var(--pgn-spacing-bx-report-table-column-gap, var(--pgn-spacing-spacer-3-5));
 }
 
 .grade-report__table thead th:last-child {
@@ -877,16 +766,15 @@
 /* The divider sits on both cells of a row, so it runs under text and points alike. */
 .grade-report__table tbody th,
 .grade-report__table tbody td {
-    padding: var(--pgn-spacing-spacer-base) 0;
+    padding: var(--pgn-spacing-bx-report-table-row-padding-y, var(--pgn-spacing-spacer-3)) 0;
     font-weight: 400;
     text-align: start;
     border-bottom: var(--pgn-size-border-width) solid var(--pgn-color-gray-300);
 }
 
-/* Row labels are copy, not the header row's table emphasis: they read the text role,
-   while the header row and the points column read the table one. */
+/* Row labels are copy, not the header row's table emphasis. */
 .branching-scenario .grade-report__table tbody th {
-    padding-inline-end: calc(var(--pgn-spacing-spacer-base) * 1.25);
+    padding-inline-end: var(--pgn-spacing-bx-report-table-column-gap, var(--pgn-spacing-spacer-3-5));
     color: var(--pgn-color-bx-text, inherit);
 }
 
@@ -898,7 +786,7 @@
 /* Two classes deep: ".__table tbody td" (0,1,2) would otherwise keep text-align
    start from the base cell rule. */
 .grade-report__table .grade-report__details-score {
-    padding-inline-start: var(--pgn-spacing-spacer-base);
+    padding-inline-start: var(--pgn-spacing-bx-report-table-score-inset, var(--pgn-spacing-spacer-3));
     color: var(--pgn-color-bx-report-table-text, inherit);
     font-weight: var(--pgn-typography-bx-report-table-font-weight, 400);
     text-align: end;
@@ -906,45 +794,39 @@
     white-space: nowrap;
 }
 
-/* One more 16px above Restart than the layout's own row gap: the report-only button,
-   not the shared action row. Grid placement and the report's vertical centring are
-   untouched. */
+/* One step more than the layout's row gap: the report-only button, not the shared row. */
 .grade-report__restart {
     grid-area: restart;
     width: 100%;
-    margin-top: var(--pgn-spacing-spacer-base);
+    margin-top: var(--pgn-spacing-bx-report-restart-gap, var(--pgn-spacing-spacer-3));
 }
 
 /* ==========================================================================
    Breakpoints
    ========================================================================== */
 
-/* Phone: the card inset steps down once. The block token is read with a default
-   here too; declaring it locally would shadow a theme's value. */
+/* Phone: the card inset and the vertical rhythm step down once, from the same roles,
+   so a theme's value still wins. */
 @container (max-width: 768px) {
     .branching-scenario .branching-scenario__card > .pgn__card-header,
     .branching-scenario .branching-scenario__card > .pgn__card-body {
-        padding-inline: var(--pgn-spacing-bx-card-inset,
-            calc(var(--pgn-spacing-card-spacer-x) * 1.2));
+        padding-inline: var(--pgn-spacing-bx-card-inset, var(--pgn-spacing-spacer-4));
     }
 
-    /* One step down on phone: the desktop 64px rhythm would swallow the content.
-       Header top and body/section bottom only; the inline insets above stay. */
     .branching-scenario .branching-scenario__card > .pgn__card-header,
     .branching-scenario .grade-report > .pgn__card-header {
-        padding-top: calc(var(--pgn-spacing-spacer-base) * 2);
+        padding-top: var(--pgn-spacing-bx-card-header-padding-top, var(--pgn-spacing-spacer-4-5));
     }
 
     .branching-scenario .branching-scenario__card > .pgn__card-body,
     .grade-report > .pgn__card-section {
-        padding-bottom: calc(var(--pgn-spacing-spacer-base) * 2);
+        padding-bottom: var(--pgn-spacing-bx-card-body-padding-bottom, var(--pgn-spacing-spacer-4-5));
     }
 }
 
 /* Tablet and up: Back and the primary action share one inline row. DOM order is
    primary then secondary; row-reverse puts Back on the left and keeps Tab order
-   matching the stacked phone order. justify-content:flex-start on a reversed row
-   packs the pair to the right. A container query, not a .flex-md-* utility: the
+   matching the stacked phone order. A container query, not a .flex-md-* utility: the
    block is the LMS iframe, so the viewport width is the wrong measure. */
 @container (min-width: 768px) {
     .branching-scenario .branching-scenario__actions {
@@ -962,10 +844,10 @@
         text-align: start;
     }
 
-    .grade-report__result {
+    /* Match Stack gap specificity so the container override wins. */
+    .branching-scenario .grade-report__result {
         flex-direction: row;
-        align-items: center;
-        gap: calc(var(--pgn-spacing-spacer-base) * 0.75);
+        gap: var(--pgn-spacing-bx-report-result-inline-gap, var(--pgn-spacing-spacer-2-5));
     }
 
     .grade-report__metrics {
@@ -983,46 +865,39 @@
     }
 }
 
-/* 768 itself stacks, as the design's tablet does; the question splits at the same
-   900 container threshold as the report below. This query keeps only what applies
-   to the stacked content too: vertical centring and the card floor. */
+/* 768 itself stacks, as the tablet layout does; the content splits at the same 900
+   container threshold as the report. This query keeps only what applies to stacked
+   content too: vertical centring and the card floor. */
 @container (min-width: 769px) {
     /* Centred on the desktop for every case: the splits already are, and a terminal
-       node without media has a single track that the card floor leaves with free
-       space below. */
+       node without media has a single track the card floor leaves with free space. */
     .branching-scenario__content {
         align-items: center;
     }
 
-    /* Card floor: 65% of the container (the outer Figma frame's 1280x832 ratio),
-       capped at that frame's own 832px. The 48rem/768px lower bound is a pragmatic
-       step below the design, not a Figma height: it holds ordinary scenario and
-       report content steady at narrower desktops (~954px) without the 832 cap.
-       min-height only, so taller content grows and is never clipped; [hidden] keeps
-       the report stub out of layout. */
+    /* Keep short cards stable in height while allowing longer content to grow. */
     .branching-scenario__card,
     .branching-scenario .grade-report:not([hidden]) {
         min-height: clamp(48rem, 65cqw, 52rem);
     }
 }
 
-/* Split content from 900: the question stacks until the same container threshold
-   as the report, so the tablet width gets one full-width pane instead of a narrow
-   split. Only the two designed splits are targeted, so a terminal node without media
-   keeps the single column instead of being squeezed into a half-width pane. */
+/* Split content from 900: the question stacks until the same container threshold as
+   the report, so tablet gets one full-width pane instead of a narrow split. Only the
+   two split layouts are targeted, so a terminal node without media keeps the single
+   column. */
 @container (min-width: 900px) {
     .branching-scenario__content--choices,
     .branching-scenario__content--terminal {
         grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-        gap: calc(var(--pgn-spacing-spacer-base) * 2);
+        gap: var(--pgn-spacing-spacer-4-5);
         align-items: center;
     }
 
-    /* Only the choices split tightens to 16 here: the form's own
-       padding-inline-start adds the other 16 back for the divider, while the
-       terminal's text/image gap keeps the design's 32. */
+    /* Only the choices split tightens to 16 here: the form's own padding-inline-start
+       adds the other 16 back for the divider, while the terminal keeps 32. */
     .branching-scenario__content--choices {
-        gap: var(--pgn-spacing-spacer-base);
+        gap: var(--pgn-spacing-spacer-3);
     }
 
     /* Terminal nodes give text and image equal halves of the row. */
@@ -1030,42 +905,39 @@
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
 
-    /* Divider between the narrative and the choices only. The form is a grid item:
-       its padding restores the design's 32px column gap on top of the 16px grid gap,
-       align-self:stretch runs the rule the full row height, and align-content:center
-       keeps the choices centred in it. Terminal/media, the report and phone widths
-       never get a border. */
+    /* Divider between the narrative and the choices only: the form is a grid item, its
+       padding restores the 32px column gap on top of the 16px grid gap, align-self
+       runs the rule the full row height, and align-content centres the choices in it. */
     .branching-scenario__content--choices > .branching-scenario__form {
         align-self: stretch;
         display: grid;
         align-content: center;
-        padding-inline-start: var(--pgn-spacing-spacer-base);
+        padding-inline-start: var(--pgn-spacing-spacer-3);
         border-inline-start: var(--pgn-size-border-width) solid var(--pgn-color-gray-300);
     }
 
     /* Desktop report: two columns, strips stacked again, Restart under the summary.
        900px, not 992: the desktop shell gives this block 954px at a 1024 viewport, so a
-       992 floor would never turn on for the desktop design. Tablet (768) is unchanged. */
+       992 floor would never turn on. Tablet (768) is unchanged. */
     .grade-report__layout {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         grid-template-areas:
             "summary details"
             "restart details";
-        /* The summary row is content-sized and the Restart row takes the remainder.
-           Details spans both, so its extra height would otherwise be split between
-           the two rows and would swallow half of the 16px margin above Restart.
-           `1fr` also keeps a tall details table growing the card, never clipping. */
+        /* The summary row is content-sized and the Restart row takes the remainder, so
+           a tall details table grows the card instead of stealing the margin above
+           Restart. */
         grid-template-rows: auto 1fr;
         column-gap: clamp(
-            calc(var(--pgn-spacing-spacer-base) * 2),
+            var(--pgn-spacing-spacer-4-5),
             5%,
-            calc(var(--pgn-spacing-spacer-base) * 4)
+            var(--pgn-spacing-spacer-5-5)
         );
         align-items: start;
     }
 
     .grade-report__summary {
-        padding-inline-end: calc(var(--pgn-spacing-spacer-base) * 2);
+        padding-inline-end: var(--pgn-spacing-spacer-4-5);
     }
 
     .grade-report__metrics {

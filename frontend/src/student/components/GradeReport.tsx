@@ -8,7 +8,7 @@ import Stack from "@openedx/paragon/dist/Stack";
 import AccountTree from "@openedx/paragon/icons/es5/AccountTree";
 import AutoGraph from "@openedx/paragon/icons/es5/AutoGraph";
 import Replay from "@openedx/paragon/icons/es5/Replay";
-import { useIntl } from "react-intl";
+import { FormattedMessage, useIntl } from "react-intl";
 import { studentMessages } from "../../messages";
 import { GradeReport as GradeReportData } from "../../apiTypes";
 
@@ -54,8 +54,8 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
           <Stack direction="horizontal" gap={3} className="branching-scenario__title">
             <Icon src={AccountTree} className="branching-scenario__title-icon flex-shrink-0" />
             <span className="branching-scenario__title-divider" aria-hidden="true" />
-            <h2 className="branching-scenario__title-text">
-              {intl.formatMessage(studentMessages.scenarioTitle)}
+            <h2 className="branching-scenario__title-text m-0">
+              <FormattedMessage {...studentMessages.scenarioTitle} />
             </h2>
           </Stack>
         }
@@ -64,8 +64,8 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
         <div className="grade-report__layout">
           <section className="grade-report__summary">
             <Icon src={AutoGraph} className="grade-report__sparkle" />
-            <div className="grade-report__result">
-              <p className="grade-report__percentage" data-role="report-percent">
+            <Stack gap={1} className="grade-report__result align-items-center">
+              <p className="grade-report__percentage m-0" data-role="report-percent">
                 {percentage}%
               </p>
               <Badge
@@ -76,32 +76,38 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
               >
                 {gradeLabel}
               </Badge>
-            </div>
-            <h3 className="grade-report__heading">
-              {intl.formatMessage(studentMessages.activityComplete)}
+            </Stack>
+            <h3 className="grade-report__heading m-0">
+              <FormattedMessage {...studentMessages.activityComplete} />
             </h3>
-            <p className="grade-report__subtitle">
-              {intl.formatMessage(studentMessages.reportSubtitle)}
+            <p className="grade-report__subtitle m-0">
+              <FormattedMessage {...studentMessages.reportSubtitle} />
             </p>
-            <dl className="grade-report__metrics">
-              <div className={`grade-report__metric ${isPassStyle ? "is-pass" : "is-fail"}`}>
+            <dl className="grade-report__metrics w-100 m-0">
+              <div
+                className={`grade-report__metric d-flex align-items-center justify-content-between rounded ${
+                  isPassStyle ? "is-pass" : "is-fail"
+                }`}
+              >
                 {/* Colon lives here: the message default has none. */}
                 <dt className="grade-report__metric-label">
-                  {intl.formatMessage(studentMessages.yourScore)}:
+                  <FormattedMessage {...studentMessages.yourScore} />:
                 </dt>
-                <dd className="grade-report__metric-value" data-role="report-score">{score}</dd>
+                <dd className="grade-report__metric-value m-0" data-role="report-score">{score}</dd>
               </div>
-              <div className="grade-report__metric is-max">
+              <div className="grade-report__metric d-flex align-items-center justify-content-between rounded is-max">
                 <dt className="grade-report__metric-label">
-                  {intl.formatMessage(studentMessages.highestPossibleScore)}:
+                  <FormattedMessage {...studentMessages.highestPossibleScore} />:
                 </dt>
-                <dd className="grade-report__metric-value" data-role="report-max-score">{maxScore}</dd>
+                <dd className="grade-report__metric-value m-0" data-role="report-max-score">{maxScore}</dd>
               </div>
             </dl>
           </section>
 
           <section className="grade-report__details align-self-center">
-            <h3 className="grade-report__details-heading" id={detailsHeadingId}>{detailsLabel}</h3>
+            <h3 className="grade-report__details-heading" id={detailsHeadingId}>
+              <FormattedMessage {...studentMessages.detailedScore} />
+            </h3>
             <Card className="grade-report__table-card">
               <Card.Section>
                 <div
@@ -111,14 +117,14 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
                   <table className="grade-report__table" aria-labelledby={detailsHeadingId}>
                     <thead>
                       <tr>
-                        <th scope="col">{intl.formatMessage(studentMessages.yourSelections)}</th>
-                        <th scope="col">{intl.formatMessage(studentMessages.scoreColumn)}</th>
+                        <th scope="col"><FormattedMessage {...studentMessages.yourSelections} /></th>
+                        <th scope="col"><FormattedMessage {...studentMessages.scoreColumn} /></th>
                       </tr>
                     </thead>
                     <tbody data-role="report-details">
                       {details.length === 0 ? (
                         <tr>
-                          <td colSpan={2}>{intl.formatMessage(studentMessages.noScoredSelections)}</td>
+                          <td colSpan={2}><FormattedMessage {...studentMessages.noScoredSelections} /></td>
                         </tr>
                       ) : (
                         details.map((entry, idx) => {
@@ -126,7 +132,7 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
                           return (
                             <tr key={idx}>
                               <th scope="row">
-                                {text || intl.formatMessage(studentMessages.untitledChoice)}
+                                {text || <FormattedMessage {...studentMessages.untitledChoice} />}
                               </th>
                               <td className="grade-report__details-score">
                                 {signedPoints(entry.awarded_points ?? 0)}
@@ -146,11 +152,11 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
             <Button
               type="button"
               variant="outline-primary"
-              className="grade-report__restart"
+              className="grade-report__restart d-inline-flex align-items-center justify-content-center"
               data-role="reset-activity-report"
               onClick={onReset}
             >
-              {intl.formatMessage(studentMessages.restart)}
+              <FormattedMessage {...studentMessages.restart} />
               <Icon src={Replay} className="grade-report__restart-icon" />
             </Button>
           )}

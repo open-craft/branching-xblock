@@ -5,7 +5,7 @@ import Stack from "@openedx/paragon/dist/Stack";
 // Deep imports, not the icons barrel: each es5 module is a default export.
 import ArrowBack from "@openedx/paragon/icons/es5/ArrowBack";
 import ArrowForward from "@openedx/paragon/icons/es5/ArrowForward";
-import { useIntl } from "react-intl";
+import { FormattedMessage } from "react-intl";
 import { studentMessages } from "../../messages";
 
 interface ActionButtonsProps {
@@ -32,8 +32,6 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   onUndo,
   onShowReport,
 }) => {
-  const intl = useIntl();
-
   if (!showSubmit && !showGoBack && !showReportButton) {
     return null;
   }
@@ -51,11 +49,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           type="submit"
           form={submitFormId}
           variant="primary"
-          className="branching-scenario__action"
+          className="branching-scenario__action d-inline-flex align-items-center justify-content-center"
           data-role="submit-choice"
           disabled={!canSubmit}
         >
-          {intl.formatMessage(studentMessages.submit)}
+          <FormattedMessage {...studentMessages.submit} />
           <Icon src={ArrowForward} className="flex-shrink-0" />
         </Button>
       )}
@@ -63,24 +61,24 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         <Button
           type="button"
           variant="primary"
-          className="branching-scenario__action"
+          className="branching-scenario__action d-inline-flex align-items-center justify-content-center"
           data-role="show-report"
           onClick={onShowReport}
         >
-          {intl.formatMessage(studentMessages.showReport)}
+          <FormattedMessage {...studentMessages.showReport} />
         </Button>
       )}
       {showGoBack && (
         <Button
           type="button"
           variant="outline-primary"
-          className="branching-scenario__action"
+          className="branching-scenario__action d-inline-flex align-items-center justify-content-center"
           data-role="undo"
           disabled={!canUndo}
           onClick={onUndo}
         >
           <Icon src={ArrowBack} className="flex-shrink-0" />
-          {intl.formatMessage(studentMessages.goBack)}
+          <FormattedMessage {...studentMessages.goBack} />
         </Button>
       )}
     </Stack>
