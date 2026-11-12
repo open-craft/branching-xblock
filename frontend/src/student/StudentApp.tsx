@@ -131,6 +131,10 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   const showTranscript = Boolean(
     (media.type === "audio" || media.type === "video") && node.transcript_url
   );
+  // A media-only terminal keeps one column: no empty left half beside the media.
+  const hasNarrative = Boolean(
+    (!overlayEnabled && contentHtml.trim()) || node.hint || showTranscript
+  );
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -186,12 +190,14 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
     </div>
   ) : (
     <div
-      className={`branching-scenario__content flex-grow-1${hasMedia ? " branching-scenario__content--terminal" : ""}`}
+      className={`branching-scenario__content flex-grow-1${hasMedia && hasNarrative ? " branching-scenario__content--terminal" : ""}`}
     >
-      <div className="branching-scenario__pane">
-        {contentBlock}
-        {supportBlocks}
-      </div>
+      {hasNarrative ? (
+        <div className="branching-scenario__pane">
+          {contentBlock}
+          {supportBlocks}
+        </div>
+      ) : null}
       {hasMedia ? (
         <div className="branching-scenario__pane branching-scenario__pane--media">{mediaBlock}</div>
       ) : null}

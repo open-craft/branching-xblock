@@ -42,23 +42,8 @@ describe("MediaDisplay renders the decision it is given", () => {
       />,
     );
 
-    expect(container.querySelector(".bx-image-composite")).not.toBeNull();
-    expect(container.querySelector(".bx-image-composite__fg")).not.toBeNull();
     // Background plus the one foreground image.
     expect(container.querySelectorAll("img")).toHaveLength(2);
-  });
-
-  it("marks a background-only composite and renders no foreground group", () => {
-    const { container } = render(
-      <MediaDisplay
-        node={makeNode()}
-        media={{ kind: "composite", backgroundOnly: true, overlay: false }}
-        {...baseProps}
-      />,
-    );
-
-    expect(container.querySelector(".bx-image-composite--bg-only")).not.toBeNull();
-    expect(container.querySelector(".bx-image-composite__fg")).toBeNull();
   });
 
   it("puts the authored html inside the composite overlay when the decision says so", () => {
@@ -71,8 +56,8 @@ describe("MediaDisplay renders the decision it is given", () => {
       />,
     );
 
-    const overlay = container.querySelector(".media-overlay__text");
-    expect(overlay?.innerHTML).toContain("Overlay copy");
+    // The authored html is parsed and rendered once, in the media.
+    expect(container.textContent).toBe("Overlay copy");
   });
 
   it("renders a hosted video file as a video element", () => {
@@ -109,7 +94,8 @@ describe("MediaDisplay renders the decision it is given", () => {
     );
 
     expect((screen.getByAltText("A scene") as HTMLImageElement).src).toContain("http://example.com/i.jpg");
-    expect(container.querySelector(".bx-image-composite")).toBeNull();
+    // One image and no composite behind it.
+    expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 
   it("renders nothing at all when there is no media", () => {

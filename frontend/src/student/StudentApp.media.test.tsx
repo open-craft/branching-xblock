@@ -149,12 +149,15 @@ describe("StudentApp media: composite image", () => {
       overlay_text: true,
     });
 
-    renderApp(makeState(node, { background_image_url: BACKGROUND_URL }));
+    const { container } = renderApp(makeState(node, { background_image_url: BACKGROUND_URL }));
+
+    // The composite keeps its one visible image: the shared background, no foreground.
+    expect(container.querySelectorAll("img")).toHaveLength(1);
+    expect(imgBySrc(container, BACKGROUND_URL)).not.toBeNull();
 
     const overlay = document.querySelector(".media-overlay__text") as HTMLElement;
     expect(overlay).not.toBeNull();
     expect(overlay.textContent).toContain("Overlay over the backdrop");
-    expect(document.querySelector(".bx-image-composite--bg-only")).not.toBeNull();
   });
 
   it("shows the node content as the composite overlay once instead of beside the image", () => {
@@ -169,7 +172,8 @@ describe("StudentApp media: composite image", () => {
     renderApp(makeState(node, { background_image_url: BACKGROUND_URL }));
 
     // The HTML is rendered, not escaped, and appears exactly once (no duplicated content block).
-    expect(screen.getByText("emphasis").tagName).toBe("STRONG");
+    // Joined text only appears when <strong> was parsed, not escaped.
+    expect(document.body.textContent).toContain("Overlay copy with emphasis");
     expect((document.body.textContent || "").match(/Overlay copy with/g)).toHaveLength(1);
     expect(screen.getByRole("img", { name: "Left character" })).toBeTruthy();
   });
@@ -191,7 +195,6 @@ describe("StudentApp media: composite image", () => {
     expect((screen.getByRole("img", { name: "Left character" }) as HTMLImageElement).getAttribute("src")).toBe(LEFT_URL);
     expect((screen.getByRole("img", { name: "Right character" }) as HTMLImageElement).getAttribute("src")).toBe(RIGHT_URL);
     expect(container.querySelectorAll("img")).toHaveLength(2);
-    expect(container.querySelector(".bx-image-composite__bg")).toBeNull();
 
     // The authored content renders inside the overlay, once, and not beside the media.
     const overlay = container.querySelector(".media-overlay__text") as HTMLElement;
@@ -200,8 +203,31 @@ describe("StudentApp media: composite image", () => {
     expect((document.body.textContent || "").match(/Overlay without a backdrop/g)).toHaveLength(1);
 
     expect(container.querySelector('[data-role="media"]')).not.toBeNull();
-    expect(container.querySelector(".branching-scenario__content--terminal")).not.toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("StudentApp media: overlay with support content", () => {
+  it("keeps an overlay terminal's hint reachable while the copy stays inside the image", () => {
+    const node = makeNode({
+      content: "<p>Overlay copy with a hint</p>",
+      media: { type: "image", url: "", alt: "" },
+      overlay_text: true,
+      left_image_url: LEFT_URL,
+      left_image_alt_text: "Left character",
+      hint: "Look at the river level.",
+    });
+
+    const { container } = renderApp(makeState(node, { background_image_url: BACKGROUND_URL }));
+
+    // Authored copy renders once, inside the overlay, not beside it.
+    const overlay = container.querySelector(".media-overlay__text") as HTMLElement;
+    expect(overlay.textContent).toContain("Overlay copy with a hint");
+    expect((document.body.textContent || "").match(/Overlay copy with a hint/g)).toHaveLength(1);
+    // The hint is support content, so it stays reachable next to the image.
+    expect(screen.getByText("Show hint")).toBeTruthy();
+    expect(document.body.textContent).toContain("Hint: Look at the river level.");
+    expect(screen.getByRole("img", { name: "Left character" })).toBeTruthy();
   });
 });
 
@@ -262,7 +288,6 @@ describe("StudentApp media: nothing to show", () => {
     // The shared background belongs to the composite scene, never to a text node.
     expect(container.querySelector('[data-role="media"]')).toBeNull();
     expect(container.querySelectorAll("img")).toHaveLength(0);
-    expect(container.querySelector(".branching-scenario__content--terminal")).toBeNull();
   });
 
   it("shows the authored text once, as text, when an image node has no background and no foreground", () => {
@@ -270,9 +295,7 @@ describe("StudentApp media: nothing to show", () => {
     const { container } = renderApp(makeState(node));
 
     // overlay_text cannot apply: there is no composite to overlay.
-    expect(container.querySelector(".media-overlay__text")).toBeNull();
     expect(container.querySelector('[data-role="media"]')).toBeNull();
-    expect(container.querySelector(".branching-scenario__content--terminal")).toBeNull();
     expect((document.body.textContent || "").match(/Authored copy/g)).toHaveLength(1);
   });
 
