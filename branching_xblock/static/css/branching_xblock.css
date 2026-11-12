@@ -270,15 +270,11 @@
     margin-bottom: var(--pgn-spacing-spacer-3);
 }
 
-/* The block's two outer surfaces: Paragon's card corner and surface, one role each. */
+/* Both outer surfaces share the card corner override. */
 .branching-scenario .branching-scenario__card,
 .branching-scenario .grade-report {
     border-radius: var(--pgn-size-bx-card-border-radius,
         calc(var(--pgn-size-card-border-radius-base) - var(--pgn-size-card-border-width)));
-}
-
-.branching-scenario .branching-scenario__card {
-    background-color: var(--pgn-color-bx-card-bg, var(--pgn-color-card-bg-base));
 }
 
 /* Let side padding grow with the card, with a cap that preserves room for content. */
@@ -418,22 +414,13 @@
     cursor: pointer;
 }
 
-/* The checked border is the component's own token, mapped from a role, so the focus
-   border and the valid/invalid variants keep Paragon's state rules. */
+/* The checked border and glyph are the component's own tokens, so its state rules and
+   valid/invalid variants are left alone; this only lifts the input above the card's
+   stretched label::after. */
 .branching-scenario .branching-scenario__choice-input {
     position: relative;
     z-index: 1;
     margin: var(--pgn-spacing-spacer-1) 0 0;
-    --pgn-color-form-control-indicator-checked-border-base: var(
-        --pgn-color-bx-choice-radio-checked,
-        var(--pgn-color-form-control-indicator-checked-base)
-    );
-}
-
-/* A data-URI token, so the role defaults to that token on the property itself. */
-.branching-scenario .branching-scenario__choice-input:checked {
-    background-image: var(--pgn-other-content-bx-choice-radio-icon-checked,
-        var(--pgn-other-content-form-control-radio-indicator-icon-checked-base));
 }
 
 /* Block so long single-token labels wrap inside the min-width:0 column. */
@@ -514,11 +501,6 @@
 .branching-scenario .btn-icon.branching-scenario__reset:focus,
 .branching-scenario .btn-icon.branching-scenario__reset.focus {
     box-shadow: var(--btn-icon-box-shadow);
-}
-
-/* The glyph rides the IconButton's currentColor unless a theme mutes it. */
-.branching-scenario .branching-scenario__reset .btn-icon__icon {
-    color: var(--pgn-color-bx-icon-muted, currentColor);
 }
 
 .branching-scenario__action {
@@ -628,11 +610,7 @@
     font-size: var(--pgn-typography-font-size-sm);
 }
 
-/* Allow sufficient contrast with white badge text without changing platform-wide badge colours. */
-.grade-report__badge.badge-success {
-    background-color: var(--pgn-color-bx-report-badge-pass-bg, var(--pgn-color-badge-bg-success));
-}
-
+/* The fail badge retains its separate colour role. */
 .grade-report__badge.badge-danger {
     background-color: var(--pgn-color-bx-report-badge-fail-bg, var(--pgn-color-badge-bg-danger));
 }
