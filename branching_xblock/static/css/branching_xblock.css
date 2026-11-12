@@ -680,12 +680,12 @@
 }
 
 .grade-report__details-heading {
-    margin: 0 0 var(--pgn-spacing-bx-report-details-heading-gap, var(--pgn-spacing-spacer-2));
     color: var(--pgn-color-bx-text, var(--pgn-color-headings-base));
 }
 
-/* One type step and weight for the details heading; the selector outranks the host. */
+/* Type step, weight and the spacing role for the details heading; the selector outranks the host. */
 .branching-scenario .grade-report .grade-report__details-heading {
+    margin: 0 0 var(--pgn-spacing-bx-report-details-heading-gap, var(--pgn-spacing-spacer-2));
     font-size: var(--pgn-typography-bx-report-details-heading-font-size,
         var(--pgn-typography-font-size-h4-base));
     line-height: var(--pgn-typography-bx-report-details-heading-line-height,
