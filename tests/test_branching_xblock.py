@@ -1702,6 +1702,19 @@ def test_index_dictionary_choice_labels(block):
     assert "50" not in scenario_content
 
 
+def test_student_view_data(block):
+    """Test that the index_dictionary alias works."""
+    block.display_name = "Fire Safety Scenario"
+    block.scenario_data = {
+        "nodes": {"start": {"id": "start", "content": "<p>You smell smoke.</p>"}},
+        "start_node_id": "start",
+    }
+    result = block.student_view_data()
+    assert result == block.index_dictionary()
+    assert result["content_type"] == "Branching Scenario"
+    assert "You smell smoke." in result["content"]["scenario_content"]
+
+
 def test_strip_html_hardening():
     """Script/style contents are dropped and markup edge cases are handled."""
     assert _strip_html('<script src="x.js">secret()</script>visible') == "visible"
