@@ -1,8 +1,16 @@
-import React, { useState, useCallback } from "react";
-import { useIntl } from "react-intl";
+import React, { useCallback, useId, useState } from "react";
+import { FormattedMessage, MessageDescriptor, useIntl } from "react-intl";
+import Card from "@openedx/paragon/dist/Card";
+import Icon from "@openedx/paragon/dist/Icon";
+import IconButton from "@openedx/paragon/dist/IconButton";
+import Stack from "@openedx/paragon/dist/Stack";
+// Deep imports, not the icons barrel: each es5 module is a default export.
+import AccountTree from "@openedx/paragon/icons/es5/AccountTree";
+import Replay from "@openedx/paragon/icons/es5/Replay";
 import { studentMessages } from "../messages";
 import { StudentInitialState, StudentHandlerUrls } from "../apiTypes";
 import * as api from "./api";
+import { describeNodeMedia } from "./mediaUtils";
 import MediaDisplay from "./components/MediaDisplay";
 import ContentDisplay from "./components/ContentDisplay";
 import HintCollapsible from "./components/HintCollapsible";
@@ -23,50 +31,61 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   const [error, setError] = useState<string | null>(null);
   const [isReportVisible, setIsReportVisible] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  // Held here, not in ChoiceForm, so Submit can sit in the shared action row.
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  // The choice form is scoped to the choices pane: authored content must never sit
+  // inside our form, or an author's own button would submit our selection.
+  const choiceFormId = useId();
 
   const replaceState = useCallback((newState: StudentInitialState) => {
     setState(newState);
     setLoading(false);
     setIsReportVisible(false);
     setError(null);
+    // A new node never inherits the previous selection.
+    setSelectedIndex(null);
     setStatusMessage(intl.formatMessage(studentMessages.contentUpdated));
   }, [intl]);
 
+  // One transition rule for every learner action. The request is a thunk so the
+  // start state is written before the request is made, as it always was.
+  const runAction = useCallback((
+    request: () => Promise<StudentInitialState>,
+    fallbackMessage: MessageDescriptor,
+  ) => {
+    setLoading(true);
+    setError(null);
+    request()
+      .then(replaceState)
+      .catch((err) => {
+        setError(err.message || intl.formatMessage(fallbackMessage));
+        setLoading(false);
+      });
+  }, [replaceState, intl]);
+
   const handleSelectChoice = useCallback(
     (choiceIndex: number) => {
-      setLoading(true);
-      setError(null);
-      api.selectChoice(handlerUrls.select_choice, choiceIndex)
-        .then(replaceState)
-        .catch((err) => {
-          setError(err.message || intl.formatMessage(studentMessages.errorSelectingChoice));
-          setLoading(false);
-        });
+      runAction(
+        () => api.selectChoice(handlerUrls.select_choice, choiceIndex),
+        studentMessages.errorSelectingChoice,
+      );
     },
-    [handlerUrls.select_choice, replaceState, intl],
+    [handlerUrls.select_choice, runAction],
   );
 
   const handleUndo = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    api.undoChoice(handlerUrls.undo_choice)
-      .then(replaceState)
-      .catch((err) => {
-        setError(err.message || intl.formatMessage(studentMessages.errorUndoChoice));
-        setLoading(false);
-      });
-  }, [handlerUrls.undo_choice, replaceState, intl]);
+    runAction(
+      () => api.undoChoice(handlerUrls.undo_choice),
+      studentMessages.errorUndoChoice,
+    );
+  }, [handlerUrls.undo_choice, runAction]);
 
   const handleReset = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    api.resetActivity(handlerUrls.reset_activity)
-      .then(replaceState)
-      .catch((err) => {
-        setError(err.message || intl.formatMessage(studentMessages.errorResetActivity));
-        setLoading(false);
-      });
-  }, [handlerUrls.reset_activity, replaceState, intl]);
+    runAction(
+      () => api.resetActivity(handlerUrls.reset_activity),
+      studentMessages.errorResetActivity,
+    );
+  }, [handlerUrls.reset_activity, runAction]);
 
   const handleShowReport = useCallback(() => {
     setIsReportVisible(true);
@@ -75,7 +94,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   if (loading && !state.current_node) {
     return (
       <div className="branching-scenario">
-        {intl.formatMessage(studentMessages.loading)}
+        <FormattedMessage {...studentMessages.loading} />
       </div>
     );
   }
@@ -85,7 +104,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   if (!node) {
     return (
       <div className="branching-scenario">
-        {error || intl.formatMessage(studentMessages.noContent)}
+        {error || <FormattedMessage {...studentMessages.noContent} />}
       </div>
     );
   }
@@ -93,8 +112,10 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   const media = node.media || { type: "", url: "" };
   const nodeId = node.id || "";
   const contentHtml = node.content || "";
-  const isCompositeImage = media.type === "image";
-  const overlayEnabled = Boolean(node.overlay_text) && isCompositeImage;
+  // One decision, shared with MediaDisplay: presence, kind and overlay.
+  const nodeMedia = describeNodeMedia(node, state.background_image_url);
+  const hasMedia = nodeMedia.kind !== "none";
+  const overlayEnabled = nodeMedia.kind === "composite" && nodeMedia.overlay;
 
   const choices = node.choices || [];
   const isLeaf = choices.length === 0;
@@ -103,10 +124,84 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   const showReport = showReportButton && isReportVisible;
   const showReset = Boolean(state.enable_reset_activity && !isAtStartNode);
   const canUndo = Boolean(state.enable_undo && state.history.length > 0);
+  // Accepted behaviour: no Go Back at the first step.
+  const showGoBack = !isAtStartNode;
   const hasChoices = choices.length > 0;
   const showScore = !showReport && isLeaf && state.enable_scoring;
   const showTranscript = Boolean(
     (media.type === "audio" || media.type === "video") && node.transcript_url
+  );
+  // A media-only terminal keeps one column: no empty left half beside the media.
+  const hasNarrative = Boolean(
+    (!overlayEnabled && contentHtml.trim()) || node.hint || showTranscript
+  );
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (selectedIndex === null) {
+      return;
+    }
+    handleSelectChoice(selectedIndex);
+  };
+
+  // When the content is the composite overlay, ContentDisplay is suppressed: the same HTML
+  // is rendered once, inside the image.
+  const contentBlock = overlayEnabled ? null : <ContentDisplay contentHtml={contentHtml} />;
+
+  const mediaBlock = (
+    <MediaDisplay
+      media={nodeMedia}
+      node={node}
+      background_image_url={state.background_image_url}
+      background_image_alt_text={state.background_image_alt_text}
+      background_image_is_decorative={state.background_image_is_decorative}
+      contentHtml={contentHtml}
+    />
+  );
+
+  const supportBlocks = (
+    <>
+      <TranscriptLink url={showTranscript ? node.transcript_url || "" : ""} />
+      <HintCollapsible hintText={node.hint || ""} nodeId={nodeId} />
+    </>
+  );
+
+  // Option nodes: text/media left, choices right. Terminal nodes: text left, media right.
+  const nodeBody = hasChoices ? (
+    <div className="branching-scenario__content branching-scenario__content--choices flex-grow-1">
+      <div className="branching-scenario__pane">
+        {contentBlock}
+        {hasMedia ? mediaBlock : null}
+        {supportBlocks}
+      </div>
+      <form
+        id={choiceFormId}
+        className="branching-scenario__form m-0"
+        data-role="choice-form"
+        onSubmit={handleSubmit}
+      >
+        <ChoiceForm
+          choices={choices}
+          nodeId={nodeId}
+          selectedIndex={selectedIndex}
+          onSelect={setSelectedIndex}
+        />
+      </form>
+    </div>
+  ) : (
+    <div
+      className={`branching-scenario__content flex-grow-1${hasMedia && hasNarrative ? " branching-scenario__content--terminal" : ""}`}
+    >
+      {hasNarrative ? (
+        <div className="branching-scenario__pane">
+          {contentBlock}
+          {supportBlocks}
+        </div>
+      ) : null}
+      {hasMedia ? (
+        <div className="branching-scenario__pane branching-scenario__pane--media">{mediaBlock}</div>
+      ) : null}
+    </div>
   );
 
   return (
@@ -115,46 +210,64 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
         {statusMessage}
       </div>
       <div className="active-scenario" data-role="active">
-        {error && <div className="errors" style={{ color: "red", padding: "1em" }}>{error}</div>}
-
-        {!showReport && (
-          <>
-            {overlayEnabled ? null : (
-              <ContentDisplay contentHtml={contentHtml} />
-            )}
-            <MediaDisplay
-              node={node}
-              background_image_url={state.background_image_url}
-              background_image_alt_text={state.background_image_alt_text}
-              background_image_is_decorative={state.background_image_is_decorative}
-              overlayEnabled={overlayEnabled}
-              contentHtml={contentHtml}
-            />
-            <TranscriptLink url={showTranscript ? node.transcript_url || "" : ""} />
-            <HintCollapsible hintText={node.hint || ""} nodeId={nodeId} />
-          </>
-        )}
-
-        {!showReport && (
-          <ChoiceForm choices={choices} nodeId={nodeId} onSubmit={handleSelectChoice} />
-        )}
-
-        {!showReport && (
-          <ActionButtons
-            canUndo={canUndo}
-            showReset={showReset}
-            showReport={showReportButton}
-            hasChoices={hasChoices}
-            onUndo={handleUndo}
-            onReset={handleReset}
-            onShowReport={handleShowReport}
-          />
-        )}
-
-        {showScore && (
-          <div className="score-display" data-role="score">
-            {intl.formatMessage(studentMessages.scoreDisplay, { score: state.score, maxScore: state.max_score })}
+        {error && (
+          // Stock Paragon alert classes only: the Alert component's JS pulls SCSS-only
+          // breakpoint modules that this webpack build cannot resolve.
+          <div role="alert" className="alert alert-danger alert-content branching-scenario__error">
+            {error}
           </div>
+        )}
+
+        {!showReport && (
+          <Card className="branching-scenario__card d-flex flex-column">
+            {/* Column context is Paragon's (d-flex flex-column), so the body can absorb
+                the card's min-height floor: the spare space lands inside the content,
+                above the controls. Paragon 23 Card.Header is prop-driven: it ignores
+                children. */}
+            <Card.Header
+              title={
+                <Stack direction="horizontal" gap={3} className="branching-scenario__title">
+                  <Icon src={AccountTree} className="branching-scenario__title-icon flex-shrink-0" />
+                  <span className="branching-scenario__title-divider" aria-hidden="true" />
+                  <h2 className="branching-scenario__title-text m-0">
+                    <FormattedMessage {...studentMessages.scenarioTitle} />
+                  </h2>
+                </Stack>
+              }
+              actions={
+                showReset ? (
+                  <IconButton
+                    alt={intl.formatMessage(studentMessages.reset)}
+                    className="branching-scenario__reset flex-shrink-0"
+                    src={Replay}
+                    onClick={handleReset}
+                    data-role="reset-activity"
+                  />
+                ) : undefined
+              }
+            />
+            <Card.Body className="branching-scenario__body d-flex flex-column flex-grow-1">
+              {nodeBody}
+              <ActionButtons
+                submitFormId={choiceFormId}
+                showSubmit={hasChoices}
+                canSubmit={selectedIndex !== null}
+                showGoBack={showGoBack}
+                canUndo={canUndo}
+                showReportButton={showReportButton}
+                onUndo={handleUndo}
+                onShowReport={handleShowReport}
+              />
+              {showScore && (
+                <div className="score-display p-0" data-role="score">
+                  <FormattedMessage
+                    {...studentMessages.scoreDisplay}
+                    values={{ score: state.score, maxScore: state.max_score }}
+                  />
+                </div>
+              )}
+            </Card.Body>
+          </Card>
         )}
 
         <GradeReport

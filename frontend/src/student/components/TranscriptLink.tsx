@@ -1,5 +1,5 @@
 import React from "react";
-import { useIntl } from "react-intl";
+import { FormattedMessage } from "react-intl";
 import { studentMessages } from "../../messages";
 
 interface TranscriptLinkProps {
@@ -7,14 +7,13 @@ interface TranscriptLinkProps {
 }
 
 const TranscriptLink: React.FC<TranscriptLinkProps> = ({ url }) => {
-  const intl = useIntl();
   if (!url) {
     return <div className="transcript-link" data-role="transcript" hidden />;
   }
   return (
     <div className="transcript-link" data-role="transcript">
       <a href={url} target="_blank" rel="noopener noreferrer">
-        {intl.formatMessage(studentMessages.downloadTranscript)}
+        <FormattedMessage {...studentMessages.downloadTranscript} />
       </a>
     </div>
   );

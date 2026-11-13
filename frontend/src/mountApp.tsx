@@ -1,6 +1,9 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import paragonPkg from "@openedx/paragon/package.json";
 import { SharedIntlProvider } from "./i18n";
+
+const PARAGON_VERSION = paragonPkg.version;
 
 export type XBlockElementLike = Element | { 0?: Element; length?: number; jquery?: string };
 
@@ -16,6 +19,12 @@ interface ThemeUrls {
       brandOverride?: string;
     };
   };
+  /** Canonical platform key: { light: "<variant name>", ... }. */
+  defaults?: {
+    light?: string;
+    [key: string]: string | undefined;
+  };
+  /** Legacy singular key, kept as an alias for older configs. */
   default?: {
     light?: string;
     [key: string]: string | undefined;
@@ -23,6 +32,7 @@ interface ThemeUrls {
   variants?: {
     [key: string]: {
       urls?: {
+        default?: string;
         brandOverride?: string;
       };
     };
@@ -34,8 +44,19 @@ export interface XBlockPayloadBase {
   style_urls?: string[];
 }
 
-const PARAGON_CORE_CSS = "https://cdn.jsdelivr.net/npm/@openedx/paragon@23/dist/core.min.css";
-const PARAGON_LIGHT_CSS = "https://cdn.jsdelivr.net/npm/@openedx/paragon@23/dist/light.min.css";
+const PARAGON_CORE_CSS = `https://cdn.jsdelivr.net/npm/@openedx/paragon@${PARAGON_VERSION}/dist/core.min.css`;
+const PARAGON_LIGHT_CSS = `https://cdn.jsdelivr.net/npm/@openedx/paragon@${PARAGON_VERSION}/dist/light.min.css`;
+
+/** Config values come from a remote JSON document, so only real strings are usable. */
+function asUrl(value: unknown): string | undefined {
+  // Trimmed here, so whitespace-padded config values still dedupe after substitution.
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
+}
+
+function withParagonVersion(url: string): string {
+  // A regex, not replaceAll, so there is no ES2021 runtime dependency.
+  return url.replace(/\$paragonVersion/g, PARAGON_VERSION);
+}
 
 function toDomElement(element: XBlockElementLike): Element {
   if (element instanceof Element) {
@@ -58,13 +79,20 @@ async function getParagonStyles(mfeConfigApi?: string): Promise<string[]> {
     const response = await fetch(mfeConfigApi);
     const mfeConfig = await response.json();
     const themeUrls = mfeConfig.PARAGON_THEME_URLS as ThemeUrls | undefined;
-    const variant = themeUrls?.default?.light;
+    // The platform writes "defaults"; the singular key is a legacy alias.
+    const variant =
+      asUrl(themeUrls?.defaults?.light) ?? asUrl(themeUrls?.default?.light);
+    const variantUrls = variant ? themeUrls?.variants?.[variant]?.urls : undefined;
+
     return [
-      themeUrls?.core?.urls?.default || PARAGON_CORE_CSS,
-      themeUrls?.core?.urls?.brandOverride,
-      PARAGON_LIGHT_CSS,
-      variant ? themeUrls?.variants?.[variant]?.urls?.brandOverride : undefined,
-    ].filter(Boolean) as string[];
+      asUrl(themeUrls?.core?.urls?.default) ?? PARAGON_CORE_CSS,
+      asUrl(themeUrls?.core?.urls?.brandOverride),
+      asUrl(variantUrls?.default) ?? PARAGON_LIGHT_CSS,
+      asUrl(variantUrls?.brandOverride),
+    ]
+      .filter((url): url is string => Boolean(url))
+      .map(withParagonVersion)
+      .filter((url, index, all) => all.indexOf(url) === index);
   } catch (error) {
     // Keep Studio usable if the host platform does not expose the MFE config API.
     return [PARAGON_CORE_CSS, PARAGON_LIGHT_CSS];

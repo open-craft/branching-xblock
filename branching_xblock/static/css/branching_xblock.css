@@ -1,14 +1,5 @@
 /* CSS for BranchingXBlock */
 
-:root {
-  --pgn-color-bx-choice-hover: var(--pgn-color-primary-base, #15376D);
-  --pgn-color-bx-choice-selected: var(--pgn-color-primary-base, #0f62a1);
-  --pgn-color-bx-grade-fail: var(--pgn-color-danger-base, #D23232);
-  --pgn-color-bx-grade-pass: var(--pgn-color-success-base, #178253);
-  --pgn-color-bx-btn-primary: var(--pgn-color-primary-base, #0f62a1);
-  --pgn-color-bx-btn-primary-hover: var(--pgn-color-primary-base, #0c4f83);
-}
-
 .branching_xblock_block .count {
     font-weight: bold;
 }
@@ -17,12 +8,7 @@
     cursor: pointer;
 }
 
-.branching-scenario .node-content {
-    padding: 1em 1em;
-}
-
 .branching-scenario .node-media {
-    padding: 0 1em;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -37,17 +23,21 @@
 
 .branching-scenario .bx-image-composite {
     position: relative;
+    /* One "media" cell holds the foreground images and the overlay, so the wrapper grows
+       to the taller of the two instead of clipping long authored overlay copy. */
+    display: grid;
+    grid-template-areas: "media";
     width: 100%;
     max-width: 100%;
-    border-radius: 0.5rem;
+    border-radius: var(--pgn-size-bx-media-border-radius, var(--pgn-size-border-radius-base));
     overflow: hidden;
     padding: 0.75rem;
     box-sizing: border-box;
 }
 
 .branching-scenario .bx-single-image {
-    margin: 0 auto;
-    border-radius: 0.5rem;
+    height: auto;
+    border-radius: var(--pgn-size-bx-media-border-radius, var(--pgn-size-border-radius-base));
 }
 
 .branching-scenario .bx-image-composite__bg {
@@ -66,6 +56,7 @@
 }
 
 .branching-scenario .bx-image-composite__fg {
+    grid-area: media;
     position: relative;
     z-index: 1;
     display: grid;
@@ -79,26 +70,36 @@
     height: auto;
     display: block;
     object-fit: cover;
-    border-radius: 0.5rem;
+    border-radius: var(--pgn-size-bx-media-border-radius, var(--pgn-size-border-radius-base));
 }
 
-.branching-scenario .bx-image-composite__overlay {
-    position: absolute;
+/* In the media cell, not out of flow: the overlay bottom stays 1.25rem from the outer
+   edge (0.5rem here plus the wrapper's 0.75rem padding), and taller copy grows the
+   wrapper instead of being clipped. Three classes so it outranks .media-overlay__text. */
+.branching-scenario .bx-image-composite .bx-image-composite__overlay {
+    grid-area: media;
+    position: relative;
     z-index: 1;
-    left: 50%;
-    bottom: 1.25rem;
-    transform: translateX(-50%);
+    left: auto;
+    bottom: auto;
+    transform: none;
+    align-self: end;
+    justify-self: center;
     width: calc(100% - 3rem);
     max-width: 90%;
+    margin-bottom: 0.5rem;
 }
 
 @media (max-width: 768px) {
-    .branching-scenario .bx-image-composite__overlay {
+    .branching-scenario .bx-image-composite .bx-image-composite__overlay {
+        grid-area: auto;
         position: static;
         transform: none;
+        justify-self: stretch;
         width: 100%;
         max-width: 100%;
         margin-top: 0.75rem;
+        margin-bottom: 0;
     }
 }
 
@@ -114,7 +115,7 @@
     height: auto;
     display: block;
     object-fit: cover;
-    border-radius: 0.5rem;
+    border-radius: var(--pgn-size-bx-media-border-radius, var(--pgn-size-border-radius-base));
 }
 
 .branching-scenario .media-overlay__text {
@@ -125,9 +126,11 @@
     width: calc(100% - 3rem);
     max-width: 90%;
     background: var(--pgn-color-dark-background, rgba(8, 36, 73, 0.85));
-    color: var(--pgn-color-light-text, #fff);
+    /* Inverse surface: its own colour role, so the pane's text role below can never
+       repaint this copy dark-on-dark. */
+    color: var(--pgn-color-bx-inverse-text, var(--pgn-color-light-text, #fff));
     padding: 1rem 1.5rem;
-    border-radius: 0.5rem;
+    border-radius: var(--pgn-size-bx-media-border-radius, var(--pgn-size-border-radius-base));
     font-size: 1.05rem;
     line-height: 1.5;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
@@ -170,8 +173,7 @@
 }
 
 .branching-scenario .transcript-link {
-    padding: 0 1em 1em;
-    font-size: 0.95em;
+    font-size: var(--pgn-typography-font-size-sm);
 }
 
 .branching-scenario .transcript-link a {
@@ -184,8 +186,10 @@
     text-decoration: underline;
 }
 
-.branching-scenario .node-media audio {
-    width: auto;
+/* Authored HTML can carry the same native player outside node-media, so it gets the
+   same explicit width the rendered audio gets from Paragon's w-100 utility. */
+.branching-scenario .node-content audio {
+    width: 100%;
     max-width: 100%;
 }
 
@@ -198,11 +202,9 @@
     border-top-right-radius: 0;
     font-style: italic;
     background-color: var(--pgn-color-body-bg, #f9f9f9);
-    margin-top: 0;
 }
 
 .branching-scenario .node-hint-container {
-    padding: 0 1em;
     margin-top: 1.5em;
 }
 
@@ -251,517 +253,683 @@
     border-bottom: none;
 }
 
-.branching-scenario .hint-collapsible[open] .node-hint {
+/* ==========================================================================
+   Student surfaces: scenario card, choices, action row, report.
+
+   Keep defaults in var() fallbacks so this stylesheet does not override theme
+   values. Breakpoints are container queries: the block is the LMS iframe.
+   ========================================================================== */
+
+.branching-scenario {
+    container-type: inline-size;
+}
+
+/* Outranks the host's `.alert:not(.pattern-library-shim)` colour rule (0,2,0). */
+.branching-scenario .branching-scenario__error {
+    color: var(--pgn-color-alert-content);
+    margin-bottom: var(--pgn-spacing-spacer-3);
+}
+
+/* Both outer surfaces share the card corner override. */
+.branching-scenario .branching-scenario__card,
+.branching-scenario .grade-report {
+    border-radius: var(--pgn-size-bx-card-border-radius,
+        calc(var(--pgn-size-card-border-radius-base) - var(--pgn-size-card-border-width)));
+}
+
+/* Let side padding grow with the card, with a cap that preserves room for content. */
+.branching-scenario .branching-scenario__card > .pgn__card-header {
+    align-items: center;
+    padding: var(--pgn-spacing-bx-card-header-padding-top, var(--pgn-spacing-spacer-5-5))
+        var(--pgn-spacing-bx-card-inset,
+            clamp(var(--pgn-spacing-card-spacer-x), 8%, 6rem))
+        var(--pgn-spacing-spacer-3);
+    border-bottom: 0;
+}
+
+/* Paragon's 2rem header-content margin is replaced by the padding above. */
+.branching-scenario .branching-scenario__card .pgn__card-header-content {
     margin-top: 0;
 }
 
-
-
-.branching-scenario .choices {
-    padding: 1.5em 1em;
+.branching-scenario .branching-scenario__card .pgn__card-header-actions {
+    margin-top: 0;
+    align-self: center;
 }
 
-.branching-scenario .choices-heading {
-    font-size: 1.15rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    color: var(--pgn-color-gray-900, #1f2a37);
+/* Keep side padding aligned with the header while leaving space below the content. */
+.branching-scenario .branching-scenario__card > .pgn__card-body {
+    padding: var(--pgn-spacing-spacer-3)
+        var(--pgn-spacing-bx-card-inset,
+            clamp(var(--pgn-spacing-card-spacer-x), 8%, 6rem))
+        var(--pgn-spacing-bx-card-body-padding-bottom, var(--pgn-spacing-spacer-5-5));
 }
 
-.branching-scenario .choices-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+/* Paragon Stack supplies the row and gap; the wrapper only has to be allowed to shrink. */
+.branching-scenario__title {
+    min-width: 0;
 }
 
-.branching-scenario .choices-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+/* Title and glyph are one heading, so both read the same text role. */
+.branching-scenario__title-icon {
+    color: var(--pgn-color-bx-title-text, var(--pgn-color-primary-base));
 }
 
-.branching-scenario .choice-option {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    border: 1px solid var(--pgn-color-gray-100, #d6d6d6);
-    border-radius: 8px;
-    padding: 0.9rem 1rem;
-    background-color: var(--pgn-color-body-bg, #fff);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-    cursor: pointer;
+.branching-scenario__title-divider {
+    width: var(--pgn-size-border-width);
+    align-self: stretch;
+    min-height: calc(var(--pgn-spacing-card-spacer-y) * 2);
+    /* gray-300, not --pgn-color-border: a brand theme can set border near-white. */
+    background: var(--pgn-color-bx-title-divider, var(--pgn-color-gray-300));
 }
 
-.branching-scenario .choice-option:hover,
-.branching-scenario .choice-option:focus-within {
-    border-color: var(--pgn-color-bx-choice-hover, #3b82f6);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+/* Scoped to outrank the host's nested h2 rules; the element stays a native h2 and the
+   values stay roles, so a theme still drives them. */
+.branching-scenario__title-text {
+    color: var(--pgn-color-bx-title-text, var(--pgn-color-headings-base));
+    font-size: var(--pgn-typography-bx-title-font-size,
+        var(--pgn-typography-font-size-h5-base)) !important;
+    line-height: var(--pgn-typography-bx-title-line-height,
+        var(--pgn-typography-headings-line-height)) !important;
+    font-weight: var(--pgn-typography-headings-font-weight) !important;
 }
 
-.branching-scenario .choice-option.is-selected {
-    border-color: var(--pgn-color-bx-choice-selected, #0f62a1);
-    box-shadow: 0 0 0 2px rgba(15, 98, 161, 0.25);
-    background-color: #f0f7ff;
-}
+/* ---------- content: one column by default, split from 769 ---------- */
 
-.branching-scenario .choice-option__input {
-    margin-top: 0.2rem;
-    width: 1.1rem;
-    height: 1.1rem;
-}
-
-.branching-scenario .choice-option > div {
-    flex: 1;
-}
-
-.branching-scenario .choice-option__text {
-    display: block;
-    flex: 1;
-    font-size: 1rem;
-    color: var(--pgn-color-gray-900, #1f2a37);
-    cursor: pointer;
-}
-
-.branching-scenario .choice-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.branching-scenario .choice-actions__secondary,
-.branching-scenario .choice-actions__primary {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.branching-scenario .choice-actions__primary {
-    margin-left: auto;
-    justify-content: flex-end;
-}
-
-.choice-submit-button {
-    border: none;
-    background-color: var(--pgn-color-bx-btn-primary, #0f62a1);
-    color: var(--pgn-color-light-text, #fff);
-    border-radius: 6px;
-    padding: 11px 24px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
-.choice-submit-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.choice-submit-button:not(:disabled):hover,
-.choice-submit-button:not(:disabled):focus {
-    background-color: var(--pgn-color-bx-btn-primary-hover, #0c4f83);
-}
-
-.show-report-button {
-    border: none;
-    background-color: var(--pgn-color-bx-btn-primary, #0f62a1);
-    color: var(--pgn-color-light-text, #fff);
-    border-radius: 6px;
-    padding: 0.7rem 1.5rem;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
-.show-report-button:hover,
-.show-report-button:focus {
-    background-color: var(--pgn-color-bx-btn-primary-hover, #0c4f83);
-}
-
-.undo-button {
-    border: 1px solid #4a5568;
-    border-radius: 4px;
-    padding: 0.6em 1.2em;
-    font-size: 1em;
-    cursor: pointer;
-    background: transparent;
-    color: var(--pgn-color-gray-900, #1f2a37);
-}
-
-.undo-button.is-disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.reset-button {
-    border: 1px solid #9a3412;
-    border-radius: 4px;
-    padding: 0.6em 1.2em;
-    font-size: 1em;
-    cursor: pointer;
-    background: var(--pgn-color-body-bg, #ffffff);
-    color: #9a3412;
-}
-
-.reset-button:hover,
-.reset-button:focus {
-    background: #fff7ed;
-    border-color: #9a3412;
-    color: #9a3412;
-}
-
-.reset-button:focus-visible {
-    outline: 2px solid #9a3412;
-    outline-offset: 2px;
-}
-
-.score-display {
-    padding: 1em 1em;
-    font-size: small;
-}
-
-.grade-report {
-    margin: 1.5rem auto;
-    max-width: 1082px;
-    border-radius: 6px;
-    background: var(--pgn-color-dark-background, #001731);
-    color: var(--pgn-color-light-text, #ffffff);
-    padding: 2rem;
-}
-
-.grade-report__title {
-    margin: 0 0 0.25rem;
-    font-size: 1.375rem;
-    line-height: 1.27;
-    font-weight: 700;
-    color: var(--pgn-color-light-text, #ffffff);
-}
-
-.grade-report__subtitle {
-    margin: 0 0 1.5rem;
-    color: var(--pgn-color-light-text, #ffffff);
-    font-size: 0.875rem;
-    line-height: 1.7;
-}
-
-.grade-report__summary-card {
-    background: var(--pgn-color-body-bg, #ffffff);
-    border-radius: 14px;
-    padding: 1.75rem 1.9rem 1.65rem;
-    margin-bottom: 1.85rem;
-}
-
-.grade-report__section-title {
-    margin: 0 0 1.2rem;
-    font-size: 1.375rem;
-    line-height: 1.27;
-    font-weight: 700;
-    color: #3b3a3a;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.7rem;
-}
-
-.grade-report__section-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 999px;
-    background: #d6e1df;
-    color: #3f4346;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.grade-report__section-icon .fa {
-    width: 22px;
-    height: 22px;
-    font-size: 22px;
-    line-height: 1;
-}
-
-.grade-report__summary {
+.branching-scenario__content {
     display: grid;
-    grid-template-columns: 1fr 1fr 260px;
-    gap: 1.6rem;
-    align-items: center;
-    min-height: 0;
-}
-
-.grade-report__metric {
-    background: var(--pgn-color-body-bg, #ffffff);
-    color: var(--pgn-color-gray-900, #1f2a37);
-    border-radius: 12px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15), 0 1px 4px rgba(0, 0, 0, 0.15);
-    padding: 1.35rem 1.5rem;
-    min-height: 148px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.grade-report__metric--score {
-    --report-score-color: var(--pgn-color-bx-grade-pass, #15803d);
-    background: #f2faf7;
-}
-
-.grade-report__metric--max {
-    background: #f2f1f1;
-}
-
-.grade-report__metric-label {
-    font-size: 0.875rem;
-    line-height: 1.35;
-    color: #454545;
-    margin-bottom: 0.65rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-}
-
-.grade-report__metric-label-icon {
-    width: 0.95rem;
-    height: 0.95rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #7a7a7a;
-}
-
-.grade-report__metric-label-icon .fa {
-    font-size: 0.95rem;
-    line-height: 1;
-}
-
-.grade-report__metric-value {
-    font-size: 3.125rem;
-    line-height: 1.1;
-    font-weight: 700;
-}
-
-.grade-report__metric--score .grade-report__metric-value {
-    color: var(--report-score-color);
-}
-
-.grade-report__metric--score.is-fail {
-    --report-score-color: var(--pgn-color-bx-grade-fail, #b91c1c);
-    background: #fcf1f4;
-}
-
-.grade-report__metric--score .grade-report__metric-label-icon {
-    color: var(--report-score-color);
-}
-
-.grade-report__metric--max .grade-report__metric-value {
-    color: #4b5563;
-}
-
-.grade-report__percent {
-    --report-percent-color: var(--pgn-color-bx-grade-pass, #15803d);
-    width: 210px;
-    height: 210px;
-    border-radius: 999px;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--report-percent-color);
-    border: none;
-}
-
-.grade-report__percent.is-fail {
-    --report-percent-color: var(--pgn-color-bx-grade-fail, #b91c1c);
-}
-
-.grade-report__percent-ring {
-    width: 100%;
-    height: 100%;
-    transform: rotate(-90deg);
-}
-
-.grade-report__percent-track,
-.grade-report__percent-progress {
-    fill: none;
-    stroke-width: 7;
-}
-
-.grade-report__percent-track {
-    stroke: #d6ddde;
-}
-
-.grade-report__percent-progress {
-    stroke: var(--report-percent-color);
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.2s ease;
-}
-
-.grade-report__percent-content {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-.grade-report__percent-value {
-    font-size: 3.75rem;
-    line-height: 1;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-}
-
-.grade-report__percent-label {
-    font-size: 0.875rem;
-    line-height: 1.35;
-    margin-top: 0.35rem;
-    color: #3f3d3d;
-}
-
-.grade-report__details {
-    background: var(--pgn-color-body-bg, #ffffff);
-    color: var(--pgn-color-gray-900, #1f2a37);
-    border-radius: 14px;
-    padding: 1.4rem 1.2rem 1.15rem;
-    margin-bottom: 1.6rem;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15), 0 1px 4px rgba(0, 0, 0, 0.15);
-}
-
-.grade-report__details-title {
-    margin: 0 0 1.1rem;
-    font-size: 1.375rem;
-    line-height: 1.27;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.7rem;
-}
-
-.grade-report__details-header,
-.grade-report__details-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--pgn-spacing-spacer-4);
     align-items: start;
 }
 
-.grade-report__details-header {
-    font-size: 0.875rem;
-    line-height: 1.35;
-    color: #000000;
-    font-weight: 700;
-    padding: 0.45rem 1rem;
-    background: #f2f0ef;
-    border-bottom: none;
-    border-radius: 2px;
+.branching-scenario__form {
+    min-width: 0;
 }
 
-.grade-report__details-row {
-    font-size: 0.875rem;
-    line-height: 1.7;
-    padding: 0.62rem 1rem;
-    border-bottom: 1px solid #f2f0ef;
+.branching-scenario__pane {
+    display: grid;
+    gap: var(--pgn-spacing-spacer-3);
+    align-content: start;
+    min-width: 0;
 }
 
-.grade-report__details-row:last-child {
-    border-bottom: none;
+/* The LMS sets fonts directly on content elements, so inheritance alone is not enough. */
+.branching-scenario .branching-scenario__pane,
+.branching-scenario .branching-scenario__pane :is(p, li),
+.branching-scenario .media-overlay__text,
+.branching-scenario .media-overlay__text :is(p, li),
+.branching-scenario .branching-scenario__choice-text,
+.branching-scenario .grade-report__subtitle,
+.branching-scenario .grade-report__table,
+.branching-scenario .grade-report__table :is(th, td) {
+    font-family: var(--pgn-typography-bx-body-font-family,
+        var(--pgn-typography-font-family-sans-serif));
 }
 
-.grade-report__details-score {
-    font-weight: 500;
-    font-size: 0.75rem;
-    line-height: 1.67;
-    background: #e1dddb;
-    color: #000000;
-    border-radius: 6px;
-    min-width: 54px;
-    text-align: center;
-    padding: 0.15rem 0.7rem;
+/* The defaults are what each element already computes. */
+.branching-scenario .branching-scenario__pane :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--pgn-typography-bx-heading-font-family,
+        var(--pgn-typography-headings-font-family));
+    color: var(--pgn-color-bx-text, var(--pgn-color-headings-base));
 }
 
-.grade-report__details-row--empty {
+.branching-scenario .branching-scenario__pane :is(p, li) {
+    color: var(--pgn-color-bx-text, inherit);
+}
+
+/* The overlay's inverse copy keeps its own light colour whatever the text role says.
+   Same weight and after those rules, so no !important and no unrelated reset. */
+.branching-scenario .media-overlay__text :is(h1, h2, h3, h4, h5, h6, p, li, a, strong, em) {
+    color: var(--pgn-color-bx-inverse-text, var(--pgn-color-light-text, #fff));
+}
+
+/* ---------- choices ---------- */
+
+/* No utility covers the shrink reset: a fieldset defaults to min-content width. */
+.branching-scenario__choices {
+    min-width: 0;
+}
+
+.branching-scenario .branching-scenario__choices-legend {
+    margin: 0 0 var(--pgn-spacing-spacer-2);
+    color: var(--pgn-color-bx-text, inherit);
+    font-size: var(--pgn-typography-bx-legend-font-size, var(--pgn-typography-font-size-base));
+    line-height: var(--pgn-typography-bx-legend-line-height, 1.5rem);
+    font-weight: var(--pgn-typography-font-weight-bold);
+}
+
+/* A radio rendered as a card. Scoped past .pgn__form-radio (display: inline-flex). */
+.branching-scenario .branching-scenario__choice {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    column-gap: var(--pgn-spacing-spacer-2-5);
+    padding: var(--pgn-spacing-spacer-3) var(--pgn-spacing-spacer-4-5);
+    border: var(--pgn-size-border-width) solid var(--pgn-color-bx-choice-border-base, var(--pgn-color-gray-300));
+    /* Paragon's own radius: a brand sets its own shape through the role. */
+    border-radius: var(--pgn-size-bx-choice-border-radius, var(--pgn-size-border-radius-base));
+    background: var(--pgn-color-white);
+    cursor: pointer;
+}
+
+/* The checked border and glyph are the component's own tokens, so its state rules and
+   valid/invalid variants are left alone; this only lifts the input above the card's
+   stretched label::after. */
+.branching-scenario .branching-scenario__choice-input {
+    position: relative;
+    z-index: 1;
+    margin: var(--pgn-spacing-spacer-1) 0 0;
+}
+
+/* Block so long single-token labels wrap inside the min-width:0 column. */
+.branching-scenario .branching-scenario__choice-text {
     display: block;
-    color: #6b7280;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    color: var(--pgn-color-bx-text, inherit);
+    line-height: var(--pgn-typography-bx-choice-line-height,
+        var(--pgn-size-form-control-indicator-base));
 }
 
-.grade-report [data-role="reset-activity-report"] {
-    margin-top: 0.35rem;
+/* The whole card selects the radio: no JS, and the label keeps its own hit area. */
+.branching-scenario .branching-scenario__choice-text::after {
+    content: "";
+    position: absolute;
+    inset: 0;
 }
 
-@media (max-width: 600px) {
-    .branching-scenario .choice-actions {
-        flex-direction: column-reverse;
-        align-items: stretch;
+.branching-scenario .branching-scenario__choice:hover {
+    border-color: var(--pgn-color-bx-choice-border-hover, var(--pgn-color-primary-base));
+}
+
+.branching-scenario .branching-scenario__choice:focus-within {
+    outline: var(--pgn-size-btn-focus-width) solid var(--pgn-color-primary-base);
+    outline-offset: var(--pgn-size-btn-focus-width);
+}
+
+.branching-scenario .branching-scenario__choice.is-selected {
+    border-color: var(--pgn-color-bx-choice-border-selected, var(--pgn-color-primary-base));
+    background: var(--pgn-color-bx-choice-selected-bg,
+        color-mix(in srgb, var(--pgn-color-primary-base) 6%, var(--pgn-color-white)));
+}
+
+/* ---------- actions ---------- */
+
+/* Only the 768 container override below needs this file: the row itself is a Paragon Stack. */
+
+/* Layout only: the buttons keep their stock .btn tokens; min-width is the one value
+   Paragon has no token for. */
+.branching-scenario .branching-scenario__action,
+.grade-report__restart {
+    gap: var(--pgn-spacing-spacer-2);
+    min-width: var(--pgn-size-bx-action-min-width, auto);
+}
+
+/* Host bleed: every .btn gets a gradient, an inset highlight and a text shadow;
+   stock Paragon assumes none of them. Our own controls only. */
+.branching-scenario .branching-scenario__action,
+.branching-scenario .grade-report__restart,
+.branching-scenario .branching-scenario__reset {
+    background-image: none;
+    text-shadow: none;
+}
+
+/* The host repaints those effects in its own hover/focus states too. */
+.branching-scenario :is(.branching-scenario__action, .grade-report__restart, .branching-scenario__reset):is(:hover, :focus, :active, .focus, .active) {
+    background-image: none;
+    text-shadow: none;
+}
+
+.branching-scenario :is(.branching-scenario__action, .grade-report__restart):is(:hover, :focus, :active, .focus, .active) {
+    box-shadow: none;
+}
+
+/* box-shadow reset only where the focus ring is not itself a box-shadow, so the
+   IconButton's stock ring survives. */
+.branching-scenario .branching-scenario__action,
+.branching-scenario .grade-report__restart,
+.branching-scenario .branching-scenario__reset:not(:focus):not(.focus) {
+    box-shadow: none;
+}
+
+/* The header Reset's ring is itself a box-shadow, so it is re-asserted from the
+   component's own token; the host's .btn:focus rule outranks a two-class selector, this
+   one is a class higher and this file loads last. */
+.branching-scenario .btn-icon.branching-scenario__reset:focus,
+.branching-scenario .btn-icon.branching-scenario__reset.focus {
+    box-shadow: var(--btn-icon-box-shadow);
+}
+
+.branching-scenario__action {
+    width: 100%;
+}
+
+.branching-scenario .score-display {
+    margin-top: var(--pgn-spacing-spacer-3);
+    font-size: var(--pgn-typography-font-size-sm);
+}
+
+/* ==========================================================================
+   Report. The outer Card keeps stock Paragon shape and elevation: those are a
+   theme's tokens (--pgn-size-card-border-radius-base,
+   --pgn-elevation-box-shadow-down-1), not this file's.
+   ========================================================================== */
+
+/* Pale surface mixed from the info palette: a surface no Paragon component owns, and
+   from *-base because a brand may set the 100-level tints near-white. */
+.grade-report {
+    background: var(--pgn-color-bx-report-surface,
+        color-mix(in srgb, var(--pgn-color-info-base) 8%, var(--pgn-color-white)));
+}
+
+/* The report header takes the report's own inset so its title lines up with the
+   section below it. */
+.branching-scenario .grade-report > .pgn__card-header {
+    padding: var(--pgn-spacing-bx-card-header-padding-top, var(--pgn-spacing-spacer-5-5))
+        var(--pgn-spacing-bx-report-inset,
+            clamp(var(--pgn-spacing-card-spacer-x), 7%, 4.5rem))
+        var(--pgn-spacing-spacer-3);
+}
+
+.branching-scenario .grade-report .pgn__card-header-content,
+.branching-scenario .grade-report .pgn__card-header-actions {
+    margin-top: 0;
+}
+
+/* Paragon lets this, the card's only section, fill what the card floor leaves under
+   the header; centring its row puts the report in that space, and content taller than
+   the floor keeps its own height. */
+.grade-report > .pgn__card-section {
+    display: grid;
+    align-content: center;
+    padding: var(--pgn-spacing-spacer-3)
+        var(--pgn-spacing-bx-report-inset,
+            clamp(var(--pgn-spacing-card-spacer-x), 7%, 4.5rem))
+        var(--pgn-spacing-bx-card-body-padding-bottom, var(--pgn-spacing-spacer-5-5));
+}
+
+/* Summary, details and Restart are grid siblings, so the Restart position is a
+   grid-area change: desktop-left, tablet-bottom-right, phone-full-width. */
+.grade-report__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "summary" "details" "restart";
+    row-gap: var(--pgn-spacing-spacer-3);
+}
+
+.grade-report__summary {
+    grid-area: summary;
+    display: grid;
+    justify-items: center;
+    gap: var(--pgn-spacing-spacer-2);
+    text-align: center;
+}
+
+/* Paragon renders .pgn__icon at 1.5rem, so the marker sets its own size. */
+.grade-report .grade-report__sparkle {
+    width: var(--pgn-size-bx-report-icon, 2.5rem);
+    height: var(--pgn-size-bx-report-icon, 2.5rem);
+    color: var(--pgn-color-bx-report-sparkle, var(--pgn-color-primary-base));
+}
+
+/* The glyph rides the button's own label colour in every state. */
+.grade-report .grade-report__restart-icon {
+    color: inherit;
+}
+
+/* Typed on a stronger selector so the host's paragraph rules cannot set this number. */
+.grade-report .grade-report__result p.grade-report__percentage {
+    font-family: var(--pgn-typography-bx-heading-font-family,
+        var(--pgn-typography-headings-font-family));
+    font-size: var(--pgn-typography-bx-report-percentage-font-size,
+        calc(var(--pgn-typography-font-size-h1-base) * 1.1));
+    font-weight: var(--pgn-typography-font-weight-bold);
+    line-height: var(--pgn-typography-bx-report-percentage-line-height, 1);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Outcome colour driven by the badge Paragon already renders; without :has() the
+   number simply inherits the body colour. */
+.grade-report:has(.grade-report__badge.badge-success) .grade-report__percentage {
+    color: var(--pgn-color-bx-report-pass-text, var(--pgn-color-success-700));
+}
+
+.grade-report:has(.grade-report__badge.badge-danger) .grade-report__percentage {
+    color: var(--pgn-color-bx-report-fail-text, var(--pgn-color-danger-700));
+}
+
+/* One type step up from the Badge's own 75%, with the vertical padding doubled so the
+   pill reads at the same weight as the number. Paragon's .badge rules win the cascade
+   over its font-size and spacing utilities, so the size lives here. */
+.grade-report__badge {
+    padding: calc(var(--pgn-spacing-badge-padding-y) * 2)
+        calc(var(--pgn-spacing-badge-padding-x-pill) * 1.2);
+    font-size: var(--pgn-typography-font-size-sm);
+}
+
+/* The fail badge retains its separate colour role. */
+.grade-report__badge.badge-danger {
+    background-color: var(--pgn-color-bx-report-badge-fail-bg, var(--pgn-color-badge-bg-danger));
+}
+
+.grade-report__heading {
+    color: var(--pgn-color-bx-text, var(--pgn-color-headings-base));
+}
+
+/* The type needs the stronger selector to outrank the host's h3 rule. */
+.branching-scenario .grade-report .grade-report__heading {
+    font-size: var(--pgn-typography-bx-report-heading-font-size,
+        var(--pgn-typography-font-size-h4-base));
+    line-height: var(--pgn-typography-bx-report-heading-line-height,
+        var(--pgn-typography-headings-line-height));
+    font-weight: var(--pgn-typography-font-weight-bold);
+}
+
+.grade-report__subtitle {
+    max-width: var(--pgn-size-bx-report-subtitle-max-width, 34ch);
+    color: var(--pgn-color-bx-text, inherit);
+    font-size: var(--pgn-typography-bx-report-subtitle-font-size,
+        var(--pgn-typography-font-size-sm));
+    /* inherit, not a token: nothing declares a line-height on plain copy today. */
+    line-height: var(--pgn-typography-bx-report-subtitle-line-height, inherit);
+}
+
+.grade-report__metrics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--pgn-spacing-spacer-2);
+}
+
+.grade-report__metric {
+    gap: var(--pgn-spacing-spacer-2-5);
+    padding: var(--pgn-spacing-bx-report-metric-padding-y, .625rem)
+        var(--pgn-spacing-bx-report-metric-padding-x, var(--pgn-spacing-spacer-2-5));
+}
+
+.grade-report__metric-label {
+    color: var(--pgn-color-bx-text, var(--pgn-color-gray-700));
+}
+
+.grade-report__metric-value {
+    color: var(--pgn-color-bx-text, inherit);
+    font-size: var(--pgn-typography-font-size-base);
+    font-weight: var(--pgn-typography-font-weight-bold);
+}
+
+/* Tints come from the *-base colours, so a brand theme's 100-level tints cannot
+   wash them out. */
+.grade-report__metric.is-pass {
+    background: color-mix(in srgb, var(--pgn-color-success-base) 18%, var(--pgn-color-white));
+}
+
+.grade-report__metric.is-fail {
+    background: color-mix(in srgb, var(--pgn-color-danger-base) 20%, var(--pgn-color-white));
+}
+
+.grade-report__metric.is-max {
+    background: color-mix(in srgb, var(--pgn-color-info-base) 15%, var(--pgn-color-white));
+}
+
+.grade-report__details {
+    grid-area: details;
+    min-width: 0;
+    text-align: start;
+}
+
+.grade-report__details-heading {
+    color: var(--pgn-color-bx-text, var(--pgn-color-headings-base));
+}
+
+/* Type step, weight and the spacing role for the details heading; the selector outranks the host. */
+.branching-scenario .grade-report .grade-report__details-heading {
+    margin: 0 0 var(--pgn-spacing-bx-report-details-heading-gap, var(--pgn-spacing-spacer-2));
+    font-size: var(--pgn-typography-bx-report-details-heading-font-size,
+        var(--pgn-typography-font-size-h4-base));
+    line-height: var(--pgn-typography-bx-report-details-heading-line-height,
+        var(--pgn-typography-headings-line-height));
+    font-weight: var(--pgn-typography-bx-report-details-heading-font-weight, 600);
+}
+
+/* The nested Card keeps its own surface and shadow; only its corner is a role, since
+   one radius cannot serve both the outer cards and this one. */
+.branching-scenario .grade-report__table-card {
+    border-radius: var(--pgn-size-bx-report-table-border-radius,
+        calc(var(--pgn-size-card-border-radius-base) - var(--pgn-size-card-border-width)));
+}
+
+/* Scroll starts only from a 9th detail row (the component adds .is-scrollable), so up
+   to 8 rows wrap freely. The cap is a literal, not rhythm arithmetic, so a theme's
+   global spacer cannot move it. */
+.grade-report__table-scroll.is-scrollable {
+    max-height: var(--pgn-size-bx-report-details-max-height, 29rem);
+    overflow-y: auto;
+}
+
+.grade-report__table-scroll:focus-visible {
+    outline: var(--pgn-size-btn-focus-width) solid var(--pgn-color-primary-base);
+    outline-offset: var(--pgn-size-btn-focus-width);
+}
+
+.grade-report__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--pgn-typography-bx-report-table-font-size,
+        var(--pgn-typography-font-size-sm));
+    /* inherit, not a token: the cells take the line-height they inherit today. */
+    line-height: var(--pgn-typography-bx-report-table-line-height, inherit);
+}
+
+/* One type step and one emphasis role for the header row and the points column. */
+.grade-report__table thead th {
+    padding: var(--pgn-spacing-bx-report-table-header-padding-y, .625rem) 0;
+    color: var(--pgn-color-bx-report-table-text, var(--pgn-color-gray-500));
+    font-size: var(--pgn-typography-bx-report-table-font-size,
+        var(--pgn-typography-font-size-xs));
+    font-weight: var(--pgn-typography-bx-report-table-font-weight, 400);
+    text-align: start;
+}
+
+/* Gutter so points never touch the selection text on a one-line row. */
+.grade-report__table thead th:first-child {
+    padding-inline-end: var(--pgn-spacing-bx-report-table-column-gap, var(--pgn-spacing-spacer-3-5));
+}
+
+.grade-report__table thead th:last-child {
+    text-align: end;
+}
+
+/* The divider sits on both cells of a row, so it runs under text and points alike. */
+.grade-report__table tbody th,
+.grade-report__table tbody td {
+    padding: var(--pgn-spacing-bx-report-table-row-padding-y, var(--pgn-spacing-spacer-3)) 0;
+    font-weight: 400;
+    text-align: start;
+    border-bottom: var(--pgn-size-border-width) solid var(--pgn-color-gray-300);
+}
+
+/* Row labels are copy, not the header row's table emphasis. */
+.branching-scenario .grade-report__table tbody th {
+    padding-inline-end: var(--pgn-spacing-bx-report-table-column-gap, var(--pgn-spacing-spacer-3-5));
+    color: var(--pgn-color-bx-text, inherit);
+}
+
+.grade-report__table tbody tr:last-child th,
+.grade-report__table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* Two classes deep: ".__table tbody td" (0,1,2) would otherwise keep text-align
+   start from the base cell rule. */
+.grade-report__table .grade-report__details-score {
+    padding-inline-start: var(--pgn-spacing-bx-report-table-score-inset, var(--pgn-spacing-spacer-3));
+    color: var(--pgn-color-bx-report-table-text, inherit);
+    font-weight: var(--pgn-typography-bx-report-table-font-weight, 400);
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* One step more than the layout's row gap: the report-only button, not the shared row. */
+.grade-report__restart {
+    grid-area: restart;
+    width: 100%;
+    margin-top: var(--pgn-spacing-bx-report-restart-gap, var(--pgn-spacing-spacer-3));
+}
+
+/* ==========================================================================
+   Breakpoints
+   ========================================================================== */
+
+/* Phone: the card inset and the vertical rhythm step down once, from the same roles,
+   so a theme's value still wins. */
+@container (max-width: 768px) {
+    .branching-scenario .branching-scenario__card > .pgn__card-header,
+    .branching-scenario .branching-scenario__card > .pgn__card-body {
+        padding-inline: var(--pgn-spacing-bx-card-inset, var(--pgn-spacing-spacer-4));
     }
 
-    .branching-scenario .choice-actions__secondary,
-    .branching-scenario .choice-actions__primary {
-        width: 100%;
-        margin-left: 0;
+    .branching-scenario .branching-scenario__card > .pgn__card-header,
+    .branching-scenario .grade-report > .pgn__card-header {
+        padding-top: var(--pgn-spacing-bx-card-header-padding-top, var(--pgn-spacing-spacer-4-5));
     }
 
-    .undo-button,
-    .reset-button,
-    .choice-submit-button,
-    .show-report-button {
-        width: 100%;
-        text-align: center;
+    .branching-scenario .branching-scenario__card > .pgn__card-body,
+    .grade-report > .pgn__card-section {
+        padding-bottom: var(--pgn-spacing-bx-card-body-padding-bottom, var(--pgn-spacing-spacer-4-5));
+    }
+}
+
+/* Tablet and up: Back and the primary action share one inline row. DOM order is
+   primary then secondary; row-reverse puts Back on the left and keeps Tab order
+   matching the stacked phone order. A container query, not a .flex-md-* utility: the
+   block is the LMS iframe, so the viewport width is the wrong measure. */
+@container (min-width: 768px) {
+    .branching-scenario .branching-scenario__actions {
+        flex-direction: row-reverse;
+        justify-content: flex-start;
+    }
+
+    .branching-scenario .branching-scenario__action {
+        width: auto;
+    }
+
+    /* Tablet report: one column, strips side by side, Restart bottom-right. */
+    .grade-report__summary {
+        justify-items: start;
+        text-align: start;
+    }
+
+    /* Match Stack gap specificity so the container override wins. */
+    .branching-scenario .grade-report__result {
+        flex-direction: row;
+        gap: var(--pgn-spacing-bx-report-result-inline-gap, var(--pgn-spacing-spacer-2-5));
+    }
+
+    .grade-report__metrics {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .grade-report .grade-report__result p.grade-report__percentage {
+        font-size: var(--pgn-typography-bx-report-percentage-font-size,
+            calc(var(--pgn-typography-font-size-h1-base) * 1.3));
+    }
+
+    .grade-report__restart {
+        justify-self: end;
+        width: auto;
+    }
+}
+
+/* 768 itself stacks, as the tablet layout does; the content splits at the same 900
+   container threshold as the report. This query keeps only what applies to stacked
+   content too: vertical centring and the card floor. */
+@container (min-width: 769px) {
+    /* Centred on the desktop for every case: the splits already are, and a terminal
+       node without media has a single track the card floor leaves with free space. */
+    .branching-scenario__content {
+        align-items: center;
+    }
+
+    /* Keep short cards stable in height while allowing longer content to grow. */
+    .branching-scenario__card,
+    .branching-scenario .grade-report:not([hidden]) {
+        min-height: clamp(48rem, 65cqw, 52rem);
+    }
+}
+
+/* Split content from 900: the question stacks until the same container threshold as
+   the report, so tablet gets one full-width pane instead of a narrow split. Only the
+   two split layouts are targeted, so a terminal node without media keeps the single
+   column. */
+@container (min-width: 900px) {
+    .branching-scenario__content--choices,
+    .branching-scenario__content--terminal {
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+        gap: var(--pgn-spacing-spacer-4-5);
+        align-items: center;
+    }
+
+    /* Only the choices split tightens to 16 here: the form's own padding-inline-start
+       adds the other 16 back for the divider, while the terminal keeps 32. */
+    .branching-scenario__content--choices {
+        gap: var(--pgn-spacing-spacer-3);
+    }
+
+    /* Terminal nodes give text and image equal halves of the row. */
+    .branching-scenario__content--terminal {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    /* Divider between the narrative and the choices only: the form is a grid item, its
+       padding restores the 32px column gap on top of the 16px grid gap, align-self
+       runs the rule the full row height, and align-content centres the choices in it. */
+    .branching-scenario__content--choices > .branching-scenario__form {
+        align-self: stretch;
+        display: grid;
+        align-content: center;
+        padding-inline-start: var(--pgn-spacing-spacer-3);
+        border-inline-start: var(--pgn-size-border-width) solid var(--pgn-color-gray-300);
+    }
+
+    /* Desktop report: two columns, strips stacked again, Restart under the summary.
+       900px, not 992: the desktop shell gives this block 954px at a 1024 viewport, so a
+       992 floor would never turn on. Tablet (768) is unchanged. */
+    .grade-report__layout {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas:
+            "summary details"
+            "restart details";
+        /* The summary row is content-sized and the Restart row takes the remainder, so
+           a tall details table grows the card instead of stealing the margin above
+           Restart. */
+        grid-template-rows: auto 1fr;
+        column-gap: clamp(
+            var(--pgn-spacing-spacer-4-5),
+            5%,
+            var(--pgn-spacing-spacer-5-5)
+        );
+        align-items: start;
     }
 
     .grade-report__summary {
-        grid-template-columns: 1fr;
+        padding-inline-end: var(--pgn-spacing-spacer-4-5);
     }
 
-    .grade-report__percent {
-        width: 150px;
-        height: 150px;
-        margin: 0 auto;
+    .grade-report__metrics {
+        grid-template-columns: minmax(0, 1fr);
     }
 
-    .grade-report {
-        padding: 1.1rem;
+    .grade-report .grade-report__result p.grade-report__percentage {
+        font-size: var(--pgn-typography-bx-report-percentage-font-size,
+            calc(var(--pgn-typography-font-size-h1-base) * 1.6));
     }
 
-    .grade-report__metric-value {
-        font-size: 2.3rem;
+    .grade-report__restart {
+        justify-self: start;
     }
-
-    .grade-report__percent-value {
-        font-size: 2.5rem;
-    }
-
-    .grade-report__title {
-        font-size: 1.8rem;
-    }
-
-    .grade-report__subtitle {
-        font-size: 0.95rem;
-    }
-
-    .grade-report__section-title,
-    .grade-report__details-title {
-        font-size: 1.2rem;
-    }
-
-    .grade-report__metric-label,
-    .grade-report__details-header,
-    .grade-report__details-row {
-        font-size: 1rem;
-    }
-
-    .grade-report__details-score {
-        font-size: 0.85rem;
-        min-width: 36px;
-    }
-
-    .grade-report__percent-label {
-        font-size: 1.1rem;
-    }
-
 }
 
 .branching-scenario .sr-only {
