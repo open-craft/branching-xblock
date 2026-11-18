@@ -37,13 +37,19 @@ function makeReport(overrides: Partial<GradeReportData> = {}): GradeReportData {
 
 function renderReport(
   reportData: GradeReportData = makeReport(),
-  props: { showResetInReport?: boolean; hidden?: boolean; onReset?: () => void } = {},
+  props: {
+    showResetInReport?: boolean;
+    canReset?: boolean;
+    hidden?: boolean;
+    onReset?: () => void;
+  } = {},
 ) {
   const onReset = props.onReset ?? jest.fn();
   const utils = render(
     <GradeReport
       reportData={reportData}
       showResetInReport={props.showResetInReport ?? true}
+      canReset={props.canReset ?? true}
       onReset={onReset}
       hidden={props.hidden ?? false}
     />,
@@ -174,14 +180,26 @@ describe("GradeReport", () => {
     expect(region.querySelector("table")).not.toBeNull();
   });
 
-  it("offers Restart only when the report reset gate is open, and calls onReset", () => {
-    const closed = renderReport(makeReport(), { showResetInReport: false });
-    expect(closed.container.querySelector('[data-role="reset-activity-report"]')).toBeNull();
+  it("hides Restart when the author disables reset", () => {
+    const { container } = renderReport(makeReport(), { showResetInReport: false });
+    expect(container.querySelector('[data-role="reset-activity-report"]')).toBeNull();
+  });
 
-    const { container, onReset } = renderReport(makeReport(), { showResetInReport: true });
-    const restart = byRole(container, "reset-activity-report");
+  it("keeps Restart visible but disabled before the learner starts, without calling onReset", () => {
+    const { container, onReset } = renderReport(makeReport(), { canReset: false });
+    const restart = byRole(container, "reset-activity-report") as HTMLButtonElement;
     // Label comes from studentMessages.restart (added with the report layout).
     expect(restart).toHaveTextContent("Restart");
+    expect(restart.disabled).toBe(true);
+
+    fireEvent.click(restart);
+    expect(onReset).not.toHaveBeenCalled();
+  });
+
+  it("enables Restart once the learner has progress and calls onReset", () => {
+    const { container, onReset } = renderReport(makeReport(), { canReset: true });
+    const restart = byRole(container, "reset-activity-report") as HTMLButtonElement;
+    expect(restart.disabled).toBe(false);
 
     fireEvent.click(restart);
     expect(onReset).toHaveBeenCalledTimes(1);

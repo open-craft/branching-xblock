@@ -84,15 +84,15 @@ async function getParagonStyles(mfeConfigApi?: string): Promise<string[]> {
       asUrl(themeUrls?.defaults?.light) ?? asUrl(themeUrls?.default?.light);
     const variantUrls = variant ? themeUrls?.variants?.[variant]?.urls : undefined;
 
-    return [
+    const urls = [
       asUrl(themeUrls?.core?.urls?.default) ?? PARAGON_CORE_CSS,
       asUrl(themeUrls?.core?.urls?.brandOverride),
       asUrl(variantUrls?.default) ?? PARAGON_LIGHT_CSS,
       asUrl(variantUrls?.brandOverride),
     ]
       .filter((url): url is string => Boolean(url))
-      .map(withParagonVersion)
-      .filter((url, index, all) => all.indexOf(url) === index);
+      .map(withParagonVersion);
+    return Array.from(new Set(urls));
   } catch (error) {
     // Keep Studio usable if the host platform does not expose the MFE config API.
     return [PARAGON_CORE_CSS, PARAGON_LIGHT_CSS];

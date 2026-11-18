@@ -124,8 +124,8 @@ describe("StudentApp characterization: scenario to report journey", () => {
 
     expect(screen.getByText("Start content")).toBeTruthy();
     expect(button("Submit").disabled).toBe(true);
-    // Reset is position-gated, not progress-gated: the start node never offers it.
-    expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
+    // Reset stays mounted from the first screen, disabled until the learner starts.
+    expect(button("Reset").disabled).toBe(true);
 
     fireEvent.click(radio("Go left"));
     expect(button("Submit").disabled).toBe(false);
@@ -259,8 +259,39 @@ describe("StudentApp characterization: reset journeys", () => {
     expect(postedUrl(1)).toBe("/handlers/reset_activity");
     expect(postedBody(1)).toEqual({});
     expect(button("Submit").disabled).toBe(true);
+    // Back at the start: the control is still there, now disabled again.
+    expect(button("Reset").disabled).toBe(true);
     expect(screen.queryByText("Activity Complete!")).toBeNull();
     expect(statusText()).toContain("Content updated.");
+  });
+
+  it("keeps Reset visible but disabled at the initial screen, without calling the handler", () => {
+    renderApp();
+
+    const reset = button("Reset");
+    expect(reset.disabled).toBe(true);
+    fireEvent.click(reset);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Start content")).toBeTruthy();
+    expect(statusText()).not.toContain("Content updated.");
+  });
+
+  it("keeps Restart visible but disabled at a terminal start node, without calling the handler", () => {
+    // Position gate, not progress: the history proves prior progress does not enable it.
+    renderApp(makeState({
+      current_node: { id: "start", content: "Start content", choices: [] },
+      history: ["middle"],
+    }));
+
+    fireEvent.click(button("Show Report"));
+
+    const restart = button("Restart");
+    expect(restart.disabled).toBe(true);
+    fireEvent.click(restart);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Activity Complete!")).toBeTruthy();
   });
 
   it("resets from the scenario through the same reset_activity handler", async () => {
@@ -284,7 +315,7 @@ describe("StudentApp characterization: reset journeys", () => {
     expect(await screen.findByText("Reset failed")).toBeTruthy();
     expect(screen.getByText("Middle content")).toBeTruthy();
     expect(radio("Continue").checked).toBe(false);
-    expect(button("Reset")).toBeTruthy();
+    expect(button("Reset").disabled).toBe(false);
     expect(button("Submit").disabled).toBe(true);
     expect(statusText()).not.toContain("Content updated.");
   });
@@ -379,15 +410,17 @@ describe("StudentApp characterization: action transitions", () => {
   });
 });
 
+type ControlState = "enabled" | "disabled" | "hidden";
+
 type FlagCase = {
   name: string;
   state: StudentInitialState;
   openReport?: boolean;
   showReportButton: boolean;
   inlineScore: boolean;
-  scenarioReset: boolean;
-  reportReset: boolean;
-  goBack: "enabled" | "disabled" | "hidden";
+  scenarioReset: ControlState;
+  reportReset: ControlState;
+  goBack: ControlState;
 };
 
 const flagCases: FlagCase[] = [
@@ -396,8 +429,8 @@ const flagCases: FlagCase[] = [
     state: makeState({ current_node: terminalNode, history: ["start"], enable_scoring: false }),
     showReportButton: false,
     inlineScore: false,
-    scenarioReset: true,
-    reportReset: false,
+    scenarioReset: "enabled",
+    reportReset: "hidden",
     goBack: "enabled",
   },
   {
@@ -405,8 +438,8 @@ const flagCases: FlagCase[] = [
     state: makeState({ current_node: middleNode, history: ["start"], enable_reset_activity: false }),
     showReportButton: false,
     inlineScore: false,
-    scenarioReset: false,
-    reportReset: false,
+    scenarioReset: "hidden",
+    reportReset: "hidden",
     goBack: "enabled",
   },
   {
@@ -416,8 +449,8 @@ const flagCases: FlagCase[] = [
     openReport: true,
     showReportButton: false,
     inlineScore: false,
-    scenarioReset: false,
-    reportReset: false,
+    scenarioReset: "hidden",
+    reportReset: "hidden",
     goBack: "hidden",
   },
   {
@@ -425,8 +458,8 @@ const flagCases: FlagCase[] = [
     state: makeState({ current_node: middleNode, history: ["start"], enable_undo: false }),
     showReportButton: false,
     inlineScore: false,
-    scenarioReset: true,
-    reportReset: false,
+    scenarioReset: "enabled",
+    reportReset: "hidden",
     goBack: "disabled",
   },
   {
@@ -434,8 +467,8 @@ const flagCases: FlagCase[] = [
     state: makeState({ current_node: middleNode, history: [] }),
     showReportButton: false,
     inlineScore: false,
-    scenarioReset: true,
-    reportReset: false,
+    scenarioReset: "enabled",
+    reportReset: "hidden",
     goBack: "disabled",
   },
   {
@@ -443,39 +476,35 @@ const flagCases: FlagCase[] = [
     state: makeState({ current_node: middleNode, history: ["start"] }),
     showReportButton: false,
     inlineScore: false,
-    scenarioReset: true,
-    reportReset: false,
+    scenarioReset: "enabled",
+    reportReset: "hidden",
     goBack: "enabled",
   },
   {
     // Current rule: reset also needs current_node.id !== start_node_id, terminal start node included.
-    // Accepted behaviour: the first step never offers Go Back, terminal start nodes included.
-    name: "a terminal start node offers no reset, only the report",
+    // The control stays mounted and native-disabled there; Go Back is still absent entirely.
+    name: "a terminal start node keeps reset disabled, while the report opens",
     state: makeState({
       current_node: { id: "start", content: "Start content", choices: [] },
       history: [],
     }),
     showReportButton: true,
     inlineScore: true,
-    scenarioReset: false,
-    reportReset: false,
-    goBack: "hidden",
-  },
-  {
-    // Same position gate inside the report, with progress present: no reset is offered there either.
-    name: "a terminal start node offers no reset inside the report",
-    state: makeState({
-      current_node: { id: "start", content: "Start content", choices: [] },
-      history: ["middle"],
-    }),
-    openReport: true,
-    showReportButton: false,
-    inlineScore: false,
-    scenarioReset: false,
-    reportReset: false,
+    scenarioReset: "disabled",
+    reportReset: "hidden",
     goBack: "hidden",
   },
 ];
+
+function expectControl(name: string, expected: ControlState) {
+  const control = screen.queryByRole("button", { name }) as HTMLButtonElement | null;
+  if (expected === "hidden") {
+    expect(control).toBeNull();
+  } else {
+    expect(control).not.toBeNull();
+    expect(control?.disabled).toBe(expected === "disabled");
+  }
+}
 
 describe("StudentApp characterization: author flags", () => {
   it.each(flagCases)("$name", (flagCase) => {
@@ -490,16 +519,11 @@ describe("StudentApp characterization: author flags", () => {
     // bar, so each one is only asserted in the mode where it can appear. The report's entry
     // point is "Restart"; the card header keeps the scenario's "Reset".
     if (flagCase.openReport) {
-      expect(Boolean(screen.queryByRole("button", { name: "Restart" }))).toBe(flagCase.reportReset);
+      expectControl("Restart", flagCase.reportReset);
     } else {
-      expect(Boolean(screen.queryByRole("button", { name: "Reset" }))).toBe(flagCase.scenarioReset);
+      expectControl("Reset", flagCase.scenarioReset);
     }
 
-    const goBack = screen.queryByRole("button", { name: "Go Back" });
-    if (flagCase.goBack === "hidden") {
-      expect(goBack).toBeNull();
-    } else {
-      expect((goBack as HTMLButtonElement).disabled).toBe(flagCase.goBack === "disabled");
-    }
+    expectControl("Go Back", flagCase.goBack);
   });
 });

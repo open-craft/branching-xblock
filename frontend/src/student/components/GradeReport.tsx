@@ -14,7 +14,10 @@ import { GradeReport as GradeReportData } from "../../apiTypes";
 
 interface GradeReportProps {
   reportData: GradeReportData;
+  /** Author flag: keeps Restart mounted even when the learner cannot use it yet. */
   showResetInReport: boolean;
+  /** Progress gate: enabled only after the learner has left the start node. */
+  canReset: boolean;
   onReset: () => void;
   hidden: boolean;
 }
@@ -25,7 +28,7 @@ const SCROLL_ROW_THRESHOLD = 8;
 // Server points, signed: +2, +0, -1 (never "+-1").
 const signedPoints = (points: number) => `${points < 0 ? "-" : "+"}${Math.abs(points)}`;
 
-const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport, onReset, hidden }) => {
+const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport, canReset, onReset, hidden }) => {
   const intl = useIntl();
   const detailsHeadingId = useId();
 
@@ -154,6 +157,7 @@ const GradeReport: React.FC<GradeReportProps> = ({ reportData, showResetInReport
               variant="outline-primary"
               className="grade-report__restart d-inline-flex align-items-center justify-content-center"
               data-role="reset-activity-report"
+              disabled={!canReset}
               onClick={onReset}
             >
               <FormattedMessage {...studentMessages.restart} />

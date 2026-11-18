@@ -122,7 +122,9 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
   const isAtStartNode = node.id === state.start_node_id;
   const showReportButton = isLeaf && state.enable_scoring;
   const showReport = showReportButton && isReportVisible;
-  const showReset = Boolean(state.enable_reset_activity && !isAtStartNode);
+  // Author flag keeps the control mounted; progress only decides whether it is usable.
+  const showReset = Boolean(state.enable_reset_activity);
+  const canReset = Boolean(state.enable_reset_activity && !isAtStartNode);
   const canUndo = Boolean(state.enable_undo && state.history.length > 0);
   // Accepted behaviour: no Go Back at the first step.
   const showGoBack = !isAtStartNode;
@@ -240,6 +242,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
                     alt={intl.formatMessage(studentMessages.reset)}
                     className="branching-scenario__reset flex-shrink-0"
                     src={Replay}
+                    disabled={!canReset}
                     onClick={handleReset}
                     data-role="reset-activity"
                   />
@@ -273,6 +276,7 @@ const StudentApp: React.FC<StudentAppProps> = ({ handlerUrls, initial_state }) =
         <GradeReport
           reportData={state.grade_report}
           showResetInReport={showReset}
+          canReset={canReset}
           onReset={handleReset}
           hidden={!showReport}
         />

@@ -483,6 +483,14 @@
     text-shadow: none;
 }
 
+/* The host repaints the enabled hover background as well (button:hover:not(:disabled)
+   → #e4e4e4 plus a gradient); a type selector with :not() outranks Paragon's two-class
+   .btn-icon:hover, so the IconButton's own hover background is re-asserted from its
+   component token. The glyph colour, ring and disabled state stay Paragon's. */
+.branching-scenario .branching-scenario__reset:hover:not(:disabled) {
+    background-color: var(--btn-icon-hover-bg-color, inherit);
+}
+
 .branching-scenario :is(.branching-scenario__action, .grade-report__restart):is(:hover, :focus, :active, .focus, .active) {
     box-shadow: none;
 }
