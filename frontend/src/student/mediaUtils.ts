@@ -1,3 +1,43 @@
+import { Node } from "../types";
+
+/** What a node will actually show, decided once for both the layout and the renderer. */
+export type NodeMedia =
+  | { kind: "none" }
+  | { kind: "composite"; backgroundOnly: boolean; overlay: boolean }
+  | { kind: "single_image"; url: string; alt: string }
+  | { kind: "audio"; url: string }
+  | { kind: "video"; url: string };
+
+const NO_MEDIA: NodeMedia = { kind: "none" };
+
+/**
+ * Presence is part of the decision: a composite needs a background or a foreground image,
+ * so a node with neither shows no media and keeps its authored text.
+ */
+export function describeNodeMedia(node: Node, backgroundImageUrl: string): NodeMedia {
+  const media = node.media || { type: "", url: "", alt: "" };
+  const mediaType = media.type || "";
+  const mediaUrl = media.url || "";
+
+  if (mediaType === "image") {
+    const backgroundOnly = !(node.left_image_url || node.right_image_url);
+    if (backgroundOnly && !backgroundImageUrl) {
+      return NO_MEDIA;
+    }
+    return { kind: "composite", backgroundOnly, overlay: Boolean(node.overlay_text) };
+  }
+  if (mediaType === "single_image" && mediaUrl) {
+    return { kind: "single_image", url: mediaUrl, alt: media.alt || "" };
+  }
+  if (mediaType === "audio" && mediaUrl) {
+    return { kind: "audio", url: mediaUrl };
+  }
+  if (mediaType === "video" && mediaUrl) {
+    return { kind: "video", url: mediaUrl };
+  }
+  return NO_MEDIA;
+}
+
 function normalizeYouTube(u: URL, host: string): string | null {
   if (!host.includes("youtube.com") && !host.includes("youtu.be")) {
     return null;

@@ -1,9 +1,12 @@
 import React from "react";
+import { describe, expect, it } from "@jest/globals";
 import { render, screen } from "../../test/helpers";
 import MediaDisplay from "./MediaDisplay";
 import { Node } from "../../types";
 
-function makeNode(overrides: Partial<Node>): Node {
+const BACKGROUND_URL = "http://example.com/bg.jpg";
+
+function makeNode(overrides: Partial<Node> = {}): Node {
   return {
     id: "n1",
     content: "",
@@ -21,40 +24,86 @@ function makeNode(overrides: Partial<Node>): Node {
 }
 
 const baseProps = {
-  background_image_url: "http://example.com/bg.jpg",
+  background_image_url: BACKGROUND_URL,
   background_image_alt_text: "",
   background_image_is_decorative: true,
-  overlayEnabled: false,
   contentHtml: "",
 };
 
-describe("MediaDisplay", () => {
-  it("renders a single image and ignores the shared background", () => {
-    const node = makeNode({ media: { type: "single_image", url: "http://example.com/i.jpg", alt: "A scene" } });
-    const { container } = render(<MediaDisplay node={node} {...baseProps} />);
+describe("MediaDisplay renders the decision it is given", () => {
+  it("renders a composite with background and foreground images", () => {
+    const node = makeNode({ left_image_url: "http://example.com/left.png" });
 
-    const img = screen.getByAltText("A scene") as HTMLImageElement;
-    expect(img).toHaveClass("bx-single-image");
-    expect(img.src).toContain("http://example.com/i.jpg");
-    // The shared background composite must not render for a single image node.
-    expect(container.querySelector(".bx-image-composite")).toBeNull();
+    const { container } = render(
+      <MediaDisplay
+        node={node}
+        media={{ kind: "composite", backgroundOnly: false, overlay: false }}
+        {...baseProps}
+      />,
+    );
+
+    // Background plus the one foreground image.
+    expect(container.querySelectorAll("img")).toHaveLength(2);
   });
 
-  it("renders a video even when a shared background is set (not masked)", () => {
-    const node = makeNode({ media: { type: "video", url: "http://example.com/v.mp4", alt: "" } });
-    const { container } = render(<MediaDisplay node={node} {...baseProps} />);
+  it("puts the authored html inside the composite overlay when the decision says so", () => {
+    const { container } = render(
+      <MediaDisplay
+        node={makeNode()}
+        media={{ kind: "composite", backgroundOnly: false, overlay: true }}
+        {...baseProps}
+        contentHtml="<p>Overlay copy</p>"
+      />,
+    );
+
+    // The authored html is parsed and rendered once, in the media.
+    expect(container.textContent).toBe("Overlay copy");
+  });
+
+  it("renders a hosted video file as a video element", () => {
+    const { container } = render(
+      <MediaDisplay node={makeNode()} media={{ kind: "video", url: "http://example.com/v.mp4" }} {...baseProps} />,
+    );
 
     expect(container.querySelector("video")).not.toBeNull();
-    expect(container.querySelector(".bx-image-composite")).toBeNull();
+    expect(container.querySelector("iframe")).toBeNull();
   });
 
-  it("renders the composite scene only for the image type", () => {
-    const node = makeNode({
-      media: { type: "image", url: "", alt: "" },
-      left_image_url: "http://example.com/left.png",
-    });
-    const { container } = render(<MediaDisplay node={node} {...baseProps} />);
+  it("renders a provider video url as a sandboxed embed", () => {
+    const { container } = render(
+      <MediaDisplay
+        node={makeNode()}
+        media={{ kind: "video", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }}
+        {...baseProps}
+      />,
+    );
 
-    expect(container.querySelector(".bx-image-composite")).not.toBeNull();
+    const frame = container.querySelector("iframe") as HTMLIFrameElement;
+    expect(frame.getAttribute("src")).toBe("https://www.youtube.com/embed/dQw4w9WgXcQ");
+    expect(frame.getAttribute("title")).toBe("Embedded media");
+    expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin allow-popups allow-forms");
+  });
+
+  it("renders a single image with its own alt text and no composite", () => {
+    const { container } = render(
+      <MediaDisplay
+        node={makeNode()}
+        media={{ kind: "single_image", url: "http://example.com/i.jpg", alt: "A scene" }}
+        {...baseProps}
+      />,
+    );
+
+    expect((screen.getByAltText("A scene") as HTMLImageElement).src).toContain("http://example.com/i.jpg");
+    // One image and no composite behind it.
+    expect(container.querySelectorAll("img")).toHaveLength(1);
+  });
+
+  it("renders nothing at all when there is no media", () => {
+    const { container } = render(
+      <MediaDisplay node={makeNode()} media={{ kind: "none" }} {...baseProps} />,
+    );
+
+    expect(container.querySelector('[data-role="media"]')).toBeNull();
+    expect(container.textContent).toBe("");
   });
 });

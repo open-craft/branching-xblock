@@ -45,6 +45,14 @@ export const studentMessages = defineMessages({
     id: "branching.student.submit",
     defaultMessage: "Submit",
   },
+  scenarioTitle: {
+    id: "branching.student.scenarioTitle",
+    defaultMessage: "Decision-Making Scenario",
+  },
+  restart: {
+    id: "branching.student.restart",
+    defaultMessage: "Restart",
+  },
   choiceLabel: {
     id: "branching.student.choiceLabel",
     defaultMessage: "Choice {index}",
@@ -75,7 +83,7 @@ export const studentMessages = defineMessages({
   },
   reportSubtitle: {
     id: "branching.student.reportSubtitle",
-    defaultMessage: "Let's take a look at this report below to see how you performed.",
+    defaultMessage: "Take a look at your detailed score to see how you performed.",
   },
   yourGrade: {
     id: "branching.student.yourGrade",
